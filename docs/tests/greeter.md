@@ -19,3 +19,18 @@ Schermafbeeldingen in `docs/tests/greeter/`.
 
 **Conclusie:** de kern werkt (echte PAM-controle, weigeren zonder overgang, implosie alleen na succes). Door de
 blokkerende fout bij "Andere gebruiker" blijft de GTK-greeter de standaard tot dat is opgelost.
+
+## Hertest na commit `7550feb` (4 oktober 2026, 19:15)
+
+`greeter.py`, `login.js` en `login.css` uit `7550feb` in hetzelfde geïnstalleerde systeem gezet, LightDM herstart.
+
+| Test | Uitkomst |
+|---|---|
+| Wachtwoordveld verborgen tot de gebruikersnaam is verstuurd | ✅ `greeter-7-zonder-wachtwoordveld.png` |
+| Geen "Aanmelding controleren…" tijdens de wachtwoordvraag | ✅ |
+| "Andere gebruiker" tijdens de wachtwoordvraag | ✅ terug naar de gebruikersnaam — `greeter-8-andere-gebruiker.png` |
+| Daarna ander account (`bestaatniet`), opnieuw "Andere gebruiker", dan `tester` + juist wachtwoord | ✅ geen blokkade, ruimtewereld opent — `greeter-9-na-wisselen.png`, `greeter-10-ingelogd-na-wisselen.png` |
+| PAM-vraag in het Nederlands | ❌ nog "Password:" (waarschijnlijk stuurt PAM `"Password: "` met spatie; de opzoektabel vergelijkt exact) |
+
+**Conclusie:** de blokkerende fout is opgelost. De greeter kan de standaard worden; alleen de vertaling van de PAM-vraag
+is nog open (niet blokkerend). Omgekeerde animatie bij afmelden is nog niet gebouwd.
