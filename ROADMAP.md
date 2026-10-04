@@ -83,7 +83,7 @@ Eigenaar van: `live/`, `scripts/`, `vm/`, `pakket/universe-os/DEBIAN/`, `pakket/
   gnome-system-monitor), netwerk/geluid/bluetooth (network-manager-gnome, pipewire-audio, wireplumber, pavucontrol,
   blueman, wdisplays), software (gnome-software, packagekit, gdebi), taalpakketten, grub-efi-amd64-signed,
   shim-signed, efibootmgr, calamares, lightdm, lightdm-gtk-greeter, ufw.
-- 🧪 **A7** LightDM: `user-session=universe`, gtk-greeter in Universe-kleuren, Nederlandse taal; live-account met
+- ✅ **A7** LightDM: `user-session=universe`, gtk-greeter in Universe-kleuren, Nederlandse taal; live-account met
   automatische aanmelding **alleen in de live-sessie**.
 - 🧪 **A8** Calamares (eigen config onder `includes.chroot_after_packages/etc/calamares/`): welkom, taal,
   toetsenbord (standaard us/intl, ook nl), tijdzone (voorstel Europe/Amsterdam, wijzigbaar), partitie

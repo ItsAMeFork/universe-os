@@ -34,3 +34,24 @@ blokkerende fout bij "Andere gebruiker" blijft de GTK-greeter de standaard tot d
 
 **Conclusie:** de blokkerende fout is opgelost. De greeter kan de standaard worden; alleen de vertaling van de PAM-vraag
 is nog open (niet blokkerend). Omgekeerde animatie bij afmelden is nog niet gebouwd.
+
+## Derde ronde: vers geïnstalleerd systeem (4 oktober 2026, 21:10)
+
+**ISO:** SHA-256 `50420d62779a90492a7553dc4db2ab2e3b18f7ac53defd50d9ed38eb0757e3b7`, testkopie `0606bdb` =
+`spoor-a/A9-iso-bouw` + PR #3, #4 (met `greeter-session=universe-greeter`), #6, #7 (t/m `d7c254f`), #8. Geen handwerk.
+
+| Test | Uitkomst |
+|---|---|
+| Installeren zonder omwegen | ✅ (derde keer op rij) |
+| Na herstart zonder ISO verschijnt vanzelf het planeet-inlogscherm | ✅ `greeter-11-standaard-na-installatie.png` |
+| Wachtwoordvraag in het Nederlands ("Wachtwoord") | ✅ `greeter-12-wachtwoord-nl.png` |
+| Fout wachtwoord geweigerd, "Andere gebruiker" blijft zichtbaar | ✅ `greeter-13-fout.png` |
+| Juist wachtwoord → ruimtewereld | ✅ `greeter-14-ingelogd.png` |
+
+**Conclusie:** A7 ✅. Het planeet-inlogscherm werkt als standaard. Nog open: B14 (omgekeerde overgang bij afmelden).
+
+## Bouwomgeving
+
+Tijdens twee bouwpogingen (19:28, 20:00) blokkeerde ufw in de **bouw-VM** zelf SSH en downloads (`[UFW BLOCK]`, ook
+voor antwoorden van poort 80). Gevolgen: `postinst` raakt in een chroot de draaiende firewall niet meer aan (`e6bfc5d`),
+en ufw staat in de bouw-VM uit (een bouwmachine die alleen via 127.0.0.1 bereikbaar is). Universe OS zelf houdt ufw aan.
