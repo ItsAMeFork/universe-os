@@ -29,7 +29,7 @@ function session(commands) {
   return new Promise((done, fail) => {
     const sock = createConnection({host: '127.0.0.1', port: Number(port)});
     let buf = '', queue = [{execute: 'qmp_capabilities'}, ...commands], results = [];
-    const next = () => { const c = queue.shift(); if (!c) { sock.end(); done(results); return; } if (c.wait) { setTimeout(next, c.wait); return; } sock.write(JSON.stringify(c) + '\n'); };
+    const next = () => { const c = queue.shift(); if (!c) { sock.destroy(); done(results); return; } if (c.wait) { setTimeout(next, c.wait); return; } sock.write(JSON.stringify(c) + '\n'); };
     sock.on('data', d => {
       buf += d; let i;
       while ((i = buf.indexOf('\n')) >= 0) {
@@ -37,7 +37,7 @@ function session(commands) {
         const msg = JSON.parse(line);
         if (msg.QMP) { next(); continue; }
         if (msg.event) continue;
-        if (msg.error) { sock.end(); fail(new Error(msg.error.desc)); return; }
+        if (msg.error) { sock.destroy(); fail(new Error(msg.error.desc)); return; }
         results.push(msg.return); next();
       }
     });

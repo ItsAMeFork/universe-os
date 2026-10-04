@@ -1,5 +1,7 @@
 # Grafische installer en wat hij offline nodig heeft (geen internet vereist tijdens installeren)
 calamares
+# Calamares is Qt 6; zonder dit plugin start hij niet in de Wayland-sessie (labwc).
+qt6-wayland
 grub-efi-amd64-bin
 grub-efi-amd64-signed
 shim-signed
