@@ -16,3 +16,12 @@ Nog vereist in een aparte test-VM:
 5. Controleer de herstelmodus en een tweede gebruikersaccount.
 
 Geen van deze functionele tests is hier als geslaagd gemarkeerd. A7 blijft 🧪.
+
+## Uitgevoerde bouwcontroles
+
+Op 4 oktober 2026 gecontroleerd in de Debian-bouwomgeving:
+- PyYAML leest de Calamares-configuratie succesvol (9 installeropdrachten).
+- scripts/build-deb.sh bouwt het Debian-pakket succesvol met LightDM, GTK-greeter en xserver-xorg in Depends.
+- git diff --check geeft geen whitespacefouten.
+
+Dit zijn bouwcontroles; de aanmelding met fout en juist wachtwoord is nog niet functioneel getest.
