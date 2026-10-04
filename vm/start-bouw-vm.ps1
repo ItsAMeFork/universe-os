@@ -10,11 +10,10 @@ if (-not (Test-Path $disk)) {
     & "$qemu\qemu-img.exe" convert -O qcow2 (Join-Path $vm 'images\debian-13-generic-amd64.qcow2') $disk
     & "$qemu\qemu-img.exe" resize $disk 80G
 }
-# De eerste keer leest cloud-init de instellingen via een kleine webserver op de host.
-$seed = $null
-if (-not (Test-Path (Join-Path $vm 'bouw-vm.ingericht'))) {
-    $seed = Start-Process node -ArgumentList "`"$PSScriptRoot\seed-server.mjs`" `"$vm\seed`" 8123" -PassThru -WindowStyle Hidden
-}
+# cloud-init leest bij ELKE start de instellingen via een kleine webserver op de host. Zonder die server blijft het
+# opstarten minutenlang hangen voordat het inlogscherm verschijnt. Daarom draait hij altijd mee.
+Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.CommandLine -match 'seed-server' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+$seed = Start-Process node -ArgumentList "`"$PSScriptRoot\seed-server.mjs`" `"$vm\seed`" 8123" -PassThru -WindowStyle Hidden
 $display = if ($ZonderVenster) { 'none' } else { 'sdl' }
 $qargs = @(
     '-name', '"Universe OS bouwomgeving"',
@@ -29,4 +28,6 @@ $qargs = @(
 )
 $p = Start-Process "$qemu\qemu-system-x86_64.exe" -ArgumentList $qargs -PassThru
 Write-Host "Bouwomgeving gestart (proces $($p.Id))."
-if ($seed) { Write-Host 'Na de eerste inrichting stopt de seed-server vanzelf bij afsluiten van de VM.'; $p.WaitForExit(); Stop-Process $seed -ErrorAction SilentlyContinue }
+Write-Host 'De instellingenserver voor cloud-init draait mee zolang de VM aan staat.'
+# Stop de seed-server automatisch zodra de VM wordt afgesloten (los van dit venster).
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -Command `"Wait-Process -Id $($p.Id); Stop-Process -Id $($seed.Id) -ErrorAction SilentlyContinue`""
