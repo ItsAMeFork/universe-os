@@ -157,7 +157,10 @@ def search(query):
     if not q:
         return {'apps': [], 'files': []}
     matched = [a for a in apps() if q in (a['name'] + ' ' + a['comment'] + ' ' + a['keywords'] + ' ' + a['id']).lower()]
-    matched.sort(key=lambda a: (not a['name'].lower().startswith(q), a['name'].lower()))
+    # Desktop settings launchers also match program names; prefer the program.
+    matched.sort(key=lambda a: ('Settings' in a['categories'],
+                               not a['name'].lower().startswith(q),
+                               q not in a['name'].lower(), a['name'].lower()))
     return {'apps': matched[:12], 'files': search_files(q)}
 
 
@@ -314,4 +317,3 @@ def run_tool(tool, args):
         cmd = {'network-editor': 'nm-connection-editor'}.get(tool, tool)
         return spawn([cmd])
     raise ValueError('Onbekend hulpmiddel: %s' % tool)
-
