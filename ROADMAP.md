@@ -146,7 +146,7 @@ Eigenaar van: `pakket/universe-os/usr/share/universe-os/ui/`, `pakket/universe-o
 - ⬜ **B9** Nederlandse teksten nalopen; lijst van meegeleverde programma's zonder volledige Nederlandse vertaling.
 
 ### M3 (Wine-interface)
-- ⬜ **B10** `ui/windows.html` + `windows.js`: bevestigingsscherm vóór uitvoeren (bestandsnaam, map, grootte,
+- 🚧 **B10** (spoor B / ChatGPT) `ui/windows.html` + `windows.js`: bevestigingsscherm vóór uitvoeren (bestandsnaam, map, grootte,
   SHA-256, 32/64-bit, waarschuwing bij Downloads, "geen sandbox"), voortgang, lijst met status **installatie**
   (geslaagd/mislukt/geen snelkoppeling) los van status **werking** (niet getest/gestart/fout/werkt volgens gebruiker),
   starten, instellingen (omgeving, logboeken, winecfg, Wine Mono op verzoek), verwijderen met tweede bevestiging bij
