@@ -17,7 +17,7 @@ async function start(){
  build();
 }
 function build(){
- root.replaceChildren(h('div',{class:'space-nebula'}),Object.assign(starfield(),{className:'space-stars'}),scene,room);
+ root.replaceChildren(Object.assign(starfield(),{className:'space-stars'}),scene,room);
  scene.replaceChildren();
  const home=config.world.planets.find(p=>p.id==='home');
  if(home){const paths=h('div',{class:'space-paths'},h('i'),h('i'),h('i'));paths.style.left=home.x+'%';paths.style.top=home.y+'%';scene.append(paths);}
@@ -26,7 +26,7 @@ function build(){
   const button=h('button',{class:`planet ${p.id==='home'?'home':''} ${p.rock?'rock':''}`,type:'button','data-id':p.id,
    'aria-label':`${p.name}: ${p.description}. ${kindText}. Sneltoets ${index+1}.`});
   button.style.cssText=`left:${p.x}%;top:${p.y}%;--size:${p.size||.6};--hue:${p.hue};--delay:${-index*1.7}s`;
-  const float=h('div',{class:'float'},h('span',{class:'halo'}),globe(p.hue,!!p.rock),p.rings?h('span',{class:'rings'}):null);
+  const float=h('div',{class:'float'},h('span',{class:'halo'}),globe(p.hue,!!p.rock,640),p.rings?h('span',{class:'rings'}):null);
   const label=h('div',{class:'label'},h('span',{class:'name'},p.name,h('span',{class:'key'},String(index+1))),h('span',{class:`badge ${kind}`},kindText));
   button.append(float,label);
   button.addEventListener('click',()=>land(p,{travel:true}));
