@@ -32,6 +32,8 @@ blueman
 # Inlogscherm en wachtwoordopslag
 lightdm
 lightdm-gtk-greeter
+xserver-xorg
+xserver-xorg-input-libinput
 gnome-keyring
 libpam-gnome-keyring
 
