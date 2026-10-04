@@ -1,5 +1,6 @@
 """A WebKit view that shows a Universe page and connects its JavaScript (api.js) to Python handlers."""
 import json
+import os
 import threading
 import traceback
 
@@ -87,7 +88,10 @@ def make_view(page, bridge, transparent=False, zoom=1.0):
     # Only our own pages: links to the web open in the browser, never inside the shell.
     view.connect('decide-policy', _policy)
     view.connect('context-menu', lambda *a: True)
-    view.load_uri(GLib.filename_to_uri('%s/%s' % (UI_DIR, page)))
+    uri = GLib.filename_to_uri('%s/%s' % (UI_DIR, page))
+    if os.environ.get('UNIVERSE_DEBUG_FPS') == '1':
+        uri += '?fps=1'
+    view.load_uri(uri)
     return view
 
 

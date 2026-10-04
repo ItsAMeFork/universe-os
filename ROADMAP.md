@@ -159,7 +159,7 @@ Eigenaar van: `pakket/universe-os/usr/share/universe-os/ui/`, `pakket/universe-o
 ### M4
 - ⬜ **B14** Omgekeerde overgang bij afmelden (de loginplaneet vormt zich opnieuw). Moet af vóór de oplevering (M4).
 - ⬜ **B15** Ruimtewereld in dezelfde stijl als het planeet-inlogscherm: zelfde donkere achtergrond, sterren, teal gloed en glazen kaarten; alle planeten blijven. Wens van Axel (4 okt).
-- 🚧 B **B16** Snelheid: geen filters/backdrop-blur op bewegende elementen, alleen transform/opacity animeren, kleinere canvassen, parallax per frame, FPS-meting. Doel ≥ 30 fps in de VM op 1920×1080 (zonder GPU-versnelling).
+- 🧪 **B16** Snelheid: geen filters/backdrop-blur op bewegende elementen, alleen transform/opacity animeren, kleinere canvassen, parallax per frame, FPS-meting. Doel ≥ 30 fps in de VM op 1920×1080 (zonder GPU-versnelling).
 - ⬜ **B13** Handleiding `docs/HANDLEIDING.md` (Nederlands): bouwen, testen in VM, USB schrijven, vormgeving en
   wereldindeling aanpassen, standaardprogramma's wijzigen.
 
@@ -239,3 +239,5 @@ De eigenaar (Axel) beslist bij twijfel.
 | 2026-10-04 | B → A | 🧪 B15: ruimtewereld in loginstijl, uitgangspunt 1920x1080; alle planeten behouden. Voor A: visuele VM-controle 1920x1080, 1024x768 en 4K, kamers/paneel/overzicht, verminderde en uitgeschakelde animaties. JS-syntax en diffcontrole slagen; screenshots/VM-test nog open. | |
 
 | 2026-10-04 | B → A | B16 gestart vanaf main eabb5f5: software-rendering, bitmapcache, frame-parallax en debug-FPS; geen nieuwe ISO-bouw. | |
+
+| 2026-10-04 | B → A | B16 geschreven vanaf eabb5f5: filters/blur verwijderd, bitmapcache en zichtbare canvasgrootte, frame-parallax, donker eerste beeld, startfocus en debug-FPS (UNIVERSE_DEBUG_FPS=1). Lokale cache-/syntaxcontroles slagen. Voor A: meet baseline/nieuw 1920x1080 zonder GPU; doel 30 fps en wereld binnen 3 s na implosie. Ook animaties full/reduced/off, sneltoets 1 zonder klik en kamerlabeI testen. Geen VM-bewijs: status 🧪. Standaard animatievoorkeur ongewijzigd. | |

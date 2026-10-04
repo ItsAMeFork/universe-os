@@ -21,7 +21,7 @@ select option{background:#0d1628}
 .badge.local{color:#bdf7e9;border-color:#85ffe344}
 .badge.online{color:var(--online);border-color:#ffc98a55}
 .badge.mixed{color:#d7d0ff;border-color:#b9a2ff55}
-.glass{background:#0b1021c9;border-radius:24px;border:1px solid var(--line);box-shadow:0 18px 50px #000a;backdrop-filter:blur(16px)}
+.glass{background:#0b1021e6;border-radius:24px;border:1px solid var(--line);box-shadow:0 18px 50px #000a}
 .muted{color:var(--muted)}
 .icon{width:1.25em;height:1.25em;vertical-align:-.25em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
 .app-icon{width:48px;height:48px;object-fit:contain}

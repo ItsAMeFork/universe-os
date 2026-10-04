@@ -1,6 +1,24 @@
 // Planet globes, drawn like Space Chat's 2D universe (src/universe.js, globe()): a lit radial gradient,
 // gas bands or rocky blotches, a soft terminator shadow and a thin coloured rim. Works without a GPU.
+const bitmaps=new Map();
+function remember(key,canvas){
+ let pixels=canvas.width*canvas.height;
+ for(const image of bitmaps.values())pixels+=image.width*image.height;
+ while(bitmaps.size&&(bitmaps.size>=32||pixels>8_000_000)){
+  const oldest=bitmaps.keys().next().value,image=bitmaps.get(oldest);
+  pixels-=image.width*image.height;bitmaps.delete(oldest);
+ }
+ bitmaps.set(key,canvas);
+}
+function copy(canvas,className=''){
+ const result=document.createElement('canvas');result.width=canvas.width;result.height=canvas.height;
+ result.className=className;result.setAttribute('aria-hidden','true');result.getContext('2d').drawImage(canvas,0,0);return result;
+}
+export const pixelSize=css=>Math.max(32,Math.min(1280,Math.ceil(css*Math.min(devicePixelRatio||1,2))));
 export function globe(seed,rock=false,size=320){
+ size=Math.max(32,Math.min(1280,Math.ceil(size)));
+ const key=`globe:${seed}:${rock}:${size}`;
+ if(bitmaps.has(key))return copy(bitmaps.get(key),'space-globe');
  const canvas=document.createElement('canvas');canvas.className='space-globe';canvas.width=canvas.height=size;canvas.setAttribute('aria-hidden','true');
  const c=canvas.getContext('2d');c.scale(size/320,size/320);
  const hue=((seed%360)+360)%360;
@@ -13,11 +31,13 @@ export function globe(seed,rock=false,size=320){
  const shadow=c.createLinearGradient(45,30,290,235);shadow.addColorStop(0,'#ffffff2a');shadow.addColorStop(.4,'#00000000');shadow.addColorStop(1,'#010312e8');
  c.fillStyle=shadow;c.fillRect(0,0,320,320);c.restore();
  c.beginPath();c.arc(160,160,146,0,Math.PI*2);c.strokeStyle=`hsla(${hue} 80% 85% / .35)`;c.lineWidth=1.5;c.stroke();
- return canvas;
+ remember(key,canvas);return copy(canvas,'space-globe');
 }
 /** Starfield canvas like the app's .space-stars (seeded, so it looks the same on every start). */
 export function starfield(w=1600,h=1000,count=520){
+ const key=`stars:${w}:${h}:${count}`;
+ if(bitmaps.has(key))return copy(bitmaps.get(key));
  const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;const c=canvas.getContext('2d');let s=7;
  for(let i=0;i<count;i++){s=(s*16807)%2147483647;const x=s%w;s=(s*16807)%2147483647;const y=s%h;c.fillStyle=`rgba(208,224,255,${.12+(i%8)/12})`;c.beginPath();c.arc(x,y,i%19===0?1.5:.65,0,7);c.fill();}
- return canvas;
+ remember(key,canvas);return copy(canvas);
 }

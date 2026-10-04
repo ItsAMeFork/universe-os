@@ -1,5 +1,6 @@
 """Universe planet greeter. Authentication belongs exclusively to LightDM/PAM."""
 import gi
+import config
 
 gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
@@ -54,7 +55,8 @@ class PlanetGreeter:
         window.get_window().set_cursor(cursor)
 
     def ready(self, _):
-        return {'user': self.dm.get_select_user_hint() or '', 'prompt': self.prompt}
+        return {'user': self.dm.get_select_user_hint() or '', 'prompt': self.prompt,
+                'animations': config.settings().get('animations', 'full')}
 
     def authenticate(self, args):
         if self.starting:

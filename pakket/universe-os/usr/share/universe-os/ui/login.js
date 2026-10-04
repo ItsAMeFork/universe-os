@@ -1,8 +1,9 @@
-import {call,on,available} from './api.js';
-import {globe,starfield} from './globe.js';
+import {call,on,available,applySettings} from './api.js';
+import {globe,starfield,pixelSize} from './globe.js';
+import {afterPaint,debugFPS} from './performance.js';
 const $=id=>document.getElementById(id);
-$('planet').append(globe(182,true,640));$('stars').append(starfield());
-let prompt=false,busy=false,leaving=false,cancelling=false,attempt=0;
+afterPaint().then(()=>{$('planet').append(globe(182,true,pixelSize(Math.min(innerWidth*.8,650))));$('stars').append(starfield());debugFPS();});
+let prompt=false,busy=false,leaving=false,cancelling=false,attempt=0,animations='full';
 function error(text){leaving=false;busy=false;prompt=false;cancelling=false;document.body.classList.remove('depart');$('response').value='';$('prompt-label').hidden=true;$('user').disabled=false;$('submit').disabled=false;$('submit').textContent='Verder';$('other-user').hidden=!text;$('other-user').disabled=false;$('message').textContent=text;$('user').focus();}
 function showPrompt(data){const text=(data.text||'').trim();prompt=true;busy=false;$('message').textContent='';$('other-user').hidden=false;$('prompt-label').hidden=false;$('prompt-text').textContent=({'Password:':'Wachtwoord','Username:':'Gebruikersnaam'}[text]||text||'Wachtwoord');$('response').type=data.secret?'password':'text';$('response').value='';$('submit').disabled=false;$('submit').textContent='Inloggen';$('response').focus();}
 $('login').addEventListener('submit',async event=>{
@@ -20,8 +21,8 @@ on('login-cancelled',()=>{error('');$('user').value='';$('user').focus();});
 on('login-prompt',showPrompt);on('login-message',data=>{$('message').textContent=data.text;});on('login-error',text=>{const cancelled=cancelling;error(text);if(cancelled)$('other-user').hidden=false;});
 on('login-success',async()=>{
  if(leaving)return;leaving=true;$('response').value='';$('message').textContent='Welkom. Universe OS wordt geopend…';document.body.classList.add('depart');
- const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+ const reduced=animations!=='full'||matchMedia('(prefers-reduced-motion: reduce)').matches;
  await new Promise(resolve=>setTimeout(resolve,reduced?30:1250));
  try{await call('login.start');}catch(e){error(e.message);}
 });
-(async()=>{if(!available){error('Open dit scherm via de Universe OS-inlogomgeving.');$('submit').disabled=true;return;}try{const state=await call('login.ready');$('user').value=state.user;if(state.prompt)showPrompt(state.prompt);}catch(e){error(e.message);$('submit').disabled=true;}})();
+(async()=>{if(!available){error('Open dit scherm via de Universe OS-inlogomgeving.');$('submit').disabled=true;return;}try{const state=await call('login.ready');animations=state.animations||'full';applySettings({animations});$('user').value=state.user;if(state.prompt)showPrompt(state.prompt);}catch(e){error(e.message);$('submit').disabled=true;}})();

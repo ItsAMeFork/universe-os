@@ -1,11 +1,13 @@
 import {call,on,applySettings,motionAllowed,toast,h,icon} from './api.js';
-import {globe,starfield} from './globe.js';
+import {globe,starfield,pixelSize} from './globe.js';
+import {debugFPS,afterPaint} from './performance.js';
 import {SETTINGS} from './settings-index.js';
 // The space world. Every planet is a real button (mouse, Tab, arrows, Enter, digits). Landing on a planet opens its
 // room; the travel animation is optional (setting "travel") and is skipped with digits, reduced motion or "off".
 
 const KIND={local:['local','Werkt lokaal'],online:['online','Internet nodig'],mixed:['mixed','Lokaal + online']};
 let config=null,settings={},user={},planets=[],current=null,lastFocus=null,appsCache=null;
+let initialFocus=true;
 const root=h('main',{class:'universe','aria-label':'Ruimtewereld van Universe OS'});
 const scene=h('div',{class:'scene'});
 const room=h('section',{class:'room glass',hidden:true,role:'dialog','aria-modal':'true'});
@@ -14,7 +16,7 @@ document.body.append(root);
 async function start(){
  try{config=await call('config.get');}catch(e){config={settings:{animations:'full',travel:true},world:{planets:[]},user:{}};console.error(e);}
  settings=config.settings;user=config.user||{};applySettings({...settings,colors:config.world.colors});
- build();
+ await afterPaint();build();debugFPS();
 }
 function build(){
  root.replaceChildren(Object.assign(starfield(),{className:'space-stars'}),scene,room);
@@ -26,9 +28,10 @@ function build(){
   const button=h('button',{class:`planet ${p.id==='home'?'home':''} ${p.rock?'rock':''}`,type:'button','data-id':p.id,
    'aria-label':`${p.name}: ${p.description}. ${kindText}. Sneltoets ${index+1}.`});
   button.style.cssText=`left:${p.x}%;top:${p.y}%;--size:${p.size||.6};--hue:${p.hue};--delay:${-index*1.7}s`;
-  const float=h('div',{class:'float'},h('span',{class:'halo'}),globe(p.hue,!!p.rock,640),p.rings?h('span',{class:'rings'}):null);
+  const diameter=Math.max(96,Math.min(innerWidth/100,innerHeight*.016)*26*(p.size||.6));
+  const float=h('div',{class:'float'},globe(p.hue,!!p.rock,pixelSize(diameter)),p.rings?h('span',{class:'rings'}):null);
   const label=h('div',{class:'label'},h('span',{class:'name'},p.name,h('span',{class:'key'},String(index+1))),h('span',{class:`badge ${kind}`},kindText));
-  button.append(float,label);
+  button.append(h('span',{class:'halo','aria-hidden':'true'}),float,label);
   button.addEventListener('click',()=>land(p,{travel:true}));
   scene.append(button);return {p,button};
  });
@@ -39,11 +42,22 @@ function build(){
  }
  root.append(h('div',{class:'hint'},'Klik op een planeet of druk ',h('kbd',{},'1'),'–',h('kbd',{},String(planets.length)),' · ',h('kbd',{},'Windows'),' zoeken en open programma\'s · ',h('kbd',{},'Windows'),'+',h('kbd',{},'D'),' ruimtewereld · ',h('kbd',{},'Windows'),'+',h('kbd',{},'A'),' bedieningspaneel'));
  parallax();
+ if(initialFocus){initialFocus=false;planets[0]?.button.focus({preventScroll:true});}
 }
 
 // Gentle parallax with the mouse (like the app's --parallax-x/y), only with full animations.
+let parallaxFrame=0,mouse=null;
 function parallax(){
- root.onmousemove=e=>{if(!motionAllowed(settings))return;const x=(e.clientX/innerWidth-.5)*-14,y=(e.clientY/innerHeight-.5)*-10;root.style.setProperty('--px',x.toFixed(1)+'px');root.style.setProperty('--py',y.toFixed(1)+'px');};
+ if(parallaxFrame)cancelAnimationFrame(parallaxFrame);parallaxFrame=0;
+ root.style.setProperty('--px','0px');root.style.setProperty('--py','0px');
+ root.onmousemove=e=>{
+  if(!motionAllowed(settings))return;mouse=[e.clientX,e.clientY];
+  if(parallaxFrame)return;
+  parallaxFrame=requestAnimationFrame(()=>{parallaxFrame=0;if(!motionAllowed(settings))return;
+   root.style.setProperty('--px',((mouse[0]/innerWidth-.5)*-14).toFixed(1)+'px');
+   root.style.setProperty('--py',((mouse[1]/innerHeight-.5)*-10).toFixed(1)+'px');
+  });
+ };
 }
 
 async function land(p,{travel}){
@@ -68,7 +82,7 @@ function openRoom(p){
  room.style.setProperty('--hue',p.hue);room.setAttribute('aria-label',p.name);
  const [kind,kindText]=KIND[p.kind]||KIND.local;
  const back=h('button',{class:'room-back',type:'button'},icon('back'),'Terug naar de ruimte');back.addEventListener('click',leave);
- const side=h('aside',{class:'room-side'},back,globe(p.hue,!!p.rock),h('h1',{},p.name),h('span',{class:`badge ${kind}`},kindText),h('p',{},p.description));
+ const side=h('aside',{class:'room-side'},back,globe(p.hue,!!p.rock,pixelSize(Math.min(220,innerWidth*.2))),h('h1',{},p.name),h('span',{class:`badge ${kind}`},kindText),h('p',{},p.description));
  const main=h('div',{class:'room-main'});
  room.replaceChildren(side,main);room.hidden=false;
  (ROOMS[p.id]||(m=>m.append(h('p',{class:'empty'},'Deze planeet heeft nog geen inhoud.'))))(main);

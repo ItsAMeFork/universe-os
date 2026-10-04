@@ -2,8 +2,8 @@
 html,body{background:var(--space);overflow:hidden}
 .universe{position:fixed;inset:0;overflow:hidden;isolation:isolate;--unit:min(1vw,1.6vh);--px:0px;--py:0px}
 .space-stars{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:1;pointer-events:none;transform:translate(calc(var(--px)*.4),calc(var(--py)*.4))}
-.scene{position:absolute;inset:0;transform-origin:50% 50%;transition:transform .75s cubic-bezier(.6,.05,.3,1),opacity .6s ease,filter .6s ease}
-.scene.travelling{opacity:.0;filter:blur(6px)}
+.scene{position:absolute;inset:0;transform-origin:50% 50%;transition:transform .75s cubic-bezier(.6,.05,.3,1),opacity .6s ease}
+.scene.travelling{opacity:.0;}
 .space-paths{position:absolute;width:0;height:0;pointer-events:none;opacity:.55;transform:translate(var(--px),var(--py))}
 .space-paths i{position:absolute;border:1px solid #91aac522;border-radius:50%}
 .space-paths i:nth-child(1){left:calc(var(--unit)*-34);top:calc(var(--unit)*-17);width:calc(var(--unit)*68);height:calc(var(--unit)*34);transform:rotate(-24deg)}
@@ -14,14 +14,14 @@ html,body{background:var(--space);overflow:hidden}
  border:0;background:none;padding:0;border-radius:50%;color:var(--text);z-index:3;transform:translate(var(--px),var(--py))}
 .planet:hover{background:none}
 .planet .float{position:absolute;inset:0;animation:world-float 8s ease-in-out infinite;animation-delay:var(--delay)}
-.planet .space-globe{width:100%;height:100%;filter:drop-shadow(0 0 60px #85ffe344);transition:transform .25s ease,filter .25s ease}
-.planet .halo{position:absolute;inset:7%;border-radius:50%;box-shadow:0 0 30px hsl(var(--hue) 60% 50% / .22)}
-.planet.home .halo{box-shadow:0 0 35px #85ffe324,0 0 0 22px #73dbe008,0 0 0 48px #73dbe004;animation:home-breathe 6s ease-in-out infinite}
+.planet .space-globe{width:100%;height:100%;transition:transform .25s ease}
+.planet .halo{position:absolute;inset:7%;border-radius:50%;}
+.planet.home .halo{animation:glow-breathe 6s ease-in-out infinite}
 .planet.rock .space-globe,.planet.rock .halo{transform:scale(.82)}
-.planet:hover .space-globe,.planet:focus-visible .space-globe{transform:scale(1.06);filter:drop-shadow(0 0 22px hsl(var(--hue) 70% 60% / .55))}
+.planet:hover .space-globe,.planet:focus-visible .space-globe{transform:scale(1.06);}
 .planet.rock:hover .space-globe,.planet.rock:focus-visible .space-globe{transform:scale(.88)}
 .planet:focus-visible{outline-offset:8px}
-.planet .rings{position:absolute;left:-22%;right:-22%;top:38%;height:24%;border:2px solid hsl(var(--hue) 60% 75% / .35);border-radius:50%;transform:rotate(-12deg);pointer-events:none;box-shadow:0 0 18px hsl(var(--hue) 60% 60% / .2)}
+.planet .rings{position:absolute;left:-22%;right:-22%;top:38%;height:24%;border:2px solid hsl(var(--hue) 60% 75% / .35);border-radius:50%;transform:rotate(-12deg);pointer-events:none}
 .planet .label{position:absolute;left:50%;top:100%;translate:-50% 2px;display:flex;flex-direction:column;align-items:center;gap:4px;white-space:nowrap;pointer-events:none}
 .planet .name{font-size:calc(15px*var(--text-scale));letter-spacing:.4px;text-shadow:0 2px 9px #000;font-weight:600}
 .planet.home .name{font-size:calc(19px*var(--text-scale));letter-spacing:1px}
@@ -36,7 +36,7 @@ html,body{background:var(--space);overflow:hidden}
 .room{position:absolute;inset:6vh 6vw 7vh;border-radius:24px;display:grid;grid-template-columns:minmax(220px,26%) 1fr;overflow:hidden;z-index:10;animation:room-in .45s cubic-bezier(.2,.7,.3,1)}
 .room[hidden]{display:none}
 .room-side{padding:28px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:14px;background:radial-gradient(circle at 50% 30%,hsl(var(--hue) 50% 30% / .25),transparent 70%)}
-.room-side .space-globe{width:min(100%,220px);align-self:center;filter:drop-shadow(0 0 30px hsl(var(--hue) 60% 50% / .3))}
+.room-side .space-globe{width:min(100%,220px);align-self:center;}
 .room-side h1{margin:0;font-size:1.6em;letter-spacing:.5px}
 .room-side p{margin:0;color:var(--muted);line-height:1.45}
 .room-back{display:flex;align-items:center;gap:8px;align-self:flex-start}
@@ -57,7 +57,6 @@ html,body{background:var(--space);overflow:hidden}
 .user-card .avatar{width:54px;height:54px;border-radius:50%;display:grid;place-items:center;font-size:1.4em;font-weight:700;background:hsl(182 50% 30%);color:#dffef6}
 .empty{color:var(--muted);padding:12px 0}
 
-@keyframes home-breathe{50%{box-shadow:0 0 50px #85ffe333,0 0 0 27px #73dbe008,0 0 0 55px #73dbe004}}
 @keyframes world-float{50%{transform:translateY(-10px) rotate(2deg)}}
 @keyframes room-in{from{opacity:0;transform:scale(.96)}}
 @media (max-width:900px),(max-height:620px){.room{inset:2vh 2vw;grid-template-columns:1fr}.room-side{border-right:0;border-bottom:1px solid var(--line);flex-direction:row;align-items:center;padding:16px}.room-side .space-globe{width:72px}.room-side p{display:none}.hint{display:none}}
@@ -68,3 +67,9 @@ html,body{background:var(--space);overflow:hidden}
 @media(prefers-reduced-motion:reduce){.planet .float,.planet.home .halo,.room{animation:none}.scene{transition:none}.space-stars,.planet{transform:none}}
 html.reduce-motion .planet .float,html.reduce-motion .planet.home .halo{animation:none}
 html.reduce-motion .space-stars,html.no-motion .space-stars,html.reduce-motion .planet,html.no-motion .planet{transform:none}
+
+.planet .halo{inset:-20%;box-shadow:none!important;background:radial-gradient(circle,#85ffe322 0%,#85ffe312 35%,transparent 70%);pointer-events:none}
+@keyframes glow-breathe{50%{opacity:.45}}
+.room-side .badge{align-self:flex-start}
+html:not(.reduce-motion):not(.no-motion) .planet .float{will-change:transform}
+@media(prefers-reduced-motion:reduce){.planet .float{will-change:auto!important}}

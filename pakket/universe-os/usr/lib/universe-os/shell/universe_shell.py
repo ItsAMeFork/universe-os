@@ -95,6 +95,17 @@ class Shell:
         world.monitor = monitor
         world.window.show_all()
         self.worlds.append(world)
+        if len(self.worlds) == 1:
+            # Initial keyboard focus, without requiring a click on the desktop.
+            GtkLayerShell.set_keyboard_mode(world.window, K.EXCLUSIVE)
+            world.view.grab_focus()
+            world.window.connect('key-press-event', self.release_initial_focus)
+            world.window.connect('button-press-event', self.release_initial_focus)
+
+    def release_initial_focus(self, *args):
+        for world in self.worlds:
+            GtkLayerShell.set_keyboard_mode(world.window, GtkLayerShell.KeyboardMode.ON_DEMAND)
+        return False
 
     def remove_world(self, display, monitor):
         for world in [w for w in self.worlds if w.monitor == monitor]:
@@ -159,6 +170,8 @@ class Shell:
         return result
 
     def windows_changed(self):
+        if self.toplevels.list():
+            self.release_initial_focus()
         if self.overview and self.overview.window.get_visible():
             self.overview.emit('windows', self.window_list())
         return False
