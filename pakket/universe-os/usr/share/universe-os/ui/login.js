@@ -3,8 +3,8 @@ import {globe,starfield} from './globe.js';
 const $=id=>document.getElementById(id);
 $('planet').append(globe(182,true,640));$('stars').append(starfield());
 let prompt=false,busy=false,leaving=false,cancelling=false,attempt=0;
-function error(text){leaving=false;busy=false;prompt=false;cancelling=false;document.body.classList.remove('depart');$('response').value='';$('prompt-label').hidden=true;$('user').disabled=false;$('submit').disabled=false;$('submit').textContent='Verder';$('other-user').hidden=true;$('other-user').disabled=false;$('message').textContent=text;$('user').focus();}
-function showPrompt(data){prompt=true;busy=false;$('prompt-label').hidden=false;$('prompt-text').textContent=data.text||'Wachtwoord';$('response').type=data.secret?'password':'text';$('response').value='';$('submit').disabled=false;$('submit').textContent='Inloggen';$('response').focus();}
+function error(text){leaving=false;busy=false;prompt=false;cancelling=false;document.body.classList.remove('depart');$('response').value='';$('prompt-label').hidden=true;$('user').disabled=false;$('submit').disabled=false;$('submit').textContent='Verder';$('other-user').hidden=!text;$('other-user').disabled=false;$('message').textContent=text;$('user').focus();}
+function showPrompt(data){prompt=true;busy=false;$('message').textContent='';$('other-user').hidden=false;$('prompt-label').hidden=false;$('prompt-text').textContent=({'Password:':'Wachtwoord','Username:':'Gebruikersnaam'}[data.text]||data.text||'Wachtwoord');$('response').type=data.secret?'password':'text';$('response').value='';$('submit').disabled=false;$('submit').textContent='Inloggen';$('response').focus();}
 $('login').addEventListener('submit',async event=>{
  event.preventDefault();if(busy||leaving||cancelling)return;const request=attempt;busy=true;$('submit').disabled=true;$('other-user').hidden=false;$('message').textContent='Aanmelding controleren…';
  try{

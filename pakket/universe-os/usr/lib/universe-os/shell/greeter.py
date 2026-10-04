@@ -57,7 +57,7 @@ class PlanetGreeter:
         return {'user': self.dm.get_select_user_hint() or '', 'prompt': self.prompt}
 
     def authenticate(self, args):
-        if self.starting or self.cancelling or self.dm.get_in_authentication():
+        if self.starting:
             raise RuntimeError('De aanmelding wordt al gecontroleerd.')
         user = str(args.get('user', '')).strip()
         if not user or len(user) > 256:
@@ -102,45 +102,19 @@ class PlanetGreeter:
         if self.timeout:
             GLib.source_remove(self.timeout)
             self.timeout = None
+        # Returning to username must not wait for PAM to finish its old prompt.
+        # The next authenticate() replaces it using liblightdm's sequence number.
+        self.cancelling = False
         if self.dm.get_in_authentication():
-            self.cancelling = True
             try:
                 self.dm.cancel_authentication()
             except GLib.Error:
-                self.cancelling = False
-                raise RuntimeError('Aanmelding annuleren mislukt. Probeer opnieuw.') from None
-            # LightDM can finish cancellation synchronously without emitting
-            # authentication-complete. Do not leave the page waiting then.
-            if self.cancelling and not self.dm.get_in_authentication():
-                self.cancelling = False
-                emit(self.view, 'login-cancelled')
-            elif self.cancelling and not self.cancel_timeout:
-                self.cancel_timeout = GLib.timeout_add(2000, self.check_cancel)
-        else:
-            self.cancelling = False
-            emit(self.view, 'login-cancelled')
+                pass  # A fresh authenticate() remains available to recover.
+        emit(self.view, 'login-cancelled')
         return True
-
-    def check_cancel(self):
-        self.cancel_timeout = None
-        if self.cancelling:
-            self.cancelling = False
-            if self.dm.get_in_authentication():
-                emit(self.view, 'login-error', 'Annuleren is nog niet bevestigd. Probeer Andere gebruiker opnieuw.')
-            else:
-                emit(self.view, 'login-cancelled')
-        return False
 
     def authentication_complete(self, _):
         self.prompt = None
-        if self.cancelling:
-            if self.cancel_timeout:
-                GLib.source_remove(self.cancel_timeout)
-                self.cancel_timeout = None
-            self.cancelling = False
-            self.authorized = False
-            emit(self.view, 'login-cancelled')
-            return
         if not self.attempt_active:
             return
         self.attempt_active = False
