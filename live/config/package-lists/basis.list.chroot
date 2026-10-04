@@ -1,0 +1,52 @@
+# Basis van het systeem en de live-omgeving
+live-boot
+live-config
+live-config-systemd
+systemd-sysv
+sudo
+locales
+console-setup
+keyboard-configuration
+tzdata
+dbus-user-session
+bash-completion
+ca-certificates
+less
+nano
+
+# Netwerk
+network-manager
+network-manager-gnome
+wpasupplicant
+iw
+ufw
+
+# Geluid en bluetooth
+pipewire-audio
+pipewire-pulse
+wireplumber
+pavucontrol
+bluez
+blueman
+
+# Inlogscherm en wachtwoordopslag
+lightdm
+lightdm-gtk-greeter
+gnome-keyring
+libpam-gnome-keyring
+
+# Wayland-hulponderdelen
+xdg-desktop-portal-wlr
+xdg-desktop-portal-gtk
+
+# Lettertypen, pictogrammen en thema's
+fonts-noto-core
+fonts-noto-color-emoji
+fonts-noto-mono
+adwaita-icon-theme
+gnome-themes-extra
+
+# Hardware en energie
+upower
+power-profiles-daemon
+mokutil

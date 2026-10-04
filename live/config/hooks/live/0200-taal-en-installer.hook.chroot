@@ -1,0 +1,27 @@
+#!/bin/sh
+# Nederlands als standaardtaal, US-Internationaal als standaardtoetsenbord (wijzigbaar in installer en Controlecentrum),
+# en het grub-efi-amd64-pakket offline klaarzetten voor de installer (geen internet nodig bij installeren).
+set -e
+
+for l in nl_NL nl_BE en_US en_GB de_DE fr_FR es_ES; do
+    sed -i "s/^# *${l}.UTF-8 UTF-8/${l}.UTF-8 UTF-8/" /etc/locale.gen
+done
+locale-gen
+printf 'LANG=nl_NL.UTF-8\nLANGUAGE=nl:en\n' >/etc/default/locale
+
+cat >/etc/default/keyboard <<'EOF'
+XKBMODEL="pc105"
+XKBLAYOUT="us"
+XKBVARIANT="intl"
+XKBOPTIONS=""
+BACKSPACE="guess"
+EOF
+
+# grub-efi-amd64 (met postinst die de EFI-partitie bijhoudt) wordt pas op de doelschijf geïnstalleerd.
+mkdir -p /usr/share/universe-os/offline
+cd /usr/share/universe-os/offline
+apt-get download grub-efi-amd64 grub-efi-amd64-unsigned 2>/dev/null || apt-get download grub-efi-amd64
+ls -l /usr/share/universe-os/offline
+
+# Geen standaard bureaubladmap-iconen of autostart-items van andere omgevingen in de Universe-sessie.
+rm -f /etc/xdg/autostart/nm-applet.desktop /etc/xdg/autostart/blueman.desktop

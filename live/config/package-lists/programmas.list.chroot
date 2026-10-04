@@ -1,0 +1,24 @@
+# Standaardprogramma's (beperkt gehouden)
+firefox-esr
+firefox-esr-l10n-nl
+mousepad
+xfce4-terminal
+thunar
+thunar-archive-plugin
+thunar-volman
+gvfs-backends
+file-roller
+atril
+celluloid
+gnome-calculator
+gnome-system-monitor
+
+# Software beheren
+gnome-software
+packagekit
+gdebi
+wdisplays
+
+# Nederlandse taal
+hunspell-nl
+manpages-nl

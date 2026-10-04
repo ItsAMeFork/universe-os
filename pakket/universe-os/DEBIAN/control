@@ -1,0 +1,20 @@
+Package: universe-os
+Version: @VERSION@
+Section: x11
+Priority: optional
+Architecture: all
+Maintainer: Universe OS <73166182+ItsAMeFork@users.noreply.github.com>
+Homepage: https://github.com/ItsAMeFork/universe-os
+Depends: python3 (>= 3.11), python3-gi, gir1.2-gtk-3.0, gir1.2-webkit2-4.1, gir1.2-gtklayershell-0.1, python3-pywayland,
+ labwc, xwayland, swaylock, swayidle, mako-notifier, libnotify-bin, wlr-randr, wlopm, grim, slurp, wl-clipboard,
+ brightnessctl, mate-polkit, polkitd, pkexec, xdg-user-dirs, xdg-utils, libgtk-3-bin, desktop-file-utils,
+ thunar, gvfs, gvfs-backends, udisks2, xfce4-terminal, zenity, fonts-noto-core, adwaita-icon-theme,
+ network-manager, wireplumber, pipewire-audio, ufw
+Recommends: wine, wine64, msitools, gnome-software, gdebi, pavucontrol, wdisplays, blueman, network-manager-gnome,
+ gnome-system-monitor, firefox-esr, mousepad, file-roller, atril, gnome-calculator
+Description: Universe OS: een ruimtewereld als hoofdinterface
+ De Universe-shell toont de ruimtewereld met planeten (thuiswereld, applicaties,
+ softwarewinkel, controlecentrum, communicatie, gamehal), een compact
+ bedieningspaneel en een overzicht van geopende programma's met zoeken. Vensters
+ worden beheerd door de compositor labwc. Bevat ook het Controlecentrum en
+ ondersteuning voor Windows-programma's via Wine.

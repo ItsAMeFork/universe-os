@@ -1,0 +1,10 @@
+# Grafische installer en wat hij offline nodig heeft (geen internet vereist tijdens installeren)
+calamares
+grub-efi-amd64-bin
+grub-efi-amd64-signed
+shim-signed
+grub2-common
+efibootmgr
+dosfstools
+e2fsprogs
+rsync
