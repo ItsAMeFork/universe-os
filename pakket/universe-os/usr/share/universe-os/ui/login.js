@@ -2,16 +2,21 @@ import {call,on,available} from './api.js';
 import {globe,starfield} from './globe.js';
 const $=id=>document.getElementById(id);
 $('planet').append(globe(182,true,640));$('stars').append(starfield());
-let prompt=false,busy=false,leaving=false;
-function error(text){leaving=false;busy=false;prompt=false;document.body.classList.remove('depart');$('response').value='';$('prompt-label').hidden=true;$('user').disabled=false;$('submit').disabled=false;$('submit').textContent='Verder';$('message').textContent=text;$('user').focus();}
+let prompt=false,busy=false,leaving=false,cancelling=false,attempt=0;
+function error(text){leaving=false;busy=false;prompt=false;cancelling=false;document.body.classList.remove('depart');$('response').value='';$('prompt-label').hidden=true;$('user').disabled=false;$('submit').disabled=false;$('submit').textContent='Verder';$('other-user').hidden=true;$('other-user').disabled=false;$('message').textContent=text;$('user').focus();}
 function showPrompt(data){prompt=true;busy=false;$('prompt-label').hidden=false;$('prompt-text').textContent=data.text||'Wachtwoord';$('response').type=data.secret?'password':'text';$('response').value='';$('submit').disabled=false;$('submit').textContent='Inloggen';$('response').focus();}
 $('login').addEventListener('submit',async event=>{
- event.preventDefault();if(busy||leaving)return;busy=true;$('submit').disabled=true;$('message').textContent='Aanmelding controleren…';
+ event.preventDefault();if(busy||leaving||cancelling)return;const request=attempt;busy=true;$('submit').disabled=true;$('other-user').hidden=false;$('message').textContent='Aanmelding controleren…';
  try{
   if(prompt){const response=$('response').value;$('response').value='';prompt=false;await call('login.respond',{response});}
   else{$('user').disabled=true;await call('login.authenticate',{user:$('user').value});}
- }catch(e){error(e.message);}
+ }catch(e){if(request===attempt)error(e.message);}
 });
+$('other-user').addEventListener('click',async()=>{
+ if(cancelling||leaving)return;attempt++;cancelling=true;busy=true;$('response').value='';$('submit').disabled=true;$('other-user').disabled=true;$('message').textContent='Aanmelding annuleren…';
+ try{await call('login.cancel');}catch(e){error(e.message);$('other-user').hidden=false;}
+});
+on('login-cancelled',()=>{error('');$('user').value='';$('user').focus();});
 on('login-prompt',showPrompt);on('login-message',data=>{$('message').textContent=data.text;});on('login-error',error);
 on('login-success',async()=>{
  if(leaving)return;leaving=true;$('response').value='';$('message').textContent='Welkom. Universe OS wordt geopend…';document.body.classList.add('depart');
