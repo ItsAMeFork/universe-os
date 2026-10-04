@@ -1,5 +1,10 @@
 #!/bin/sh
 # Lock after inactivity and before sleep; turn the screen off later (minutes from the Universe settings, 0 = never).
+# Live media must stay usable during installation without requiring a live password.
+if grep -qw 'boot=live' /proc/cmdline; then
+    pkill -u "$(id -u)" -x swayidle 2>/dev/null
+    exit 0
+fi
 eval "$(python3 - <<'EOF'
 import sys
 sys.path.insert(0, '/usr/lib/universe-os/shell')

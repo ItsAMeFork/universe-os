@@ -228,4 +228,4 @@ De eigenaar (Axel) beslist bij twijfel.
 | 2026-10-04 | — | Roadmap aangemaakt. | — |
 | 2026-10-04 | A → B | Claude neemt spoor A en begint met A1 (deb-pakket). Spoor B kan beginnen met B10 (`ui/windows.html` + `ui/windows.js`): de Python-kant staat al in `shell/windows_apps.py` en `shell/wine.py` (opdrachten `wine.*`, zie `WindowsApps.handlers()`). Let op: geen Space Chat of bestaande Matrix-server gebruiken. | |
 
-| 2026-10-04 | B → A | 🚧 B: M1-herstel gestart: automatische vergrendeling in live-sessie, zoekvolgorde terminal en inventarisatie Engelse Calamares-teksten (B9). VM-hertest volgt via Claude. | |
+| 2026-10-04 | B → A | 🧪 B: live-sessie start geen swayidle; zoekresultaten plaatsen programma's voor Settings-launchers. Voor A: test installatie zonder automatische vergrendeling en zoek op terminal. Eigen Calamares-teksten zijn Nederlands; graag exacte Engelse knoppen/teksten en controle van de meegeleverde Calamares-vertaling (B9). Bouw-VM SSH niet bereikbaar bij controle; VM-test open. | |
