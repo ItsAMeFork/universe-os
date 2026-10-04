@@ -1,0 +1,24 @@
+#!/bin/sh
+# Keeps the Universe shell running. If it crashes it is started again; open programs keep running because they are
+# separate processes and windows of the compositor. After 5 crashes within 2 minutes it stops and offers recovery.
+STATE="${XDG_STATE_HOME:-$HOME/.local/state}/universe-os"
+mkdir -p "$STATE"
+LOG="$STATE/shell.log"
+crashes=0
+window_start=$(date +%s)
+while :; do
+    echo "--- shell start $(date)" >>"$LOG"
+    universe-shell >>"$LOG" 2>&1
+    code=$?
+    echo "--- shell gestopt met code $code ($(date))" >>"$LOG"
+    now=$(date +%s)
+    if [ $((now - window_start)) -gt 120 ]; then crashes=0; window_start=$now; fi
+    crashes=$((crashes + 1))
+    if [ "$crashes" -ge 5 ]; then
+        notify-send -u critical "Universe OS" "De ruimtewereld blijft vastlopen. Er is een terminal geopend. Logboek: $LOG" 2>/dev/null
+        xfce4-terminal --title "Universe OS herstel" -x sh -c "echo 'De Universe-shell start niet. Laatste regels van het logboek:'; tail -n 30 '$LOG'; echo; echo 'Probeer: universe-shell-supervisor &   of meld je af (labwc --exit).'; exec bash" &
+        exit 1
+    fi
+    [ "$crashes" -gt 1 ] && notify-send "Universe OS" "De ruimtewereld wordt opnieuw gestart. Je programma's blijven open." 2>/dev/null
+    sleep 1
+done

@@ -1,0 +1,36 @@
+{
+  "_uitleg": "Centrale vormgeving van Universe OS. Na wijzigen: scripts/build-deb.sh opnieuw draaien (of het ISO opnieuw bouwen). Gebruikers kunnen de indeling overschrijven in ~/.config/universe-os/world.json.",
+  "name": "Universe OS",
+  "version": "0.1.0",
+  "colors": {
+    "space": "#050815",
+    "panel": "#0b1021",
+    "card": "#162335",
+    "text": "#e2e6fa",
+    "muted": "#869cae",
+    "accent": "#85ffe3",
+    "accentStrong": "#baf7e8",
+    "online": "#ffc98a",
+    "danger": "#ff8a9a"
+  },
+  "planets": [
+    {"id": "home",    "name": "Thuiswereld",     "hue": 182, "rock": true,  "x": 50, "y": 52, "size": 1.0,  "kind": "local",
+     "description": "Je account, persoonlijke bestanden en persoonlijke instellingen"},
+    {"id": "apps",    "name": "Applicaties",     "hue": 262, "rock": false, "x": 21, "y": 30, "size": 0.62, "kind": "local",
+     "description": "Alle geïnstalleerde programma's"},
+    {"id": "store",   "name": "Softwarewinkel",  "hue": 32,  "rock": false, "x": 79, "y": 27, "size": 0.62, "kind": "mixed",
+     "description": "Programma's zoeken, installeren, bijwerken en verwijderen"},
+    {"id": "control", "name": "Controlecentrum", "hue": 205, "rock": true,  "x": 80, "y": 76, "size": 0.58, "kind": "local",
+     "description": "Systeeminstellingen: netwerk, geluid, beeldscherm, taal, accounts"},
+    {"id": "chat",    "name": "Communicatie",    "hue": 318, "rock": false, "x": 21, "y": 77, "size": 0.58, "kind": "online",
+     "description": "Chat- en communicatieprogramma's (nog geen chatdienst gekoppeld)"},
+    {"id": "games",   "name": "Gamehal",         "hue": 138, "rock": false, "x": 50, "y": 14, "size": 0.54, "kind": "local", "rings": true,
+     "description": "Geïnstalleerde games"}
+  ],
+  "defaults": {
+    "animations": "full",
+    "travel": true,
+    "uiScale": 100,
+    "textScale": 100
+  }
+}

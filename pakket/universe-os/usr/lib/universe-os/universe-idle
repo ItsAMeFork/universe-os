@@ -1,0 +1,15 @@
+#!/bin/sh
+# Lock after inactivity and before sleep; turn the screen off later (minutes from the Universe settings, 0 = never).
+eval "$(python3 - <<'EOF'
+import sys
+sys.path.insert(0, '/usr/lib/universe-os/shell')
+import config
+s = config.settings()
+print('LOCK=%d OFF=%d' % (int(s.get('lockMinutes', 10)), int(s.get('screenOffMinutes', 15))))
+EOF
+)"
+pkill -u "$(id -u)" -x swayidle 2>/dev/null
+set -- -w before-sleep 'universe-lock'
+[ "${LOCK:-0}" -gt 0 ] && set -- "$@" timeout $((LOCK * 60)) 'universe-lock'
+[ "${OFF:-0}" -gt 0 ] && set -- "$@" timeout $((OFF * 60)) 'wlopm --off "*"' resume 'wlopm --on "*"'
+exec swayidle "$@"

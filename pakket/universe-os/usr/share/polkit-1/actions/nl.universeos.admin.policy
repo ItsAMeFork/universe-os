@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>Universe OS</vendor>
+  <action id="nl.universeos.admin.accounts">
+    <description>Manage user accounts</description>
+    <description xml:lang="nl">Gebruikersaccounts beheren</description>
+    <message>Authentication is required to manage user accounts</message>
+    <message xml:lang="nl">Voer het wachtwoord van een beheerder in om accounts te beheren</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/lib/universe-os/universe-admin-helper</annotate>
+  </action>
+</policyconfig>

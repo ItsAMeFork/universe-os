@@ -1,0 +1,21 @@
+#!/bin/sh
+# Universe OS session (started by the login screen, see /usr/share/wayland-sessions/universe.desktop).
+# Loads this user's language, writes the labwc configuration and starts labwc; labwc runs the autostart
+# with the Universe shell. Log: ~/.local/state/universe-os/session.log
+STATE="${XDG_STATE_HOME:-$HOME/.local/state}/universe-os"
+mkdir -p "$STATE"
+[ -f "$STATE/session.log" ] && mv -f "$STATE/session.log" "$STATE/session.log.old"
+exec >"$STATE/session.log" 2>&1
+echo "Universe OS sessie gestart: $(date)"
+
+# Language chosen by this user in the Controlecentrum (otherwise the system language).
+if [ -f "${XDG_CONFIG_HOME:-$HOME/.config}/universe-os/locale.env" ]; then
+    set -a; . "${XDG_CONFIG_HOME:-$HOME/.config}/universe-os/locale.env"; set +a
+fi
+export XDG_CURRENT_DESKTOP=Universe:wlroots
+export XDG_SESSION_DESKTOP=universe
+export XDG_SESSION_TYPE=wayland
+
+CONFIG_DIR=$(python3 /usr/lib/universe-os/shell/session.py) || {
+    echo "Kon de sessieconfiguratie niet schrijven; herstelmodus."; exec /usr/bin/universe-recovery-session; }
+exec labwc -C "$CONFIG_DIR"

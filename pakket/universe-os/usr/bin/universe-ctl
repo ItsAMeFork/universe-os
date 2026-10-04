@@ -1,0 +1,40 @@
+#!/usr/bin/python3
+"""Send a command to the running Universe shell (used by the keyboard shortcuts).
+
+  universe-ctl overview | desktop | panel | world <planeet> | run <hulpmiddel> [pagina] | windows | reload | ping
+"""
+import os
+import socket
+import subprocess
+import sys
+
+SOCKET = os.path.join(os.environ.get('XDG_RUNTIME_DIR', '/tmp'), 'universe-shell.sock')
+
+
+def main():
+    if len(sys.argv) < 2:
+        print(__doc__.strip())
+        return 1
+    line = ' '.join(sys.argv[1:])
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+            s.settimeout(5)
+            s.connect(SOCKET)
+            s.sendall((line + '\n').encode())
+            answer = s.makefile().readline().strip()
+    except OSError:
+        # Shell not running: tools still open directly, so Windows+E etc. keep working in recovery situations.
+        if sys.argv[1] == 'run' and len(sys.argv) > 2:
+            tools = {'files': ['thunar'], 'terminal': ['xfce4-terminal'], 'monitor': ['gnome-system-monitor', '-p'],
+                     'control': ['universe-control-center']}
+            if sys.argv[2] in tools:
+                subprocess.Popen(tools[sys.argv[2]], start_new_session=True)
+                return 0
+        print('De Universe-shell draait niet.', file=sys.stderr)
+        return 2
+    print(answer)
+    return 0 if answer.startswith(('ok', '[')) else 1
+
+
+if __name__ == '__main__':
+    sys.exit(main())

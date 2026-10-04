@@ -1,0 +1,15 @@
+#!/bin/sh
+# Herstelmodus: labwc met alleen een terminal (te kiezen op het inlogscherm als "Universe OS herstelmodus").
+STATE="${XDG_STATE_HOME:-$HOME/.local/state}/universe-os"
+mkdir -p "$STATE"
+exec >"$STATE/recovery.log" 2>&1
+export XDG_CURRENT_DESKTOP=Universe:wlroots
+export XDG_SESSION_TYPE=wayland
+CONFIG_DIR=$(python3 /usr/lib/universe-os/shell/session.py --herstel 2>/dev/null)
+if [ -z "$CONFIG_DIR" ]; then
+    # Even without Python a terminal must be possible.
+    CONFIG_DIR="$STATE/labwc-noodconfig"
+    mkdir -p "$CONFIG_DIR"
+    printf '#!/bin/sh\nxfce4-terminal &\n' >"$CONFIG_DIR/autostart"
+fi
+exec labwc -C "$CONFIG_DIR"

@@ -1,0 +1,31 @@
+/* Universe OS: shared look, taken from Space Chat (deep navy space, teal accents, glass panels). */
+:root{
+ --space:#050815;--panel:#0b1021;--card:#162335;--text:#e2e6fa;--muted:#869cae;--accent:#85ffe3;--accent-strong:#baf7e8;
+ --online:#ffc98a;--danger:#ff8a9a;--line:#d8e0ff24;--text-scale:1;
+ color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:transparent;color:var(--text);font-family:"Noto Sans","DejaVu Sans",sans-serif;font-size:calc(15px*var(--text-scale));-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:9px 14px;transition:background .15s,border-color .15s,transform .15s}
+button:hover{background:#1d2e45;border-color:#d8e0ff44}
+button:active{transform:scale(.98)}
+button.primary{background:#94efd31f;border-color:#85ffe366;color:var(--accent-strong)}
+button.danger{border-color:#ff8a9a55;color:#ffd0d6}
+button:disabled{opacity:.45;cursor:default}
+input[type=text],input[type=search],input[type=password],select,textarea{background:#0d1628;border:1px solid var(--line);border-radius:10px;padding:9px 12px;outline:none}
+select option{background:#0d1628}
+/* Keyboard focus must always be obvious (also on planets and cards). */
+:focus-visible{outline:3px solid var(--accent)!important;outline-offset:3px;box-shadow:0 0 0 6px #85ffe322,0 0 24px #85ffe355!important}
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:.72em;letter-spacing:.4px;padding:2px 8px;border-radius:20px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.badge.local{color:#bdf7e9;border-color:#85ffe344}
+.badge.online{color:var(--online);border-color:#ffc98a55}
+.badge.mixed{color:#d7d0ff;border-color:#b9a2ff55}
+.glass{background:#0b1021ed;border:1px solid var(--line);box-shadow:0 18px 50px #000a;backdrop-filter:blur(16px)}
+.muted{color:var(--muted)}
+.icon{width:1.25em;height:1.25em;vertical-align:-.25em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.app-icon{width:48px;height:48px;object-fit:contain}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+html.reduce-motion *{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.12s!important}
+html.no-motion *{animation:none!important;transition:none!important}
+.toast{position:fixed;left:50%;bottom:28px;translate:-50% 0;padding:10px 16px;border-radius:12px;z-index:99}

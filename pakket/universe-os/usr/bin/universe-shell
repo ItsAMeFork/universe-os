@@ -1,0 +1,4 @@
+#!/bin/sh
+# The Universe shell (space world, control panel, overview). Normally started by universe-shell-supervisor.
+export GDK_BACKEND=wayland
+exec python3 /usr/lib/universe-os/shell/universe_shell.py "$@"

@@ -1,0 +1,22 @@
+# Bouwresultaten en logboeken (groot; staan in uitvoer/ in de bouw-VM)
+uitvoer/
+build/
+*.iso
+*.iso.sha256
+*.deb
+*.qcow2
+*.img
+logs/*.log
+
+# Lokale bestanden die niet in de repo horen
+extern/
+
+# Nooit sleutels of wachtwoorden
+*.pem
+*id_ed25519*
+*wachtwoord*
+.env
+
+# Python
+__pycache__/
+*.pyc

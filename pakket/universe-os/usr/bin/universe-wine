@@ -1,0 +1,54 @@
+#!/usr/bin/python3
+"""Windows-programma's (Wine) in Universe OS.
+
+  universe-wine start SLUG [N]          programma starten (gebruikt door de snelkoppelingen)
+  universe-wine list                    geïnstalleerde Windows-programma's (JSON)
+  universe-wine info BESTAND            wat er zou worden uitgevoerd (JSON), voert niets uit
+  universe-wine support                 welke Windows-ondersteuning aanwezig is (JSON)
+  universe-wine install BESTAND NAAM --ik-bevestig   installeren zonder venster (voor tests)
+  universe-wine remove SLUG [--wis-gegevens]
+
+Installeren gaat normaal via het beheerscherm "Windows-programma's", dat eerst het bestand laat zien.
+"""
+import json
+import sys
+
+sys.path.insert(0, '/usr/lib/universe-os/shell')
+import gi  # noqa: E402
+gi.require_version('GLib', '2.0')
+import wine  # noqa: E402
+
+
+def main(argv):
+    if len(argv) < 2:
+        print(__doc__.strip())
+        return 1
+    cmd = argv[1]
+    try:
+        if cmd == 'start' and len(argv) >= 3:
+            run = wine.start(argv[2], int(argv[3]) if len(argv) > 3 else 0)
+            return 0 if run['status'] == 'gestart' else 1
+        if cmd == 'list':
+            print(json.dumps(wine.list_apps(), ensure_ascii=False, indent=1))
+        elif cmd == 'info' and len(argv) == 3:
+            print(json.dumps(wine.file_info(argv[2]), ensure_ascii=False, indent=1))
+        elif cmd == 'support':
+            print(json.dumps(wine.support(), ensure_ascii=False, indent=1))
+        elif cmd == 'install' and len(argv) == 5 and argv[4] == '--ik-bevestig':
+            app = wine.install(argv[2], argv[3], progress=lambda p: print(json.dumps(p, ensure_ascii=False), flush=True))
+            return 0 if app['install']['status'] == 'geslaagd' else 1
+        elif cmd == 'remove' and len(argv) >= 3:
+            print(json.dumps(wine.remove(argv[2], wipe_data='--wis-gegevens' in argv), ensure_ascii=False))
+        else:
+            print(__doc__.strip())
+            return 1
+    except wine.WineError as error:
+        print('Fout: %s' % error, file=sys.stderr)
+        if cmd == 'start':
+            wine._notify('Windows-programma niet gestart', str(error), 'critical')
+        return 2
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv))

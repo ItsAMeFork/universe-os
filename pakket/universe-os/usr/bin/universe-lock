@@ -1,0 +1,11 @@
+#!/bin/sh
+# Lock the screen (Windows+L, panel, idle, before sleep). swaylock uses PAM: the normal account password.
+pgrep -u "$(id -u)" -x swaylock >/dev/null && exit 0
+exec swaylock -f \
+    --color 050815 \
+    --indicator-radius 90 --indicator-thickness 9 \
+    --inside-color 0b1021e6 --inside-clear-color 0b1021e6 --inside-ver-color 162335e6 --inside-wrong-color 3a1420e6 \
+    --ring-color 85ffe355 --ring-ver-color 85ffe3 --ring-wrong-color ff8a9a --ring-clear-color baf7e8 \
+    --key-hl-color 85ffe3 --bs-hl-color ff8a9a --line-color 00000000 --line-ver-color 00000000 --line-wrong-color 00000000 \
+    --separator-color 00000000 --text-color e2e6fa --text-ver-color e2e6fa --text-wrong-color ffd0d6 \
+    --font "Noto Sans" --show-failed-attempts --ignore-empty-password

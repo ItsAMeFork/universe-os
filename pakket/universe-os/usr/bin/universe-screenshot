@@ -1,0 +1,15 @@
+#!/bin/sh
+# Print Screen: screenshot of the whole screen; Shift+Print Screen (--gebied): choose an area with the mouse.
+# Saved in Afbeeldingen/Schermafbeeldingen and copied to the clipboard.
+PICTURES=$(xdg-user-dir PICTURES 2>/dev/null || echo "$HOME/Afbeeldingen")
+DIR="$PICTURES/Schermafbeeldingen"
+mkdir -p "$DIR"
+FILE="$DIR/Schermafbeelding $(date '+%Y-%m-%d %H.%M.%S').png"
+if [ "$1" = "--gebied" ]; then
+    AREA=$(slurp -b 05081588 -c 85ffe3ff -w 2) || exit 0
+    grim -g "$AREA" "$FILE" || { notify-send "Schermafbeelding mislukt"; exit 1; }
+else
+    grim "$FILE" || { notify-send "Schermafbeelding mislukt"; exit 1; }
+fi
+command -v wl-copy >/dev/null && wl-copy --type image/png <"$FILE"
+notify-send -i "$FILE" "Schermafbeelding opgeslagen" "$(basename "$FILE") — ook gekopieerd naar het klembord."

@@ -1,0 +1,60 @@
+#!/usr/bin/python3
+"""Screens: list outputs (wlr-randr --json) and apply the scale saved per screen in the Universe settings.
+
+  universe-displays list            JSON list of screens
+  universe-displays apply           apply saved scales (at login)
+  universe-displays scale NAME S    set and save scale S for screen NAME
+"""
+import json
+import subprocess
+import sys
+
+sys.path.insert(0, '/usr/lib/universe-os/shell')
+import config  # noqa: E402
+
+
+def outputs():
+    try:
+        data = json.loads(subprocess.run(['wlr-randr', '--json'], capture_output=True, text=True, timeout=5).stdout or '[]')
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        return []
+    result = []
+    for o in data:
+        mode = next((m for m in o.get('modes', []) if m.get('current')), {})
+        result.append({'name': o.get('name'), 'description': o.get('description', ''), 'enabled': o.get('enabled', True),
+                       'scale': o.get('scale', 1.0), 'width': mode.get('width'), 'height': mode.get('height'),
+                       'refresh': round(mode.get('refresh', 0) or 0, 1)})
+    return result
+
+
+def apply():
+    scales = config.settings().get('displayScales') or {}
+    for o in outputs():
+        if o['name'] in scales and abs(scales[o['name']] - o['scale']) > 0.01:
+            subprocess.run(['wlr-randr', '--output', o['name'], '--scale', str(scales[o['name']])], check=False)
+
+
+def main():
+    cmd = sys.argv[1] if len(sys.argv) > 1 else 'list'
+    if cmd == 'list':
+        print(json.dumps(outputs()))
+    elif cmd == 'apply':
+        apply()
+    elif cmd == 'scale' and len(sys.argv) == 4:
+        name, scale = sys.argv[2], float(sys.argv[3])
+        if not 0.5 <= scale <= 3:
+            sys.exit('Schaal moet tussen 0,5 en 3 liggen')
+        r = subprocess.run(['wlr-randr', '--output', name, '--scale', str(scale)])
+        if r.returncode:
+            sys.exit(r.returncode)
+        scales = dict(config.settings().get('displayScales') or {})
+        scales[name] = scale
+        config.set_setting('displayScales', scales)
+    else:
+        print(__doc__.strip())
+        return 1
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())
