@@ -2,6 +2,8 @@
 live-boot
 live-config
 live-config-systemd
+# Maakt het live-account aan (live-config beveelt het alleen aan; wij bouwen zonder Recommends).
+user-setup
 systemd-sysv
 sudo
 locales

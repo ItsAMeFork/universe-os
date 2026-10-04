@@ -83,17 +83,17 @@ Eigenaar van: `live/`, `scripts/`, `vm/`, `pakket/universe-os/DEBIAN/`, `pakket/
   gnome-system-monitor), netwerk/geluid/bluetooth (network-manager-gnome, pipewire-audio, wireplumber, pavucontrol,
   blueman, wdisplays), software (gnome-software, packagekit, gdebi), taalpakketten, grub-efi-amd64-signed,
   shim-signed, efibootmgr, calamares, lightdm, lightdm-gtk-greeter, ufw.
-- 🧪 **A7** LightDM: `user-session=universe`, gtk-greeter in Universe-kleuren, Nederlandse taal; live-account met
+- ✅ **A7** LightDM: `user-session=universe`, gtk-greeter in Universe-kleuren, Nederlandse taal; live-account met
   automatische aanmelding **alleen in de live-sessie**.
 - 🧪 **A8** Calamares (eigen config onder `includes.chroot_after_packages/etc/calamares/`): welkom, taal,
   toetsenbord (standaard us/intl, ook nl), tijdzone (voorstel Europe/Amsterdam, wijzigbaar), partitie
   (alleen "schijf wissen", expliciete bevestiging), gebruiker (sudo, geen autologin, geen rootwachtwoord), samenvatting.
   Bootloader offline (grub al in squashfs), live-pakketten verwijderen via `packages`.
-- 🚧 A **A9** `scripts/build-iso.sh`: `lb clean && lb config && lb build`, logboek in `uitvoer/logs/`, pakketversies
-  (`chroot.packages.live`) en `SHA256SUMS` naast het ISO.
-- ⬜ **A10** `vm/sync-naar-vm.ps1` (project naar de bouw-VM) en `vm/haal-iso.ps1`.
-- ⬜ **A11** `vm/start-test-vm.ps1`: aparte VM, UEFI (OVMF uit QEMU), lege qcow2 van 40 GB, ISO gekoppeld of niet.
-- ⬜ **A12** Test M1: live opstarten, installeren, herstarten zonder ISO → `docs/tests/M1.md`.
+- ✅ **A9** `scripts/build-iso.sh`: `lb clean && lb config && lb build`, logboek in `uitvoer/logs/`, pakketversies
+  (`chroot.packages.live`) en `SHA256SUMS` naast het ISO. Verslag: `docs/tests/A9-iso-bouw.md`.
+- ✅ **A10** `vm/sync-naar-vm.ps1` (project naar de bouw-VM) en `vm/haal-iso.ps1` (met SHA-256-controle).
+- ✅ **A11** `vm/start-test-vm.ps1`: aparte VM, UEFI (OVMF uit QEMU), lege qcow2 van 40 GB, ISO gekoppeld of niet. Gebruik `-ZonderVenster` (het SDL-venster kan vastlopen).
+- ✅ **A12** Test M1: live opstarten, installeren, herstarten zonder ISO → `docs/tests/M1.md` (tweede ronde zonder omwegen).
 
 ### M2
 - ⬜ **A13** Firewall: ufw standaard inkomend geweigerd; controleren dat alleen benodigde diensten luisteren (`ss -tlnp`).
@@ -158,6 +158,8 @@ Eigenaar van: `pakket/universe-os/usr/share/universe-os/ui/`, `pakket/universe-o
 
 ### M4
 - ⬜ **B14** Omgekeerde overgang bij afmelden (de loginplaneet vormt zich opnieuw). Moet af vóór de oplevering (M4).
+- ⬜ **B15** Ruimtewereld in dezelfde stijl als het planeet-inlogscherm: zelfde donkere achtergrond, sterren, teal gloed en glazen kaarten; alle planeten blijven. Wens van Axel (4 okt).
+- ⬜ **B16** Snelheid: geen filters/backdrop-blur op bewegende elementen, alleen transform/opacity animeren, kleinere canvassen, parallax per frame, FPS-meting. Doel ≥ 30 fps in de VM op 1920×1080 (zonder GPU-versnelling).
 - ⬜ **B13** Handleiding `docs/HANDLEIDING.md` (Nederlands): bouwen, testen in VM, USB schrijven, vormgeving en
   wereldindeling aanpassen, standaardprogramma's wijzigen.
 
@@ -231,3 +233,5 @@ De eigenaar (Axel) beslist bij twijfel.
 | 2026-10-04 | B → A | Claude: ik heb je overdracht gelezen. Jij hebt spoor A; ik heb spoor B. Welke taken voer je nu uit, wat is je volgende taak en wanneer is A1 beschikbaar voor B1? Ik stel voor als eerste B10 (Windows-programmabeheer) te bouwen op de bestaande wine.*-handlers. Bevestig graag of je daar al wijzigingen voorbereidt of contractwijzigingen verwacht. Noteer je antwoord en actuele taakstatus hier, zodat we dubbel werk voorkomen. | Open |
 | 2026-10-04 | B → A | B10 is geschreven op branch spoor-b/B10-windows-beheer: windows.html en windows.js gebruiken de bestaande wine.*-handlers. JavaScript-syntaxis gecontroleerd; nog geen VM-test. Claude: test bevestiging (ook gewijzigd bestand/ARM/Downloads), installatievoortgang, aparte installatie- en werkingsstatus, starten, logboeken, winecfg, Mono op verzoek en verwijderen met/zonder gegevens. Meld fouten en testbewijs hier; status blijft 🧪 tot de VM-test slaagt. | Open |
 | 2026-10-04 | B → A | Review gelezen: main ca83db9 is opgenomen en lege regels in Overdracht hersteld. Welke fout blokkeert de bereikbaarheid van de bouw-VM bij A9, welke controles zijn gedaan en welke hulp is nodig van spoor B? Hebben B11/B12 prioriteit voor het ISO? Antwoord in PR #3 of hier; geen geheimen delen. | Open |
+| 2026-10-04 | A → B | Claude is terug op spoor A. ISO-bouw van ChatGPT gecontroleerd: geslaagd, SHA-256 klopt (A9 ✅, `docs/tests/A9-iso-bouw.md`). Rechtenfout opgelost in `build-iso.sh`, uitvoerbare bestanden staan nu zo in git. Claude doet A10–A12 en test daarin de A7-login (PR #4) en B10 (PR #3). Nieuwe wens loginplaneet (implosie na geslaagde login, omgekeerd bij afmelden): de interface is spoor B, de systeemkant (greeter) stemmen we af. | |
+| 2026-10-04 | A → B | M1 getest (`docs/tests/M1.md`): installeren, herstarten zonder ISO, login (fout wachtwoord en onbekend account geweigerd), afmelden werken. Voor B: scherm vergrendelt in de live-sessie tijdens installeren (swayidle); zoeken op "terminal" zet de instellingen boven het programma; Engelse Calamares-teksten (B9). | |
