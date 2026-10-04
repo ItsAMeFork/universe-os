@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Windows-programma's</title>
+<link rel="stylesheet" href="common.css">
+<style>
+html,body{background:var(--space);height:auto;min-height:100%}main{max-width:1100px;margin:auto;padding:28px}header,.actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}header h1{flex:1}section,article{border:1px solid var(--line);border-radius:16px;padding:20px;margin:18px 0;background:var(--panel)}h1{font-size:1.6em}h2{font-size:1.2em}p{line-height:1.6}dl{display:grid;grid-template-columns:minmax(100px,150px) 1fr;gap:10px}dt{color:var(--muted)}dd{margin:0;overflow-wrap:anywhere}input[type=text]{width:100%}.warning{border-left:4px solid var(--online);padding-left:14px}.error{color:var(--danger)}.status{display:flex;gap:24px;flex-wrap:wrap}label{display:block;margin:12px 0}dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:16px;max-width:560px;width:90%}dialog::backdrop{background:#000b}[hidden]{display:none!important}progress{width:100%;accent-color:var(--accent)}@media(max-width:600px){main{padding:14px}dl{grid-template-columns:1fr}dt{margin-top:8px}}
+</style>
+</head>
+<body><main>
+<header><h1>Windows-programma's</h1><button id="refresh">Vernieuwen</button><button id="choose" class="primary">Installatiebestand kiezen</button></header>
+<p>Beheer Windows-programma's met een aparte Wine-omgeving per programma.</p>
+<p id="message" role="status" aria-live="polite"></p>
+<section aria-labelledby="support-title"><h2 id="support-title">Ondersteuning</h2><div id="support">Ondersteuning controleren…</div></section>
+<section id="confirmation" hidden aria-labelledby="confirm-title"><h2 id="confirm-title">Installatie bevestigen</h2><dl id="file-info"></dl><p id="download-warning" class="warning" hidden>Dit bestand staat in Downloads. Controleer de herkomst voordat je het uitvoert.</p><p id="sandbox" class="warning"></p><label>Naam in de programmalijst<input id="app-name" type="text" maxlength="60"></label><label><input id="trust" type="checkbox"> Ik vertrouw dit bestand en wil het uitvoeren.</label><p id="check-error" class="error" role="alert"></p><div class="actions"><button id="install" class="primary" disabled>Installeren</button><button id="cancel">Annuleren</button></div></section>
+<section id="progress-section" hidden aria-labelledby="progress-title"><h2 id="progress-title">Installatie bezig</h2><progress aria-label="Installatie bezig"></progress><p id="progress-text" role="status"></p></section>
+<section aria-labelledby="apps-title"><h2 id="apps-title">Mijn programma's</h2><div id="apps">Programma's laden…</div></section>
+</main>
+<dialog id="remove-dialog" aria-labelledby="remove-title"><h2 id="remove-title">Programma verwijderen</h2><p id="remove-name"></p><p>Het programma wordt afgesloten en verwijderd. Standaard bewaart Universe OS de gegevens uit de Wine-gebruikersmap.</p><label><input id="wipe" type="checkbox"> Ook opgeslagen gegevens en logboeken wissen</label><div class="actions"><button id="remove-confirm" class="danger">Verwijderen</button><button id="remove-cancel">Annuleren</button></div></dialog>
+<script type="module" src="windows.js"></script>
+</body></html>
