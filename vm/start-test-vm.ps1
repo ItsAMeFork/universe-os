@@ -3,7 +3,7 @@
 #   vm\start-test-vm.ps1                                                                (opstarten zonder ISO)
 # Beheerkanaal QMP op 127.0.0.1:4445:  node vm\qmp.mjs 4445 status|scherm|typ|toets
 param([string]$Iso, [switch]$Nieuw, [int]$GeheugenMB = 4096, [int]$Cpus = 2, [switch]$SecureBoot, [switch]$ZonderVenster,
-      [ValidateSet('gtk', 'sdl')][string]$Venster = 'gtk')
+      [ValidateSet('gtk', 'sdl')][string]$Venster = 'gtk', [string]$Resolutie = '1920x1080', [switch]$VolledigScherm)
 $ErrorActionPreference = 'Stop'
 $qemu = 'C:\Program Files\qemu'
 $vm = 'D:\UniverseOS-VMs'
@@ -23,7 +23,7 @@ $code = if ($SecureBoot) { "$qemu\share\edk2-x86_64-secure-code.fd" } else { "$q
 $machine = if ($SecureBoot) { 'q35,smm=on' } else { 'q35' }
 
 # GTK by default: the SDL window stopped responding twice (and blocked QMP with it).
-$display = if ($ZonderVenster) { 'none' } else { $Venster }
+$display = if ($ZonderVenster) { 'none' } elseif ($Venster -eq 'gtk') { 'gtk,zoom-to-fit=on' } else { $Venster }
 $qargs = @(
     '-name', '"Universe OS test"',
     '-accel', 'whpx', '-machine', $machine, '-smp', "$Cpus", '-m', "$GeheugenMB",
@@ -32,13 +32,16 @@ $qargs = @(
     '-drive', "if=pflash,format=raw,unit=1,file=$vars",
     '-drive', "file=$disk,if=none,id=schijf,discard=unmap", '-device', 'virtio-blk-pci,drive=schijf,bootindex=1',
     '-nic', 'user,model=virtio-net-pci',
-    '-display', $display, '-vga', 'virtio',
+    # Fixed screen size (default: the Windows screen, 1920x1080) for greeter and session alike. Standard VGA with EDID does
+    # not follow the window size (virtio-gpu did: the session fell back to 640x480); GTK scales the picture to the window.
+    '-display', $display, '-vga', 'none', '-device', "VGA,edid=on,xres=$(($Resolutie -split 'x')[0]),yres=$(($Resolutie -split 'x')[1])",
     # usb-tablet: absolute muispositie, nodig om via QMP precies te klikken.
     '-device', 'qemu-xhci', '-device', 'usb-tablet',
     '-audiodev', 'none,id=geluid', '-device', 'ich9-intel-hda', '-device', 'hda-duplex,audiodev=geluid',
     '-serial', "file:$vm\test-vm-serial.log",
     '-qmp', 'tcp:127.0.0.1:4445,server,nowait'
 )
+if ($VolledigScherm -and -not $ZonderVenster) { $qargs += @('-full-screen') }
 if ($SecureBoot) { $qargs += @('-global', 'driver=cfi.pflash01,property=secure,value=on') }
 if ($Iso) {
     if (-not (Test-Path $Iso)) { throw "ISO niet gevonden: $Iso" }
