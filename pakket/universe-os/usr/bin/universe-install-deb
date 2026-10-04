@@ -1,0 +1,33 @@
+#!/bin/sh
+# Kies een echt Debian-pakket; GDebi toont de installatiebevestiging en vraagt beheerdersrechten.
+set -eu
+fail() {
+    printf '%s\n' "$1" >&2
+    if command -v zenity >/dev/null 2>&1; then
+        zenity --error --no-markup --title='Debian-pakket installeren' --text="$1" || true
+    fi
+    exit 1
+}
+command -v zenity >/dev/null 2>&1 || fail 'De bestandskiezer Zenity ontbreekt.'
+command -v gdebi-gtk >/dev/null 2>&1 || fail 'De pakketinstaller GDebi ontbreekt.'
+[ "$#" -le 1 ] || fail 'Kies één Debian-pakket tegelijk.'
+if [ "$#" -eq 1 ]; then
+    FILE=$1
+else
+    if FILE=$(zenity --file-selection --title='Kies een Debian-pakket' --file-filter='Debian-pakketten | *.deb'); then
+        :
+    else
+        RESULT=$?
+        [ "$RESULT" -eq 1 ] && exit 0
+        fail 'De bestandskiezer kon niet worden geopend.'
+    fi
+fi
+[ -f "$FILE" ] && [ -r "$FILE" ] || fail 'Het gekozen bestand bestaat niet of is niet leesbaar.'
+FILE=$(realpath -- "$FILE")
+dpkg-deb --info "$FILE" >/dev/null 2>&1 || fail 'Dit bestand is geen geldig Debian-pakket.'
+STATE="${XDG_STATE_HOME:-$HOME/.local/state}/universe-os"
+mkdir -p "$STATE"
+LOG="$STATE/debian-installatie.log"
+if ! gdebi-gtk "$FILE" >"$LOG" 2>&1; then
+    fail "De pakketinstaller is met een fout afgesloten. Zie het logboek: $LOG"
+fi
