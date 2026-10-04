@@ -16,6 +16,7 @@ class PlanetGreeter:
         self.starting = False
         self.timeout = None
         self.cancelling = False
+        self.cancel_timeout = None
         self.attempt_active = False
         self.dm.connect('show-prompt', self.show_prompt)
         self.dm.connect('show-message', self.show_message)
@@ -108,14 +109,34 @@ class PlanetGreeter:
             except GLib.Error:
                 self.cancelling = False
                 raise RuntimeError('Aanmelding annuleren mislukt. Probeer opnieuw.') from None
+            # LightDM can finish cancellation synchronously without emitting
+            # authentication-complete. Do not leave the page waiting then.
+            if self.cancelling and not self.dm.get_in_authentication():
+                self.cancelling = False
+                emit(self.view, 'login-cancelled')
+            elif self.cancelling and not self.cancel_timeout:
+                self.cancel_timeout = GLib.timeout_add(2000, self.check_cancel)
         else:
             self.cancelling = False
             emit(self.view, 'login-cancelled')
         return True
 
+    def check_cancel(self):
+        self.cancel_timeout = None
+        if self.cancelling:
+            self.cancelling = False
+            if self.dm.get_in_authentication():
+                emit(self.view, 'login-error', 'Annuleren is nog niet bevestigd. Probeer Andere gebruiker opnieuw.')
+            else:
+                emit(self.view, 'login-cancelled')
+        return False
+
     def authentication_complete(self, _):
         self.prompt = None
         if self.cancelling:
+            if self.cancel_timeout:
+                GLib.source_remove(self.cancel_timeout)
+                self.cancel_timeout = None
             self.cancelling = False
             self.authorized = False
             emit(self.view, 'login-cancelled')

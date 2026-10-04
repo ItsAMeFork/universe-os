@@ -17,7 +17,7 @@ $('other-user').addEventListener('click',async()=>{
  try{await call('login.cancel');}catch(e){error(e.message);$('other-user').hidden=false;}
 });
 on('login-cancelled',()=>{error('');$('user').value='';$('user').focus();});
-on('login-prompt',showPrompt);on('login-message',data=>{$('message').textContent=data.text;});on('login-error',error);
+on('login-prompt',showPrompt);on('login-message',data=>{$('message').textContent=data.text;});on('login-error',text=>{const cancelled=cancelling;error(text);if(cancelled)$('other-user').hidden=false;});
 on('login-success',async()=>{
  if(leaving)return;leaving=true;$('response').value='';$('message').textContent='Welkom. Universe OS wordt geopend…';document.body.classList.add('depart');
  const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
