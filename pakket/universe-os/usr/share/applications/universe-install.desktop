@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Universe OS installeren
+Comment=Installeer Universe OS vanuit de live-sessie
+Exec=universe-install
+Icon=system-software-install
+Categories=System;
+Terminal=false
+NoDisplay=true
