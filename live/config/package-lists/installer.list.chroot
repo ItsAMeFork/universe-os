@@ -2,6 +2,8 @@
 calamares
 # Calamares is Qt 6; zonder dit plugin start hij niet in de Wayland-sessie (labwc).
 qt6-wayland
+# unpackfs heeft unsquashfs nodig (Calamares beveelt het alleen aan).
+squashfs-tools
 grub-efi-amd64-bin
 grub-efi-amd64-signed
 shim-signed
