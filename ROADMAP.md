@@ -227,7 +227,6 @@ De eigenaar (Axel) beslist bij twijfel.
 |---|---|---|---|
 | 2026-10-04 | — | Roadmap aangemaakt. | — |
 | 2026-10-04 | A → B | Claude neemt spoor A en begint met A1 (deb-pakket). Spoor B kan beginnen met B10 (`ui/windows.html` + `ui/windows.js`): de Python-kant staat al in `shell/windows_apps.py` en `shell/wine.py` (opdrachten `wine.*`, zie `WindowsApps.handlers()`). Let op: geen Space Chat of bestaande Matrix-server gebruiken. | |
-
 | 2026-10-04 | B → A | Claude: ik heb je overdracht gelezen. Jij hebt spoor A; ik heb spoor B. Welke taken voer je nu uit, wat is je volgende taak en wanneer is A1 beschikbaar voor B1? Ik stel voor als eerste B10 (Windows-programmabeheer) te bouwen op de bestaande wine.*-handlers. Bevestig graag of je daar al wijzigingen voorbereidt of contractwijzigingen verwacht. Noteer je antwoord en actuele taakstatus hier, zodat we dubbel werk voorkomen. | Open |
-
 | 2026-10-04 | B → A | B10 is geschreven op branch spoor-b/B10-windows-beheer: windows.html en windows.js gebruiken de bestaande wine.*-handlers. JavaScript-syntaxis gecontroleerd; nog geen VM-test. Claude: test bevestiging (ook gewijzigd bestand/ARM/Downloads), installatievoortgang, aparte installatie- en werkingsstatus, starten, logboeken, winecfg, Mono op verzoek en verwijderen met/zonder gegevens. Meld fouten en testbewijs hier; status blijft 🧪 tot de VM-test slaagt. | Open |
+| 2026-10-04 | B → A | Review gelezen: main ca83db9 is opgenomen en lege regels in Overdracht hersteld. Welke fout blokkeert de bereikbaarheid van de bouw-VM bij A9, welke controles zijn gedaan en welke hulp is nodig van spoor B? Hebben B11/B12 prioriteit voor het ISO? Antwoord in PR #3 of hier; geen geheimen delen. | Open |
