@@ -21,7 +21,8 @@ echo "== 2/4 Afbeeldingen voor de installer"
 B="$LIVE/config/includes.chroot_after_packages/etc/calamares/branding/universe"
 rsvg-convert -w 128 -h 128 "$ROOT/scripts/assets/logo.svg" -o "$B/logo.png"
 rsvg-convert -w 960 -h 540 "$ROOT/pakket/universe-os/usr/share/universe-os/backgrounds/ruimte.svg" -o "$B/welcome.png"
-chmod +x "$LIVE"/auto/* "$LIVE"/config/hooks/live/*.hook.chroot
+# Only our own files: lb config adds hooks as symlinks to root-owned files in /usr/share/live/build.
+find "$LIVE/auto" "$LIVE/config/hooks/live" -type f -user "$(id -u)" -exec chmod +x {} +
 
 echo "== 3/4 live-build (dit duurt lang)"
 cd "$LIVE"

@@ -89,10 +89,10 @@ Eigenaar van: `live/`, `scripts/`, `vm/`, `pakket/universe-os/DEBIAN/`, `pakket/
   toetsenbord (standaard us/intl, ook nl), tijdzone (voorstel Europe/Amsterdam, wijzigbaar), partitie
   (alleen "schijf wissen", expliciete bevestiging), gebruiker (sudo, geen autologin, geen rootwachtwoord), samenvatting.
   Bootloader offline (grub al in squashfs), live-pakketten verwijderen via `packages`.
-- 🚧 A **A9** `scripts/build-iso.sh`: `lb clean && lb config && lb build`, logboek in `uitvoer/logs/`, pakketversies
-  (`chroot.packages.live`) en `SHA256SUMS` naast het ISO.
-- ⬜ **A10** `vm/sync-naar-vm.ps1` (project naar de bouw-VM) en `vm/haal-iso.ps1`.
-- ⬜ **A11** `vm/start-test-vm.ps1`: aparte VM, UEFI (OVMF uit QEMU), lege qcow2 van 40 GB, ISO gekoppeld of niet.
+- ✅ **A9** `scripts/build-iso.sh`: `lb clean && lb config && lb build`, logboek in `uitvoer/logs/`, pakketversies
+  (`chroot.packages.live`) en `SHA256SUMS` naast het ISO. Verslag: `docs/tests/A9-iso-bouw.md`.
+- 🚧 A **A10** `vm/sync-naar-vm.ps1` (project naar de bouw-VM) en `vm/haal-iso.ps1`.
+- 🚧 A **A11** `vm/start-test-vm.ps1`: aparte VM, UEFI (OVMF uit QEMU), lege qcow2 van 40 GB, ISO gekoppeld of niet.
 - ⬜ **A12** Test M1: live opstarten, installeren, herstarten zonder ISO → `docs/tests/M1.md`.
 
 ### M2
@@ -227,3 +227,4 @@ De eigenaar (Axel) beslist bij twijfel.
 |---|---|---|---|
 | 2026-10-04 | — | Roadmap aangemaakt. | — |
 | 2026-10-04 | A → B | Claude neemt spoor A en begint met A1 (deb-pakket). Spoor B kan beginnen met B10 (`ui/windows.html` + `ui/windows.js`): de Python-kant staat al in `shell/windows_apps.py` en `shell/wine.py` (opdrachten `wine.*`, zie `WindowsApps.handlers()`). Let op: geen Space Chat of bestaande Matrix-server gebruiken. | |
+| 2026-10-04 | A → B | Claude is terug op spoor A. ISO-bouw van ChatGPT gecontroleerd: geslaagd, SHA-256 klopt (A9 ✅, `docs/tests/A9-iso-bouw.md`). Rechtenfout opgelost in `build-iso.sh`, uitvoerbare bestanden staan nu zo in git. Claude doet A10–A12 en test daarin de A7-login (PR #4) en B10 (PR #3). Nieuwe wens loginplaneet (implosie na geslaagde login, omgekeerd bij afmelden): de interface is spoor B, de systeemkant (greeter) stemmen we af. | |
