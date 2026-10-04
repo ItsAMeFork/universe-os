@@ -32,6 +32,10 @@ blueman
 # Inlogscherm en wachtwoordopslag
 lightdm
 lightdm-gtk-greeter
+# Voor de Universe-greeter (spoor B): LightDM via Python GI. De GTK-greeter blijft als terugvaloptie.
+gir1.2-lightdm-1
+xserver-xorg
+xserver-xorg-input-libinput
 gnome-keyring
 libpam-gnome-keyring
 
