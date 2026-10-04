@@ -14,12 +14,12 @@ function netIcon(n){return !n||n.state!=='connected'?'offline':n.type==='wifi'?'
 function netText(n){if(!n||n.state==='unavailable')return 'Netwerkbeheer niet beschikbaar';if(n.state!=='connected')return 'Geen verbinding (offline)';return `${n.type==='wifi'?'Wifi':'Kabel'}: ${n.name||'verbonden'}`;}
 function renderPill(){
  const now=new Date(),v=status.volume,b=status.battery,count=status.notifications?.length||0;
- pill.replaceChildren(
+ pill.replaceChildren(...[
   h('span',{class:'item'},fmtTime(now)),
   h('span',{class:'item',title:netText(status.network)},icon(netIcon(status.network))),
   v?h('span',{class:'item',title:`Volume ${v.level}%`},icon(v.muted?'mute':'volume')):null,
   b?.present?h('span',{class:'item',title:'Batterij'},icon('battery'),`${b.percent}%${b.charging?' ⚡':''}`):null,
-  h('span',{class:'item',title:'Meldingen'},icon('bell'),count?h('span',{class:'count'},String(count)):null));
+  h('span',{class:'item',title:'Meldingen'},icon('bell'),count?h('span',{class:'count'},String(count)):null)].filter(child=>child!=null));
  pill.setAttribute('aria-label',`Bedieningspaneel openen. ${fmtTime(now)}. ${netText(status.network)}.${count?` ${count} meldingen.`:''}`);
 }
 function renderPanel(){
@@ -37,7 +37,7 @@ function renderPanel(){
  for(const m of list.slice(0,6))notes.append(h('div',{class:'note'},h('b',{},m.summary||m.app||'Melding'),m.body||''));
  const confirmBox=h('div',{class:'confirm'});
  const ask=(label,action)=>{confirmBox.replaceChildren(h('div',{},`${label}? Niet-opgeslagen werk in open programma's kan verloren gaan.`),h('div',{class:'power'},act('Ja, '+label.toLowerCase(),'power',()=>call('power',{action}).catch(e=>toast(e.message)),'danger'),act('Annuleren','close',()=>confirmBox.replaceChildren())));confirmBox.querySelector('button').focus();};
- panel.replaceChildren(
+ panel.replaceChildren(...[
   h('div',{class:'top'},h('div',{},h('div',{class:'clock'},fmtTime(now)),h('div',{class:'date'},fmtDate(now))),close),
   h('div',{class:'card'},h('div',{class:'line'},h('span',{},icon(v.muted?'mute':'volume'),`Geluid ${v.level}%`),mute),status.volume?slider:h('div',{class:'small'},'Geen geluidsapparaat gevonden.')),
   h('div',{class:'card'},h('div',{class:'line'},h('span',{},icon(netIcon(n)),netText(n))),h('div',{class:'quick'},tool('Netwerk','wifi','control',{page:'network'}),tool('Geluid','volume','control',{page:'sound'}))),
@@ -47,7 +47,7 @@ function renderPanel(){
   h('div',{class:'quick'},act('Ruimtewereld','planet',()=>{call('desktop.show');toggle(false);}),act('Overzicht','windows',()=>{call('surface.show',{name:'overview'});toggle(false);}),tool('Instellingen','gear','control'),tool('Bestanden','folder','files')),
   h('div',{class:'power'},act('Vergrendelen','lock',()=>{toggle(false);call('power',{action:'lock'});}),act('Afmelden','logout',()=>ask('Afmelden','logout')),act('Opnieuw opstarten','restart',()=>ask('Opnieuw opstarten','reboot')),act('Afsluiten','power',()=>ask('Afsluiten','poweroff')),
    status.canSuspend?act('Slaapstand','sleep',()=>{toggle(false);call('power',{action:'suspend'});}):null),
-  confirmBox);
+  confirmBox].filter(child=>child!=null));
 }
 async function toggle(value){
  open=value;pill.setAttribute('aria-expanded',String(open));

@@ -1,0 +1,20 @@
+#!/bin/sh
+# Start de echte installer vanuit de live-Wayland-sessie; fouten blijven zichtbaar.
+set -eu
+fail() {
+    printf '%s\n' "$1" >&2
+    if command -v zenity >/dev/null 2>&1; then
+        zenity --error --title='Universe OS installeren' --text="$1" || true
+    fi
+    exit 1
+}
+grep -qw 'boot=live' /proc/cmdline || fail 'Installeren kan alleen vanuit de Universe OS live-sessie.'
+command -v calamares >/dev/null 2>&1 || fail 'De installer Calamares ontbreekt.'
+[ -n "${WAYLAND_DISPLAY:-}" ] && [ -n "${XDG_RUNTIME_DIR:-}" ] || fail 'Geen actieve Wayland-sessie gevonden. Open de installer vanuit de ruimtewereld.'
+STATE="${XDG_STATE_HOME:-$HOME/.local/state}/universe-os"
+mkdir -p "$STATE"
+LOG="$STATE/installatie.log"
+if ! sudo -n --preserve-env=WAYLAND_DISPLAY,XDG_RUNTIME_DIR,LANG,LANGUAGE \
+    env QT_QPA_PLATFORM=wayland calamares >"$LOG" 2>&1; then
+    fail "De installer kon niet worden gestart of is met een fout afgesloten. Zie het logboek: $LOG"
+fi
