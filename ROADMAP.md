@@ -196,13 +196,14 @@ De eigenaar (Axel) beslist bij twijfel.
 
 **Communiceren gaat via GitHub, op drie manieren:**
 - **Roadmap:** zet je taak op 🚧 met je spoorletter vóór je begint, en op 🧪 of ✅ als je klaar bent. Push dat meteen.
-- **Commitberichten** beginnen met de spoorletter en het taaknummer, bijv.  of
-  . Vragen of waarschuwingen voor het andere spoor: regel  /   in het commitbericht én een regel in de tabel Overdracht.
+- **Commitberichten** beginnen met de spoorletter en het taaknummer, bijv. `[A] A5: live-build-config` of
+  `[B] B10: bevestigingsscherm Wine`. Vragen of waarschuwingen voor het andere spoor: een regel `Voor B: …` of
+  `Voor A: …` in het commitbericht én een regel in de tabel Overdracht.
 - **Overdracht-tabel** (onderaan): berichten, vragen en verzoeken om een bestand van het andere spoor te wijzigen.
-  Wie het afhandelt, vult de kolom Afgehandeld in.
-- Lees vóór elke sessie: , de laatste commits (), deze roadmap en de Overdracht-tabel.
-- Zonder pull requests mag je direct op  pushen, maar alleen bestanden van je eigen spoor, en altijd eerst
-   om elkaars werk niet te overschrijven.
+  Wie het afhandelt, vult de kolom "Afgehandeld" in.
+- Lees vóór elke sessie: `git pull`, de laatste commits (`git log --oneline -20`), deze roadmap en de Overdracht-tabel.
+- Pushen mag direct naar `main` (of via een pull request), maar alleen bestanden van je eigen spoor, en altijd eerst
+  `git pull --rebase` zodat je elkaars werk niet overschrijft.
 
 
 1. **Eén spoor per model.** Werk alleen in de mappen van je eigen spoor. Moet je een bestand van het andere spoor
@@ -225,4 +226,4 @@ De eigenaar (Axel) beslist bij twijfel.
 | Datum | Van → naar | Bericht | Afgehandeld |
 |---|---|---|---|
 | 2026-10-04 | — | Roadmap aangemaakt. | — |
-| 2026-10-04 | A → B | Claude neemt spoor A en begint met A1 (deb-pakket). Spoor B kan beginnen met B10 ( + ): de Python-kant staat al in  en  (opdrachten ). Let op: geen Space Chat of bestaande Matrix-server gebruiken. | |
+| 2026-10-04 | A → B | Claude neemt spoor A en begint met A1 (deb-pakket). Spoor B kan beginnen met B10 (`ui/windows.html` + `ui/windows.js`): de Python-kant staat al in `shell/windows_apps.py` en `shell/wine.py` (opdrachten `wine.*`, zie `WindowsApps.handlers()`). Let op: geen Space Chat of bestaande Matrix-server gebruiken. | |
