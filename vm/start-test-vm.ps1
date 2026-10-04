@@ -2,7 +2,8 @@
 #   vm\start-test-vm.ps1 -Iso D:\UniverseOS-VMs\iso\universe-os-0.1.0-amd64.iso -Nieuw   (lege schijf + live-ISO)
 #   vm\start-test-vm.ps1                                                                (opstarten zonder ISO)
 # Beheerkanaal QMP op 127.0.0.1:4445:  node vm\qmp.mjs 4445 status|scherm|typ|toets
-param([string]$Iso, [switch]$Nieuw, [int]$GeheugenMB = 4096, [int]$Cpus = 2, [switch]$SecureBoot, [switch]$ZonderVenster)
+param([string]$Iso, [switch]$Nieuw, [int]$GeheugenMB = 4096, [int]$Cpus = 2, [switch]$SecureBoot, [switch]$ZonderVenster,
+      [ValidateSet('gtk', 'sdl')][string]$Venster = 'gtk')
 $ErrorActionPreference = 'Stop'
 $qemu = 'C:\Program Files\qemu'
 $vm = 'D:\UniverseOS-VMs'
@@ -21,7 +22,8 @@ if (-not (Test-Path $vars)) { Copy-Item "$qemu\share\edk2-i386-vars.fd" $vars }
 $code = if ($SecureBoot) { "$qemu\share\edk2-x86_64-secure-code.fd" } else { "$qemu\share\edk2-x86_64-code.fd" }
 $machine = if ($SecureBoot) { 'q35,smm=on' } else { 'q35' }
 
-$display = if ($ZonderVenster) { 'none' } else { 'sdl' }
+# GTK by default: the SDL window stopped responding twice (and blocked QMP with it).
+$display = if ($ZonderVenster) { 'none' } else { $Venster }
 $qargs = @(
     '-name', '"Universe OS test"',
     '-accel', 'whpx', '-machine', $machine, '-smp', "$Cpus", '-m', "$GeheugenMB",
