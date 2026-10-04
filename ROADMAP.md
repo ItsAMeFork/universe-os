@@ -60,12 +60,12 @@ Tests op meerdere schermformaten, Nederlandse handleiding, licenties, SHA256, re
 
 ---
 
-## Spoor A — Systeem, pakketten en bouw
+## Spoor A — Systeem, pakketten en bouw (Claude)
 
 Eigenaar van: `live/`, `scripts/`, `vm/`, `pakket/universe-os/DEBIAN/`, `pakket/universe-os/etc/`, `docs/tests/`.
 
 ### M1
-- ⬜ **A1** `scripts/build-deb.sh`: bouwt `universe-os_<versie>_all.deb` met `dpkg-deb`; genereert de pywayland-bindingen
+- 🚧 A **A1** `scripts/build-deb.sh`: bouwt `universe-os_<versie>_all.deb` met `dpkg-deb`; genereert de pywayland-bindingen
   (`python3 -m pywayland.scanner`) voor `wlr-foreign-toplevel-management-unstable-v1.xml` naar `shell/protocols/`
   (`__init__.py` meeleveren); kopieert `branding/universe.json` → `usr/share/universe-os/`.
 - ⬜ **A2** `DEBIAN/control` met `Depends` op: labwc, python3-gi, gir1.2-gtk-3.0, gir1.2-webkit2-4.1,
@@ -117,7 +117,7 @@ Eigenaar van: `live/`, `scripts/`, `vm/`, `pakket/universe-os/DEBIAN/`, `pakket/
 
 ---
 
-## Spoor B — Interface, shell en apps
+## Spoor B — Interface, shell en apps (ChatGPT)
 
 Eigenaar van: `pakket/universe-os/usr/share/universe-os/ui/`, `pakket/universe-os/usr/lib/universe-os/shell/`,
 `pakket/universe-os/usr/bin/`, `pakket/universe-os/usr/share/applications/`, `branding/`.
@@ -191,6 +191,20 @@ Gebeurtenissen van Python naar pagina's: `emit(view, naam, data)` → `on(naam, 
 
 ## Werkafspraken voor de twee AI-modellen
 
+**Wie:** spoor A = **Claude** (Claude Code, werkt ook in de bouw- en test-VM op de laptop). Spoor B = **ChatGPT**.
+De eigenaar (Axel) beslist bij twijfel.
+
+**Communiceren gaat via GitHub, op drie manieren:**
+- **Roadmap:** zet je taak op 🚧 met je spoorletter vóór je begint, en op 🧪 of ✅ als je klaar bent. Push dat meteen.
+- **Commitberichten** beginnen met de spoorletter en het taaknummer, bijv.  of
+  . Vragen of waarschuwingen voor het andere spoor: regel  /   in het commitbericht én een regel in de tabel Overdracht.
+- **Overdracht-tabel** (onderaan): berichten, vragen en verzoeken om een bestand van het andere spoor te wijzigen.
+  Wie het afhandelt, vult de kolom Afgehandeld in.
+- Lees vóór elke sessie: , de laatste commits (), deze roadmap en de Overdracht-tabel.
+- Zonder pull requests mag je direct op  pushen, maar alleen bestanden van je eigen spoor, en altijd eerst
+   om elkaars werk niet te overschrijven.
+
+
 1. **Eén spoor per model.** Werk alleen in de mappen van je eigen spoor. Moet je een bestand van het andere spoor
    wijzigen, schrijf het dan in "Overdracht" hieronder in plaats van het zelf te doen.
 2. **Branches:** `spoor-a/<taak>` en `spoor-b/<taak>` (bijv. `spoor-a/A5-live-build`). Klein houden, één taak per
@@ -211,3 +225,4 @@ Gebeurtenissen van Python naar pagina's: `emit(view, naam, data)` → `on(naam, 
 | Datum | Van → naar | Bericht | Afgehandeld |
 |---|---|---|---|
 | 2026-10-04 | — | Roadmap aangemaakt. | — |
+| 2026-10-04 | A → B | Claude neemt spoor A en begint met A1 (deb-pakket). Spoor B kan beginnen met B10 ( + ): de Python-kant staat al in  en  (opdrachten ). Let op: geen Space Chat of bestaande Matrix-server gebruiken. | |
