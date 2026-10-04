@@ -157,6 +157,7 @@ Eigenaar van: `pakket/universe-os/usr/share/universe-os/ui/`, `pakket/universe-o
   en een tegel "Windows-programma's beheren"; `backend.py` uitbreiden (`windows`-vlag, hulpmiddel `windows-apps`).
 
 ### M4
+- ⬜ **B14** Omgekeerde overgang bij afmelden (de loginplaneet vormt zich opnieuw). Moet af vóór de oplevering (M4).
 - ⬜ **B13** Handleiding `docs/HANDLEIDING.md` (Nederlands): bouwen, testen in VM, USB schrijven, vormgeving en
   wereldindeling aanpassen, standaardprogramma's wijzigen.
 
