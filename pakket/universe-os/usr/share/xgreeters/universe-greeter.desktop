@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Universe OS planeetlogin
+Comment=Aanmelden met LightDM en de Universe-loginplaneet
+Exec=/usr/bin/universe-greeter
+Type=Application
+X-LightDM-Session-Type=x
