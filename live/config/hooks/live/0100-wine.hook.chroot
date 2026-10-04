@@ -1,0 +1,10 @@
+#!/bin/sh
+# Windows-programma's via Wine. Debian 13's Wine 10.0 heeft geen volledige WoW64: 64-bit programma's gebruiken wine64,
+# 32-bit programma's hebben wine32 uit de i386-architectuur nodig (multiarch).
+# Bewust NIET: wine-binfmt (zou .exe-bestanden direct uitvoerbaar maken, zonder bevestiging).
+set -e
+dpkg --add-architecture i386
+apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends wine wine64 wine32:i386 msitools fonts-wine
+dpkg -s wine-binfmt >/dev/null 2>&1 && apt-get purge -y wine-binfmt || true
+echo "Wine: $(wine --version 2>/dev/null || echo onbekend)"

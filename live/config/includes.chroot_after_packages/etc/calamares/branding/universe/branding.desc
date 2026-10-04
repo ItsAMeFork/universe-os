@@ -1,0 +1,35 @@
+---
+componentName: universe
+welcomeStyleCalamares: false
+welcomeExpandingLogo: true
+windowExpanding: normal
+windowSize: 1024px,680px
+windowPlacement: center
+sidebar: widget
+navigation: widget
+
+strings:
+    productName:         "Universe OS"
+    shortProductName:    "Universe OS"
+    version:             "0.1"
+    shortVersion:        "0.1"
+    versionedName:       "Universe OS 0.1"
+    shortVersionedName:  "Universe OS 0.1"
+    bootloaderEntryName: "Universe OS"
+    productUrl:          "https://github.com/ItsAMeFork/universe-os"
+    supportUrl:          "https://github.com/ItsAMeFork/universe-os/issues"
+    knownIssuesUrl:      "https://github.com/ItsAMeFork/universe-os/blob/main/docs/tests"
+
+images:
+    productLogo:         "logo.png"
+    productIcon:         "logo.png"
+    productWelcome:      "welcome.png"
+
+slideshow:               "show.qml"
+slideshowAPI:            2
+
+style:
+    SidebarBackground:        "#0b1021"
+    SidebarText:              "#e2e6fa"
+    SidebarBackgroundCurrent: "#162335"
+    SidebarTextCurrent:       "#85ffe3"

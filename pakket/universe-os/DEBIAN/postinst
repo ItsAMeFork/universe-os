@@ -1,0 +1,37 @@
+#!/bin/sh
+# Universe OS: system settings that belong to the package (run as root by dpkg).
+set -e
+
+if [ "$1" = "configure" ]; then
+    # Debian's wine.desktop would run .exe/.msi files directly (and in one shared ~/.wine) without asking.
+    # Universe OS routes them through the confirmation screen of "Windows-programma's" instead.
+    mkdir -p /usr/share/universe-os/diverted
+    dpkg-divert --package universe-os --add --rename \
+        --divert /usr/share/universe-os/diverted/wine.desktop /usr/share/applications/wine.desktop
+
+    # Private home folders: other users may not read them.
+    # Replace every (also commented) setting by exactly one active line, so repeated installs stay clean.
+    sed -i -E '/^#?[[:space:]]*HOME_MODE([[:space:]]|$)/d' /etc/login.defs
+    printf 'HOME_MODE\t0700\n' >>/etc/login.defs
+    if [ -f /etc/adduser.conf ]; then
+        sed -i -E '/^#?[[:space:]]*DIR_MODE=/d' /etc/adduser.conf
+        echo 'DIR_MODE=0700' >>/etc/adduser.conf
+    fi
+    # Existing homes of normal users (uid 1000-59999) become private too.
+    getent passwd | awk -F: '$3>=1000 && $3<60000 {print $6}' | while read -r home; do
+        [ -d "$home" ] && case "$home" in /home/*) chmod 0700 "$home" ;; esac
+    done
+
+    # Firewall: incoming connections blocked, outgoing allowed. Not in a build chroot without a running kernel firewall.
+    if command -v ufw >/dev/null 2>&1; then
+        ufw --force default deny incoming >/dev/null 2>&1 || true
+        ufw --force default allow outgoing >/dev/null 2>&1 || true
+        sed -i 's/^ENABLED=.*/ENABLED=yes/' /etc/ufw/ufw.conf 2>/dev/null || true
+        systemctl enable ufw.service >/dev/null 2>&1 || true
+    fi
+
+    command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database -q /usr/share/applications || true
+    command -v glib-compile-schemas >/dev/null 2>&1 && glib-compile-schemas /usr/share/glib-2.0/schemas || true
+fi
+
+exit 0

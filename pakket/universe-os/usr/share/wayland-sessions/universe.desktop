@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Universe OS
+Name[nl]=Universe OS
+Comment=The space world as your desktop
+Comment[nl]=De ruimtewereld als hoofdinterface
+Exec=/usr/bin/universe-session
+Type=Application
+DesktopNames=Universe;wlroots

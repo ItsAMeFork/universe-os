@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Universe OS (recovery)
+Name[nl]=Universe OS herstelmodus
+Comment=Only a terminal, without the space world
+Comment[nl]=Alleen een terminal, zonder de ruimtewereld (als de ruimtewereld niet start)
+Exec=/usr/bin/universe-recovery-session
+Type=Application
+DesktopNames=Universe;wlroots

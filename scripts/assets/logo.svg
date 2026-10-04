@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Universe OS logo: de thuisplaneet met baan -->
+  <defs>
+    <radialGradient id="p" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#9fe9e4"/><stop offset=".42" stop-color="#2f7f86"/><stop offset=".76" stop-color="#0d3a45"/><stop offset="1" stop-color="#030714"/></radialGradient>
+  </defs>
+  <ellipse cx="128" cy="128" rx="118" ry="44" fill="none" stroke="#85ffe3" stroke-opacity=".55" stroke-width="5" transform="rotate(-20 128 128)"/>
+  <circle cx="128" cy="128" r="78" fill="url(#p)"/>
+  <circle cx="128" cy="128" r="78" fill="none" stroke="#c7fce7" stroke-opacity=".45" stroke-width="2.5"/>
+  <path d="M18 158 A118 44 -20 0 0 238 98" fill="none" stroke="#85ffe3" stroke-opacity=".85" stroke-width="5" transform="rotate(0)"/>
+</svg>

@@ -23,7 +23,9 @@ $qargs = @(
     '-nic', 'user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:2222-:22',
     '-smbios', 'type=1,serial=ds=nocloud;s=http://10.0.2.2:8123/',
     '-display', $display, '-vga', 'virtio',
-    '-serial', "file:$vm\bouw-vm-serial.log"
+    '-serial', "file:$vm\bouw-vm-serial.log",
+    # Beheerkanaal (alleen lokaal): de VM besturen als SSH niet werkt (toetsen sturen, schermafbeelding).
+    '-qmp', 'tcp:127.0.0.1:4444,server,nowait'
 )
 $p = Start-Process "$qemu\qemu-system-x86_64.exe" -ArgumentList $qargs -PassThru
 Write-Host "Bouwomgeving gestart (proces $($p.Id))."

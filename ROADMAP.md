@@ -65,31 +65,31 @@ Tests op meerdere schermformaten, Nederlandse handleiding, licenties, SHA256, re
 Eigenaar van: `live/`, `scripts/`, `vm/`, `pakket/universe-os/DEBIAN/`, `pakket/universe-os/etc/`, `docs/tests/`.
 
 ### M1
-- 🚧 A **A1** `scripts/build-deb.sh`: bouwt `universe-os_<versie>_all.deb` met `dpkg-deb`; genereert de pywayland-bindingen
+- ✅ **A1** `scripts/build-deb.sh`: bouwt `universe-os_<versie>_all.deb` met `dpkg-deb`; genereert de pywayland-bindingen
   (`python3 -m pywayland.scanner`) voor `wlr-foreign-toplevel-management-unstable-v1.xml` naar `shell/protocols/`
   (`__init__.py` meeleveren); kopieert `branding/universe.json` → `usr/share/universe-os/`.
-- ⬜ **A2** `DEBIAN/control` met `Depends` op: labwc, python3-gi, gir1.2-gtk-3.0, gir1.2-webkit2-4.1,
+- ✅ **A2** `DEBIAN/control` met `Depends` op: labwc, python3-gi, gir1.2-gtk-3.0, gir1.2-webkit2-4.1,
   gir1.2-gtklayershell-0.1, python3-pywayland, swaylock, swayidle, mako-notifier, wlr-randr, wlopm, grim, slurp,
   wl-clipboard, libnotify-bin, mate-polkit, xwayland, thunar, gvfs, udisks2, xfce4-terminal, zenity, fonts-noto-core.
-- ⬜ **A3** `DEBIAN/postinst`: `dpkg-divert` van `/usr/share/applications/wine.desktop` (anders start .exe zonder
+- 🧪 **A3** `DEBIAN/postinst`: `dpkg-divert` van `/usr/share/applications/wine.desktop` (anders start .exe zonder
   bevestiging), `HOME_MODE 0700` in `/etc/login.defs`, `DIR_MODE=0700` in `/etc/adduser.conf`, ufw aanzetten
   (inkomend dicht), `update-desktop-database`.
-- ⬜ **A4** Sessiebestanden: `usr/share/wayland-sessions/universe.desktop` en `universe-recovery.desktop`.
-- ⬜ **A5** `live/`: live-build-config (`auto/config`): trixie, amd64, `iso-hybrid`, bootloaders `grub-efi`,
+- 🧪 **A4** Sessiebestanden: `usr/share/wayland-sessions/universe.desktop` en `universe-recovery.desktop`.
+- 🧪 **A5** `live/`: live-build-config (`auto/config`): trixie, amd64, `iso-hybrid`, bootloaders `grub-efi`,
   `main contrib non-free non-free-firmware`, firmware, `--debian-installer none`. Bootparameters:
   `locales=nl_NL.UTF-8 keyboard-layouts=us keyboard-variants=intl timezone=Europe/Amsterdam`.
-- ⬜ **A6** Pakketlijsten (`config/package-lists/*.list.chroot`): basis, desktop-apps (firefox-esr +
+- 🧪 **A6** Pakketlijsten (`config/package-lists/*.list.chroot`): basis, desktop-apps (firefox-esr +
   firefox-esr-l10n-nl, mousepad, xfce4-terminal, file-roller, atril, celluloid, gnome-calculator,
   gnome-system-monitor), netwerk/geluid/bluetooth (network-manager-gnome, pipewire-audio, wireplumber, pavucontrol,
   blueman, wdisplays), software (gnome-software, packagekit, gdebi), taalpakketten, grub-efi-amd64-signed,
   shim-signed, efibootmgr, calamares, lightdm, lightdm-gtk-greeter, ufw.
-- ⬜ **A7** LightDM: `user-session=universe`, gtk-greeter in Universe-kleuren, Nederlandse taal; live-account met
+- 🧪 **A7** LightDM: `user-session=universe`, gtk-greeter in Universe-kleuren, Nederlandse taal; live-account met
   automatische aanmelding **alleen in de live-sessie**.
-- ⬜ **A8** Calamares (eigen config onder `includes.chroot_after_packages/etc/calamares/`): welkom, taal,
+- 🧪 **A8** Calamares (eigen config onder `includes.chroot_after_packages/etc/calamares/`): welkom, taal,
   toetsenbord (standaard us/intl, ook nl), tijdzone (voorstel Europe/Amsterdam, wijzigbaar), partitie
   (alleen "schijf wissen", expliciete bevestiging), gebruiker (sudo, geen autologin, geen rootwachtwoord), samenvatting.
   Bootloader offline (grub al in squashfs), live-pakketten verwijderen via `packages`.
-- ⬜ **A9** `scripts/build-iso.sh`: `lb clean && lb config && lb build`, logboek in `uitvoer/logs/`, pakketversies
+- 🚧 A **A9** `scripts/build-iso.sh`: `lb clean && lb config && lb build`, logboek in `uitvoer/logs/`, pakketversies
   (`chroot.packages.live`) en `SHA256SUMS` naast het ISO.
 - ⬜ **A10** `vm/sync-naar-vm.ps1` (project naar de bouw-VM) en `vm/haal-iso.ps1`.
 - ⬜ **A11** `vm/start-test-vm.ps1`: aparte VM, UEFI (OVMF uit QEMU), lege qcow2 van 40 GB, ISO gekoppeld of niet.
@@ -103,7 +103,7 @@ Eigenaar van: `live/`, `scripts/`, `vm/`, `pakket/universe-os/DEBIAN/`, `pakket/
 - ⬜ **A17** Tests accounts: beheerder/standaard, sudo/polkit, `chmod 700` op persoonlijke mappen, geen toegang tot andermans bestanden.
 
 ### M3 (Wine-systeemkant)
-- ⬜ **A18** Live-build hook `config/hooks/live/0100-wine32.hook.chroot`: `dpkg --add-architecture i386`,
+- 🧪 **A18** Live-build hook `config/hooks/live/0100-wine32.hook.chroot`: `dpkg --add-architecture i386`,
   `apt-get update`, `apt-get install wine wine64 wine32:i386 msitools`. **Geen** `wine-binfmt` (dat zou .exe direct uitvoeren).
 - ⬜ **A19** MIME: `universe-windows-installer.desktop` als standaard voor `application/x-ms-dos-executable`,
   `application/x-msdownload`, `application/vnd.microsoft.portable-executable`, `application/x-msi`, `application/x-ole-storage`
