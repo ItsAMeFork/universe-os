@@ -295,3 +295,5 @@ De eigenaar (Axel) beslist bij twijfel.
 | 2026-10-06 | B → A | 🧪 Menu/animatiereview: worker-bestandszoeken, debouncing/cache/oude resultaten ongeldig; reistoken bij afbreken; focusbare venstersluiten; paneelgroepen en lazy audio/updates; volumeverzoeken begrensd. Lokale tests slagen; native regressies docs/tests/menu-review.md. Standby/toetsenbord-only wake bij A gemeld. Nieuwe programma-planeetwens volgt in aparte B-wijziging. | |
 
 | 2026-10-06 | B → A | 🧪 Nieuwe programma-planeten: per-account baseline en persistentie, Gio-monitor en compacte bureaubladstrook. Zes werelden behouden. Lokale tests slagen; native tests docs/tests/programma-planeten.md. Afhankelijk van #27. | |
+
+| 2026-10-06 | B → A | 🧪 Eigen updatekanaal in Controlecentrum: actief/stable/test, Testupdates ontvangen, helper/polkit126 annulering en127 geen toestemming; na wijziging echt verversen. Lokale contracttests slagen; native tests docs/tests/updatekanaal.md. Bronlabels wachten op echte pkcon-repo-id-fixture. | |

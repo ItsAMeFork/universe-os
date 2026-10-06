@@ -261,6 +261,8 @@ def handlers(app):
         'bluetooth.get': bluetooth,
         'firewall.get': lambda a: firewall(),
         'updates.status': lambda a: backend.updates_status(),
+        'updates.channel.get': lambda a: backend.update_channel.get(),
+        'updates.channel.set': lambda a: backend.update_channel.set_channel(a),
         'updates.refresh': lambda a: backend.updates.refresh(),
         'about': lambda a: about(),
         'window.page': lambda a: app.pending_page,
@@ -286,7 +288,7 @@ class ControlCenter(Gtk.Application):
         if self.window:
             self.window.present()
             return
-        bridge = Bridge(handlers(self), threaded={'network.status', 'status', 'audio.outputs', 'audio.select', 'wifi.list', 'wifi.connect', 'users.add', 'users.remove', 'users.admin',
+        bridge = Bridge(handlers(self), threaded={'updates.channel.set', 'network.status', 'status', 'audio.outputs', 'audio.select', 'wifi.list', 'wifi.connect', 'users.add', 'users.remove', 'users.admin',
                                                    'users.password', 'account.password', 'timezone.set', 'updates.status', 'keyboard.set',
                                                    'locale.set', 'bluetooth.get', 'updates.refresh'}, log=lambda *args: None)
         self.window = Gtk.ApplicationWindow(application=self, title='Controlecentrum')
