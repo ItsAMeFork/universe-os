@@ -14,7 +14,8 @@ def query(*args):
 
 def classify(devices, radio, connectivity):
     rows = [line.split(':', 2) for line in devices.splitlines()]
-    rows = [row for row in rows if len(row) == 3 and row[0] not in ('loopback', 'tun', 'bridge')]
+    rows = [row for row in rows if len(row) == 3 and row[0] not in
+            ('loopback', 'tun', 'bridge', 'wifi-p2p', 'wireguard', 'dummy')]
     connected = [row for row in rows if row[1] in ('connected', 'connected (externally)')]
     if connected:
         row = next((row for row in connected if row[0] == 'ethernet'), connected[0])
@@ -25,6 +26,8 @@ def classify(devices, radio, connectivity):
         return {'state': 'connected', 'type': row[0], 'name': row[2],
                 'reason': connectivity if connectivity in messages else 'unknown',
                 'message': messages.get(connectivity, messages['unknown'])}
+    if any(row[1] == 'connecting' or row[1].startswith('connecting (') for row in rows):
+        return {'state': 'connecting', 'reason': 'connecting', 'message': 'Bezig met verbinden…'}
     if not rows:
         reason, message = 'no-device', 'Geen netwerkapparaat herkend. Controleer de aansluiting, driver en firmware.'
     elif any(row[0] == 'wifi' for row in rows) and radio == 'disabled':

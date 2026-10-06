@@ -12,6 +12,13 @@ for devices, radio, connectivity, reason in [
     ('wifi:unavailable:', 'disabled', 'none', 'wifi-off'),
     ('wifi:disconnected:', 'enabled', 'none', 'disconnected'),
     ('ethernet:unavailable:', 'enabled', 'none', 'device-unavailable'),
+    ('ethernet:unavailable:\nwifi-p2p:disconnected:\nwireguard:connected:wg0\ndummy:connected:dummy0',
+     'enabled', 'unknown', 'device-unavailable'),
+    ('wifi-p2p:disconnected:\nwireguard:connected:wg0\ndummy:disconnected:',
+     'enabled', 'unknown', 'no-device'),
+    ('wifi:connecting (prepare):Thuis', 'enabled', 'none', 'connecting'),
+    ('ethernet:connecting:', 'enabled', 'unknown', 'connecting'),
+    ('wifi:connecting (configuring):Thuis\nethernet:connected:Kabel', 'enabled', 'full', 'full'),
     ('ethernet:unmanaged:', 'enabled', 'none', 'unmanaged'),
     *[('wifi:connected:Naam:met:punt', 'enabled', value, value)
       for value in ('full', 'portal', 'limited', 'none', 'unknown')],

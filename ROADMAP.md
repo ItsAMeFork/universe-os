@@ -132,27 +132,31 @@ Eigenaar van: `pakket/universe-os/usr/share/universe-os/ui/`, `pakket/universe-o
 `pakket/universe-os/usr/bin/`, `pakket/universe-os/usr/share/applications/`, `branding/`.
 
 ### M1
-- ⬜ **B1** Shell starten in een echte labwc-sessie (in de live-ISO of de bouw-VM met labwc): fouten oplossen in
+- 🧪 **B1** Shell starten in een echte labwc-sessie (in de live-ISO of de bouw-VM met labwc): fouten oplossen in
   `universe_shell.py`, `toplevels.py`, `webview.py`. Controleer: wereld op achtergrondlaag, paneel boven vensters,
   overzicht met toetsenbordfocus.
-- ⬜ **B2** Windows-toets alleen (`Super_L` met `onRelease`), Windows+D (minimaliseren en terugzetten), Alt+Tab,
+- 🧪 **B2** Windows-toets alleen (`Super_L` met `onRelease`), Windows+D (minimaliseren en terugzetten), Alt+Tab,
   Alt+F4 werkend in labwc 0.8.3.
-- ⬜ **B3** `.desktop`-bestanden: Controlecentrum, Windows-programma's, installer (live).
-- ⬜ **B4** `universe-install` (live: Calamares starten met de juiste Wayland-omgeving) en
+- 🧪 **B3** `.desktop`-bestanden: Controlecentrum, Windows-programma's, installer (live).
+- 🧪 **B4** `universe-install` (live: Calamares starten met de juiste Wayland-omgeving) en
   `universe-install-deb` (zenity + gdebi-gtk).
-- ⬜ **B5** labwc-thema `usr/share/themes/Universe/openbox-3/themerc` in Universe-kleuren; `mako.conf`;
+- 🧪 **B5** labwc-thema `usr/share/themes/Universe/labwc/themerc` in Universe-kleuren; `mako.conf`;
   GTK donker thema (`/etc/gtk-3.0/settings.ini`).
+
+B1/B4: basisopstart en Calamares-installatie hebben bewijs in `docs/tests/M1.md`;
+volledige B1-laag/focuscontrole en B4 .deb-route blijven open. De overige B-regels
+blijven 🧪 tot hun gerichte VM-testverslagen er zijn.
 
 ### M2
 - 🧪 **B6** `ui/control.html` + `control.js`: alle pagina's uit `settings-index.js` (weergave/animaties/schaal,
   netwerk+wifi, geluid+microfoon, beeldschermen, bluetooth, taal+toetsenbord met **testveld voor tekens**, muis,
   datum/tijd, energie, accounts, sneltoetsen met conflictcontrole, updates, beveiliging, over).
-- ⬜ **B7** Communicatie-planeet: toont geïnstalleerde chat-/mailprogramma's en meldt eerlijk dat er nog geen
+- 🧪 **B7** Communicatie-planeet: toont geïnstalleerde chat-/mailprogramma's en meldt eerlijk dat er nog geen
   chatdienst gekoppeld is. **Geen** Space Chat en **geen** bestaande Matrix-server gebruiken of noemen: Universe OS
   staat daar los van.
-- ⬜ **B8** Toegankelijkheid: zichtbare focus overal, animaties volledig/verminderd/uit, UI- en tekstschaal,
+- 🧪 **B8** Toegankelijkheid: zichtbare focus overal, animaties volledig/verminderd/uit, UI- en tekstschaal,
   schermformaten 1024×768 t/m 4K.
-- ⬜ **B9** Nederlandse teksten nalopen; lijst van meegeleverde programma's zonder volledige Nederlandse vertaling.
+- 🧪 **B9** Nederlandse teksten nalopen; lijst van meegeleverde programma's zonder volledige Nederlandse vertaling.
 
 ### M3 (Wine-interface)
 - 🧪 **B10** (spoor B / ChatGPT; code geschreven, VM-test nog nodig) `ui/windows.html` + `windows.js`: bevestigingsscherm vóór uitvoeren (bestandsnaam, map, grootte,
@@ -160,17 +164,18 @@ Eigenaar van: `pakket/universe-os/usr/share/universe-os/ui/`, `pakket/universe-o
   (geslaagd/mislukt/geen snelkoppeling) los van status **werking** (niet getest/gestart/fout/werkt volgens gebruiker),
   starten, instellingen (omgeving, logboeken, winecfg, Wine Mono op verzoek), verwijderen met tweede bevestiging bij
   gegevens wissen.
-- ⬜ **B11** `universe-windows-installer.desktop` (NoDisplay, MimeType, `Exec=universe-windows-apps --installeer %f`)
+- 🧪 **B11** `universe-windows-installer.desktop` (NoDisplay, MimeType, `Exec=universe-windows-installer %f`)
   en `universe-windows-apps.desktop`; launchers in `usr/bin/`.
-- ⬜ **B12** Ruimtewereld: in het Applicaties-planeet een groep "Windows-programma's" (categorie `X-Universe-Windows`)
-  en een tegel "Windows-programma's beheren"; `backend.py` uitbreiden (`windows`-vlag, hulpmiddel `windows-apps`).
+- 🧪 **B12** Ruimtewereld: in het Applicaties-planeet een groep "Windows-programma's" (herkende `universe-wine-*`-snelkoppelingen)
+  en een tegel "Windows-programma's beheren"; starten via de geregistreerde `.desktop`-bestanden.
 
 ### M4
-- ⬜ **B14** Omgekeerde overgang bij afmelden (de loginplaneet vormt zich opnieuw). Moet af vóór de oplevering (M4).
-- ⬜ **B15** Ruimtewereld in dezelfde stijl als het planeet-inlogscherm: zelfde donkere achtergrond, sterren, teal gloed en glazen kaarten; alle planeten blijven. Wens van Axel (4 okt).
+- 🧪 **B14** Omgekeerde overgang bij afmelden (de loginplaneet vormt zich opnieuw). Moet af vóór de oplevering (M4).
+- 🧪 **B15** Ruimtewereld in dezelfde stijl als het planeet-inlogscherm: zelfde donkere achtergrond, sterren, teal gloed en glazen kaarten; alle planeten blijven. Wens van Axel (4 okt).
 - 🧪 **B16** Snelheid: geen filters/backdrop-blur op bewegende elementen, alleen transform/opacity animeren, kleinere canvassen, parallax per frame, FPS-meting. Doel ≥ 30 fps in de VM op 1920×1080 (zonder GPU-versnelling).
-- ⬜ **B13** Handleiding `docs/HANDLEIDING.md` (Nederlands): bouwen, testen in VM, USB schrijven, vormgeving en
+- 🧪 **B13** Handleiding `docs/HANDLEIDING.md` (Nederlands): bouwen, testen in VM, USB schrijven, vormgeving en
   wereldindeling aanpassen, standaardprogramma's wijzigen.
+  Gebruiks-, vormgevings- en standaardprogrammahoofdstukken geschreven; bouw/VM/USB-hoofdstuk volgt van Claude.
 
 ---
 
@@ -279,3 +284,5 @@ De eigenaar (Axel) beslist bij twijfel.
 | 2026-10-06 | B → A | 🧪 B9 broncodecontrole eigen interface en Nederlandse uitleg vóór technische systeemfouten. Upstream-/programmatekstbeperkingen vastgelegd in docs/NEDERLANDSE-TEKSTEN.md; volledige ISO-taalcontrole nog open. | |
 
 | 2026-10-06 | B → A | 🧪 B7/B8/B13: eerlijke communicatie/foutstatus, inert achtergrondplaneten en Tab-grenzen in kamers/paneel; docs/HANDLEIDING.md. Lokale focus-/JS-tests slagen. Native focus/inert, 1024×768–4K, grote tekst, animaties en handleiding tegen ISO nog testen (docs/tests/B7-B8-B13.md). | |
+
+| 2026-10-06 | B → A | 🧪 Kleine vervolgpunten: virtuele netwerkapparaten uitgefilterd en connecting-status; handleiding heeft wereldindeling/branding en standaardprogrammakeuze; eigen B-roadmapregels op 🧪 met open bewijs vermeld. Lokale netwerkregressies slagen; bouwen/VM/USB-hoofdstuk blijft van Claude. | |

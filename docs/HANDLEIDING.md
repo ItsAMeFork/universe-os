@@ -115,6 +115,64 @@ Kamers/instellingen zijn scrollbaar. Bij grote tekst of kleine schermen blijft
 scrollen nodig; 1024×768 t/m 4K moet in de VM worden gecontroleerd.
 Volledige schermlezerondersteuning is nog niet bewezen.
 
+## Vormgeving en wereldindeling aanpassen
+
+Voor je eigen account kun je kleuren en planeten aanpassen in
+`~/.config/universe-os/world.json` (bij een aangepaste XDG_CONFIG_HOME staat de
+map daar). Maak eerst een kopie van een bestaand bestand. Dit voorbeeld verplaatst
+de Thuiswereld en verandert het accent:
+
+```json
+{
+  "colors": {"accent": "#85ffe3"},
+  "planets": [{"id": "home", "x": 50, "y": 50, "size": 1.0}]
+}
+```
+
+Gebruik bestaande planeet-id’s: home, apps, store, control, chat en games. x en y
+zijn percentages van de ruimtewereld; size bepaalt de relatieve grootte. hue
+bepaalt de tint en name de zichtbare naam. Deze instellingen overschrijven velden
+van bestaande planeten; hiermee voeg je geen nieuwe functies of planeten toe.
+Kleuren gelden voor de webinterface, niet automatisch voor alle externe programma’s.
+Log opnieuw in om de indeling te laden. Herstel de kopie of verwijder alleen je
+eigen world.json als je terug wilt naar de standaard.
+
+Voor een eigen systeemvariant staat de centrale standaard in
+`branding/universe.json` in de projectbron. Daar staan kleuren, planeten en
+standaardinstellingen. De pakketbouw kopieert dit naar
+`/usr/share/universe-os/universe.json`. Wijzig de bron, controleer dat de JSON geldig
+blijft en laat het pakket opnieuw bouwen en installeren. Handmatig wijzigen van
+het geïnstalleerde bestand vereist beheerdersrechten en kan bij een pakketupdate
+worden overschreven. Een apart hoofdstuk met de bouwstappen volgt nog.
+
+## Standaardprogramma’s wijzigen
+
+Kies in Bestandsbeheer bij een bestand het gewenste programma via Openen met en
+de optie om dit als standaard te gebruiken. Dit geldt per bestandstype en voor
+je eigen account. Een browser kan ook zelf aanbieden standaardbrowser te worden.
+Het gekozen programma moet al geïnstalleerd zijn.
+
+De voorkeuren worden per gebruiker opgeslagen in
+`~/.config/mimeapps.list` (of de ingestelde XDG_CONFIG_HOME). Onder
+`[Default Applications]` staat per MIME-type een bestaand .desktop-id. Bijvoorbeeld:
+
+```ini
+[Default Applications]
+text/html=google-chrome.desktop;
+x-scheme-handler/http=google-chrome.desktop;
+x-scheme-handler/https=google-chrome.desktop;
+```
+
+Gebruik Chrome pas als het beschikbaar is; voor een ander programma gebruik je
+diens werkelijke .desktop-id. Bewaar bestaande regels en secties als je het bestand
+handmatig wijzigt. Per-gebruikerkeuzes kunnen de systeemstandaard overschrijven.
+
+De systeemstandaard voor accounts zonder eigen voorkeur staat in
+`/etc/xdg/mimeapps.list`. Alleen een beheerder hoort die te wijzigen. Een wijziging
+daar verwijdert bestaande persoonlijke voorkeuren niet. Laat .exe/.msi gekoppeld
+aan `universe-windows-installer.desktop` om het bevestigingsscherm te behouden;
+rechtstreeks Wine als standaard kiezen kan die bevestiging overslaan.
+
 ## Problemen melden
 
 Noteer welke knop, melding en handeling het probleem geeft en of je vanaf de

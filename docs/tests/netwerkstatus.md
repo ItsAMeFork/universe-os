@@ -4,6 +4,9 @@
 geen apparaat, wifi uit, niet verbonden, apparaat niet beschikbaar, onbeheerd,
 verbonden met full/portal/limited/none/unknown, kabel actief terwijl wifi uit is,
 netwerknaam met dubbele punt en onbereikbaar NetworkManager.
+Vervolgcontrole: wifi-p2p/wireguard/dummy worden overgeslagen; connecting en
+connecting (…) geven Bezig met verbinden…, terwijl een al actieve kabelverbinding
+voorrang houdt. Een losse kabel plus virtuele apparaten blijft device-unavailable.
 
 Paneel en Controlecentrum tonen dezelfde Nederlandse reden. Zonder herkend
 apparaat wordt controle van driver/firmware voorgesteld; er wordt geen ontbrekende
