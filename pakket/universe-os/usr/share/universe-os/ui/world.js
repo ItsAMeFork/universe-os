@@ -12,6 +12,17 @@ let initialFocus=true;
 const root=h('main',{class:'universe','aria-label':'Ruimtewereld van Universe OS'});
 const scene=h('div',{class:'scene'});
 const room=h('section',{class:'room glass',hidden:true,role:'dialog','aria-modal':'true'});
+let logoutOverlay=null;
+on('logout-begin',async()=>{
+ if(logoutOverlay)return;
+ const planet=h('div',{class:'logout-planet'},globe(182,true,pixelSize(Math.min(innerWidth*.8,650))));
+ logoutOverlay=h('div',{class:'logout-overlay',role:'status'},starfield(),planet,h('p',{},'Afmelden…'));
+ document.body.append(logoutOverlay);root.inert=true;
+ await afterPaint();logoutOverlay.classList.add('forming');
+ await new Promise(resolve=>setTimeout(resolve,motionAllowed(settings)?1250:30));
+ call('logout.finish').catch(e=>toast(e.message));
+});
+on('logout-error',message=>{logoutOverlay?.remove();logoutOverlay=null;root.inert=false;toast('Afmelden mislukt: '+message);});
 document.body.append(root);
 
 async function start(){

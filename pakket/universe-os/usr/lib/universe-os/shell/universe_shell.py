@@ -77,6 +77,8 @@ class Shell:
         self.panel = None
         self.overview = None
         self.panel_open = False
+        self.logout_pending = False
+        self.logout_timer = None
 
     # ----- surfaces -----
     def build(self):
@@ -241,7 +243,8 @@ class Shell:
             'volume.set': lambda a: backend.set_volume(a.get('level', 50)),
             'volume.mute': lambda a: backend.toggle_mute(),
             'notifications.clear': lambda a: backend.clear_notifications(),
-            'power': lambda a: backend.power(a.get('action')),
+            'power': lambda a: self.power(a.get('action')),
+            'logout.finish': lambda a: self.finish_logout(),
             'updates.status': lambda a: backend.updates_status(),
             'updates.refresh': lambda a: backend.updates.refresh(),
             'run': lambda a: backend.run_tool(a.get('tool'), a),
@@ -334,6 +337,43 @@ class Shell:
             log('ruimtewereld zichtbaar na %.3f s; pagina %.0f ms' %
                 (time.monotonic() - self.started_monotonic, float(data.get('milliseconds', 0))))
         return True
+
+    def power(self, action):
+        if action != 'logout':
+            return backend.power(action)
+        GLib.idle_add(self.begin_logout)
+        return True
+
+    def begin_logout(self):
+        if self.logout_pending:
+            return False
+        self.logout_pending = True
+        self.hide_overview()
+        if self.panel:
+            self.panel.emit('panel-close')
+        for world in self.worlds:
+            GtkLayerShell.set_layer(world.window, GtkLayerShell.Layer.OVERLAY)
+            GtkLayerShell.set_keyboard_mode(world.window, GtkLayerShell.KeyboardMode.EXCLUSIVE)
+            world.emit('logout-begin')
+        # Logging out must still work if artwork or the JavaScript callback fails.
+        self.logout_timer = GLib.timeout_add(1800, self.finish_logout)
+        return False
+
+    def finish_logout(self):
+        if not self.logout_pending:
+            return False
+        self.logout_pending = False
+        if self.logout_timer:
+            GLib.source_remove(self.logout_timer)
+            self.logout_timer = None
+        try:
+            backend.power('logout')
+        except Exception as error:
+            for world in self.worlds:
+                GtkLayerShell.set_layer(world.window, GtkLayerShell.Layer.BACKGROUND)
+                GtkLayerShell.set_keyboard_mode(world.window, GtkLayerShell.KeyboardMode.ON_DEMAND)
+                world.emit('logout-error', str(error))
+        return False
 
     def run(self):
         if not GtkLayerShell.is_supported():
