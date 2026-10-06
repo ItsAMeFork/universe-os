@@ -236,6 +236,7 @@ class Shell:
             'config.get': lambda a: backend.full_config(),
             'config.set': set_config,
             'apps.list': lambda a: backend.apps(),
+            'apps.desktop': lambda a: backend.desktop_apps(),
             'apps.launch': lambda a: backend.launch(a.get('id')),
             'chrome.status': lambda a: backend.chrome(),
             'files.places': lambda a: backend.places(),
@@ -385,12 +386,24 @@ class Shell:
             log('De compositor ondersteunt wlr-layer-shell niet; de Universe-shell kan niet starten.')
             return 2
         self.build()
+        self.app_monitor = Gio.AppInfoMonitor.get()
+        self.apps_changed_timer = None
+        self.app_monitor.connect('changed', self.schedule_apps_changed)
         self.serve()
         if not self.toplevels.start():
             log('Zonder vensteroverzicht verder.')
         GLib.timeout_add_seconds(10, self.status_tick)
         Gtk.main()
         return 0
+
+    def schedule_apps_changed(self, *_):
+        if self.apps_changed_timer:
+            GLib.source_remove(self.apps_changed_timer)
+        def send():
+            self.apps_changed_timer = None
+            self.broadcast('apps-changed')
+            return False
+        self.apps_changed_timer = GLib.timeout_add(300, send)
 
 
 def main():
