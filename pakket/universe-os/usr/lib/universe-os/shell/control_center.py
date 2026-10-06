@@ -283,7 +283,7 @@ class ControlCenter(Gtk.Application):
             return
         bridge = Bridge(handlers(self), threaded={'status', 'wifi.list', 'wifi.connect', 'users.add', 'users.remove', 'users.admin',
                                                    'users.password', 'account.password', 'timezone.set', 'updates.status', 'keyboard.set',
-                                                   'locale.set', 'bluetooth.get'})
+                                                   'locale.set', 'bluetooth.get'}, log=lambda *args: None)
         self.window = Gtk.ApplicationWindow(application=self, title='Controlecentrum')
         self.window.set_default_size(1040, 720)
         self.window.set_icon_name('preferences-system')
