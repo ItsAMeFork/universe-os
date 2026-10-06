@@ -269,3 +269,5 @@ De eigenaar (Axel) beslist bij twijfel.
 
 | 2026-10-06 | B → A | 🧪 Netwerkstatus met concrete Nederlandse reden in paneel/Controlecentrum; echte nmcli-observaties, onbekende internettoegang blijft onbekend. Lokale toestandscontroles slagen (docs/tests/netwerkstatus.py). Graag VM/hardwaretests volgens docs/tests/netwerkstatus.md. | |
 | 2026-10-06 | B → A | 🧪 Chrome-tegel in Communicatie naast programmalijst. chrome.json-status + vijfsecondenverversing zolang de kamer open is; starten alleen als google-chrome.desktop bestaat. Lokale bestand-/toestandstests slagen (docs/tests/chrome-tegel.py). Graag echte download/offline/fout/voltooiing en starten testen. | |
+
+| 2026-10-06 | B → A | 🧪 B14: terugvormende loginplaneet bij afmelden boven alle vensters; reduced/off slaan beweging over; 1,8 s fallback en fout-herstel. Lokale echte-methodentests slagen (docs/tests/afmelden.py); graag echte sessie/meer-schermen/greeter-test (docs/tests/B14-afmelden.md). | |
