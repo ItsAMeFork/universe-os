@@ -18,6 +18,7 @@ import config  # noqa: E402
 import updates  # noqa: E402
 import audio  # noqa: E402
 import network_status  # noqa: E402
+import chrome_status  # noqa: E402
 
 HELPER = '/usr/lib/universe-os/universe-admin-helper'
 
@@ -96,6 +97,10 @@ def launch(app_id):
     if not Gio.DesktopAppInfo.new(app_id):
         raise RuntimeError('Dit programma is niet (meer) geïnstalleerd.')
     spawn(['gtk-launch', app_id])
+
+
+def chrome():
+    return chrome_status.read(Gio.DesktopAppInfo.new('google-chrome.desktop') is not None)
 
 
 # ---------- files ----------

@@ -223,6 +223,7 @@ class Shell:
             'config.set': set_config,
             'apps.list': lambda a: backend.apps(),
             'apps.launch': lambda a: backend.launch(a.get('id')),
+            'chrome.status': lambda a: backend.chrome(),
             'files.places': lambda a: backend.places(),
             'open.path': lambda a: backend.open_path(a.get('path', '')),
             'search': search,

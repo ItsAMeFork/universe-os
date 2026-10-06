@@ -153,6 +153,18 @@ const ROOMS={
  async chat(main){
   // Universe OS has no chat service of its own yet and deliberately does not use any existing chat server.
   main.append(h('div',{class:'notice'},'Er is nog geen chatdienst gekoppeld aan Universe OS. Communicatieprogramma\'s die je zelf installeert, verschijnen hier.'));
+  const chrome=tile({name:'Google Chrome',sub:'Downloadstatus controleren…',iconName:'grid',onClick:()=>launch('google-chrome.desktop')});
+  chrome.disabled=true;const chromeMessage=h('p',{role:'status'});
+  const chromeRefresh=h('button',{type:'button'},'Downloadstatus vernieuwen');
+  main.append(section('Internet en communicatie',h('div',{class:'tiles'},chrome),chromeMessage,chromeRefresh));
+  let chromeBusy=false;
+  const refreshChrome=async()=>{if(chromeBusy)return;chromeBusy=true;chromeRefresh.disabled=true;
+   try{const s=await call('chrome.status');chrome.disabled=!s.available;chrome.querySelector('.t-sub').textContent=s.available?'Open de internetbrowser':s.state==='installing'?'Wordt gedownload en geïnstalleerd':'Nog niet beschikbaar';chromeMessage.textContent=s.message;}
+   catch(e){chrome.disabled=true;chromeMessage.textContent=e.message;}
+   finally{chromeBusy=false;chromeRefresh.disabled=false;}
+  };
+  chromeRefresh.addEventListener('click',refreshChrome);await refreshChrome();
+  const poll=()=>setTimeout(async()=>{if(!chrome.isConnected)return;await refreshChrome();poll();},5000);poll();
   let list=[];try{list=(await apps()).filter(a=>a.categories.includes('InstantMessaging')||a.categories.includes('Chat')||a.categories.includes('Email'));}catch{}
   main.append(section('Geïnstalleerde communicatieprogramma\'s',appGrid(list,'Geen communicatieprogramma\'s geïnstalleerd.')));
   main.append(section('Meer',h('div',{class:'tiles'},tile({name:'Chatprogramma zoeken',sub:'In de softwarewinkel (internet nodig)',iconName:'store',onClick:()=>run('software',{search:'chat'})}))));
