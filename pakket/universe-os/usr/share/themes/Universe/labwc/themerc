@@ -1,0 +1,25 @@
+# Universe: navy space, teal focus and legible inactive titles.
+border.width: 2
+window.titlebar.padding.width: 8
+window.titlebar.padding.height: 5
+window.active.border.color: #85ffe3
+window.inactive.border.color: #34465c
+window.active.title.bg: Solid
+window.active.title.bg.color: #162335
+window.inactive.title.bg: Solid
+window.inactive.title.bg.color: #0b1021
+window.active.label.text.color: #e2e6fa
+window.inactive.label.text.color: #a7b8ca
+window.active.button.unpressed.image.color: #85ffe3
+window.inactive.button.unpressed.image.color: #a7b8ca
+window.active.button.close.unpressed.image.color: #ff8a9a
+window.button.hover.bg.color: #85ffe333
+menu.items.bg.color: #0b1021
+menu.items.text.color: #e2e6fa
+menu.items.active.bg.color: #24394a
+menu.items.active.text.color: #85ffe3
+menu.title.bg.color: #162335
+menu.title.text.color: #e2e6fa
+osd.bg.color: #0b1021
+osd.border.color: #85ffe3
+osd.label.text.color: #e2e6fa

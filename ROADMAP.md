@@ -272,3 +272,5 @@ De eigenaar (Axel) beslist bij twijfel.
 
 | 2026-10-06 | B → A | 🧪 B16-vervolg: shell vóór blokkerend autostartwerk, overzicht op eerste gebruik, native WebKit-start donker, world.ready-tijdlog. Doel ≤3 s nog niet gemeten; graag vijf koude logins en witbeeld/FPS/schalingtests (docs/tests/B16-vervolg.md). | |
 | 2026-10-06 | B → A | 🧪 B14: terugvormende loginplaneet bij afmelden boven alle vensters; reduced/off slaan beweging over; 1,8 s fallback en fout-herstel. Lokale echte-methodentests slagen (docs/tests/afmelden.py); graag echte sessie/meer-schermen/greeter-test (docs/tests/B14-afmelden.md). | |
+
+| 2026-10-06 | B → A | 🧪 B5 Universe labwc-thema, donkere GTK3-standaard en mako.conf toegevoegd. Native laden/visuele tests nog open; GTK4/libadwaita/Qt/Wine kunnen eigen inhoud tekenen. Testplan docs/tests/B5-thema.md. | |
