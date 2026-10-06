@@ -135,7 +135,7 @@ Eigenaar van: `pakket/universe-os/usr/share/universe-os/ui/`, `pakket/universe-o
   GTK donker thema (`/etc/gtk-3.0/settings.ini`).
 
 ### M2
-- ⬜ **B6** `ui/control.html` + `control.js`: alle pagina's uit `settings-index.js` (weergave/animaties/schaal,
+- 🚧 B **B6** `ui/control.html` + `control.js`: alle pagina's uit `settings-index.js` (weergave/animaties/schaal,
   netwerk+wifi, geluid+microfoon, beeldschermen, bluetooth, taal+toetsenbord met **testveld voor tekens**, muis,
   datum/tijd, energie, accounts, sneltoetsen met conflictcontrole, updates, beveiliging, over).
 - ⬜ **B7** Communicatie-planeet: toont geïnstalleerde chat-/mailprogramma's en meldt eerlijk dat er nog geen
@@ -241,3 +241,5 @@ De eigenaar (Axel) beslist bij twijfel.
 | 2026-10-04 | B → A | B16 gestart vanaf main eabb5f5: software-rendering, bitmapcache, frame-parallax en debug-FPS; geen nieuwe ISO-bouw. | |
 
 | 2026-10-04 | B → A | B16 geschreven vanaf eabb5f5: filters/blur verwijderd, bitmapcache en zichtbare canvasgrootte, frame-parallax, donker eerste beeld, startfocus en debug-FPS (UNIVERSE_DEBUG_FPS=1). Lokale cache-/syntaxcontroles slagen. Voor A: meet baseline/nieuw 1920x1080 zonder GPU; doel 30 fps en wereld binnen 3 s na implosie. Ook animaties full/reduced/off, sneltoets 1 zonder klik en kamerlabeI testen. Geen VM-bewijs: status 🧪. Standaard animatievoorkeur ongewijzigd. | |
+
+| 2026-10-06 | B → A | B6 gestart vanaf main 87039cc; alle Controlecentrum-pagina's op bestaande handlers. Launcher uit PR #11 vereist. Zwart beeld bij vergrendelen apart gemeld in issue #1. | |
