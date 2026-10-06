@@ -68,6 +68,8 @@ class Surface:
 class Shell:
     def __init__(self):
         self.started = time.time()
+        self.started_monotonic = time.monotonic()
+        self.world_ready = False
         self.toplevels = Toplevels(self.windows_changed, log)
         self.bridge = Bridge(self.handlers(), threaded={'status', 'audio.outputs', 'audio.select', 'updates.status', 'power', 'volume.set', 'volume.mute',
                                                         'notifications.clear', 'search.files', 'updates.status', 'updates.refresh'}, log=log)
@@ -86,8 +88,7 @@ class Shell:
         L, E, K = GtkLayerShell.Layer, GtkLayerShell.Edge, GtkLayerShell.KeyboardMode
         self.panel = Surface(self, 'panel', 'panel.html', L.TOP, [E.TOP], K.ON_DEMAND, size=PANEL_CLOSED, transparent=True)
         self.panel.window.show_all()
-        self.overview = Surface(self, 'overview', 'overview.html', L.OVERLAY, [E.TOP, E.BOTTOM, E.LEFT, E.RIGHT], K.EXCLUSIVE, transparent=True)
-        self.overview.window.connect('key-press-event', self.overview_key)
+        # Search/overview is constructed on first use, not during login.
 
     def add_world(self, monitor):
         L, E, K = GtkLayerShell.Layer, GtkLayerShell.Edge, GtkLayerShell.KeyboardMode
@@ -120,6 +121,11 @@ class Shell:
             s.emit(name, data)
 
     def show_overview(self):
+        if self.overview is None:
+            L, E, K = GtkLayerShell.Layer, GtkLayerShell.Edge, GtkLayerShell.KeyboardMode
+            self.overview = Surface(self, 'overview', 'overview.html', L.OVERLAY,
+                                    [E.TOP, E.BOTTOM, E.LEFT, E.RIGHT], K.EXCLUSIVE, transparent=True)
+            self.overview.window.connect('key-press-event', self.overview_key)
         if self.panel_open:
             self.panel.emit('panel-close')
         self.overview.window.show_all()
@@ -128,10 +134,11 @@ class Shell:
         self.overview.emit('shown')
 
     def hide_overview(self):
-        self.overview.window.hide()
+        if self.overview:
+            self.overview.window.hide()
 
     def toggle_overview(self):
-        if self.overview.window.get_visible():
+        if self.overview and self.overview.window.get_visible():
             self.hide_overview()
         else:
             self.show_overview()
@@ -219,6 +226,7 @@ class Shell:
             return True
 
         return {
+            'world.ready': lambda a: self.ready(a),
             'config.get': lambda a: backend.full_config(),
             'config.set': set_config,
             'apps.list': lambda a: backend.apps(),
@@ -318,6 +326,13 @@ class Shell:
                 GLib.idle_add(self.panel.emit, 'status', data)
             import threading
             threading.Thread(target=work, daemon=True).start()
+        return True
+
+    def ready(self, data):
+        if not self.world_ready:
+            self.world_ready = True
+            log('ruimtewereld zichtbaar na %.3f s; pagina %.0f ms' %
+                (time.monotonic() - self.started_monotonic, float(data.get('milliseconds', 0))))
         return True
 
     def run(self):

@@ -17,7 +17,8 @@ document.body.append(root);
 async function start(){
  try{config=await call('config.get');}catch(e){config={settings:{animations:'full',travel:true},world:{planets:[]},user:{}};console.error(e);}
  settings=config.settings;user=config.user||{};applySettings({...settings,colors:config.world.colors});
- await afterPaint();build();debugFPS();
+ await afterPaint();build();debugFPS();await afterPaint();
+ call('world.ready',{milliseconds:performance.now()}).catch(()=>{});
 }
 function build(){
  root.replaceChildren(Object.assign(starfield(),{className:'space-stars'}),scene,room);

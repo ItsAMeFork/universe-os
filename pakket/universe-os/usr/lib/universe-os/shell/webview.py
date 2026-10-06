@@ -85,6 +85,9 @@ def make_view(page, bridge, transparent=False, zoom=1.0):
     view.set_zoom_level(zoom)
     if transparent:
         view.set_background_color(Gdk.RGBA(0, 0, 0, 0))
+    else:
+        # Native clear colour applies before HTML/CSS and WebKit's first frame.
+        view.set_background_color(Gdk.RGBA(5 / 255, 8 / 255, 21 / 255, 1))
     # Only our own pages: links to the web open in the browser, never inside the shell.
     view.connect('decide-policy', _policy)
     view.connect('context-menu', lambda *a: True)
