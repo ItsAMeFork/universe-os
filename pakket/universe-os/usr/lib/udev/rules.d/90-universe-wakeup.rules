@@ -1,0 +1,4 @@
+# Universe OS: wake from sleep with the keyboard, not by moving the mouse (wish of the owner, 6 Oct 2026).
+# Per USB device: keyboards keep wakeup, pointer-only devices lose it. See /usr/lib/universe-os/universe-input-wakeup.
+ACTION=="add|change", SUBSYSTEM=="input", KERNEL=="input*", SUBSYSTEMS=="usb", ENV{ID_INPUT_KEYBOARD}=="1", RUN+="/usr/lib/universe-os/universe-input-wakeup %p"
+ACTION=="add|change", SUBSYSTEM=="input", KERNEL=="input*", SUBSYSTEMS=="usb", ENV{ID_INPUT_MOUSE}=="1", RUN+="/usr/lib/universe-os/universe-input-wakeup %p"
