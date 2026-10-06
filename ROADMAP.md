@@ -289,3 +289,5 @@ De eigenaar (Axel) beslist bij twijfel.
 | 2026-10-06 | B → A | 🧪 Kleine vervolgpunten: virtuele netwerkapparaten uitgefilterd en connecting-status; handleiding heeft wereldindeling/branding en standaardprogrammakeuze; eigen B-roadmapregels op 🧪 met open bewijs vermeld. Lokale netwerkregressies slagen; bouwen/VM/USB-hoofdstuk blijft van Claude. | |
 
 | 2026-10-06 | B → A | 🧪 Chrome-beeld en vertraagde invoer/installatie gemeld. Achtergrondplaneten pauzeren bij zichtbare programmavensters; lokale compositor-state-test slaagt. GPU-oorzaak nog onbekend. CPU/invoer en hardwarediagnose testen volgens docs/tests/B16-achtergrondrust.md. | |
+
+| 2026-10-06 | B → A | 🧪 Menu/animatiereview: worker-bestandszoeken, debouncing/cache/oude resultaten ongeldig; reistoken bij afbreken; focusbare venstersluiten; paneelgroepen en lazy audio/updates; volumeverzoeken begrensd. Lokale tests slagen; native regressies docs/tests/menu-review.md. Standby/toetsenbord-only wake bij A gemeld. Nieuwe programma-planeetwens volgt in aparte B-wijziging. | |

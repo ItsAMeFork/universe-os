@@ -241,6 +241,7 @@ class Shell:
             'files.places': lambda a: backend.places(),
             'open.path': lambda a: backend.open_path(a.get('path', '')),
             'search': search,
+            'search.files': lambda a: backend.search_files((a.get('q') or '').strip()),
             'status': lambda a: backend.status(),
             'audio.outputs': lambda a: backend.audio.outputs(),
             'audio.select': lambda a: backend.audio.select(a),
