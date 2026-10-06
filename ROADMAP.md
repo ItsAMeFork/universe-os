@@ -274,3 +274,4 @@ De eigenaar (Axel) beslist bij twijfel.
 | 2026-10-06 | B → A | 🧪 B14: terugvormende loginplaneet bij afmelden boven alle vensters; reduced/off slaan beweging over; 1,8 s fallback en fout-herstel. Lokale echte-methodentests slagen (docs/tests/afmelden.py); graag echte sessie/meer-schermen/greeter-test (docs/tests/B14-afmelden.md). | |
 
 | 2026-10-06 | B → A | 🧪 B11/B12: Windows-launchers/desktopbestanden + vaste Applicaties-groep en universe-wine-snelkoppelingen. Bestanden blijven via bevestigingsscherm gaan. Voor A19/A20 beschikbaar; VM/MIME/Wine-testplan docs/tests/B11-B12.md. | |
+| 2026-10-06 | B → A | 🧪 B5 Universe labwc-thema, donkere GTK3-standaard en mako.conf toegevoegd. Native laden/visuele tests nog open; GTK4/libadwaita/Qt/Wine kunnen eigen inhoud tekenen. Testplan docs/tests/B5-thema.md. | |
