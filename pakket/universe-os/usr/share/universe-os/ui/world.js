@@ -1,3 +1,4 @@
+import {updatesView} from './updates-ui.js';
 import {call,on,applySettings,motionAllowed,toast,h,icon} from './api.js';
 import {globe,starfield,pixelSize} from './globe.js';
 import {debugFPS,afterPaint} from './performance.js';
@@ -142,9 +143,7 @@ const ROOMS={
    tile({name:'Updates',sub:'Systeem- en beveiligingsupdates',iconName:'update',onClick:()=>run('software',{mode:'updates'})}),
    tile({name:'Geïnstalleerde software',sub:'Overzicht en verwijderen',iconName:'grid',onClick:()=>run('software',{mode:'installed'})}),
    tile({name:'Lokaal .deb-bestand',sub:'Een gedownload pakket installeren',iconName:'download',onClick:()=>run('deb')}))));
-  const state=h('div',{});main.append(section('Status',state));
-  try{const s=await call('updates.status');state.append(h('div',{class:'notice ok'},s.rebootRequired?'Er is een herstart nodig om updates af te ronden.':'Geen herstart nodig.',s.count!=null?` ${s.count} update(s) beschikbaar volgens de laatste controle.`:''));}
-  catch(e){state.append(h('p',{class:'empty'},e.message));}
+  main.append(section('Status',updatesView()));
  },
  control(main){
   const grid=h('div',{class:'tiles'});
