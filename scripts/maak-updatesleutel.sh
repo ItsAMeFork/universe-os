@@ -18,14 +18,18 @@ DIR="$STICK/universe-os-updatesleutel"
 mkdir -p "$DIR/gnupg"
 chmod 700 "$DIR/gnupg"
 export GNUPGHOME="$DIR/gnupg"
+# Zonder venster: UNIVERSE_SLEUTEL_WACHTWOORDBESTAND=<bestand met de wachtwoordzin> (komt niet in de procesregel).
+PW=${UNIVERSE_SLEUTEL_WACHTWOORDBESTAND:-}
+G="gpg --batch"
+[ -n "$PW" ] && G="gpg --batch --pinentry-mode loopback --passphrase-file $PW"
 
 # Hoofdsleutel: alleen certificeren (subsleutels maken/verlengen), 10 jaar. Ondertekenen: subsleutel, 2 jaar.
-gpg --quick-generate-key "Universe OS updates" ed25519 cert 10y
+$G --quick-generate-key "Universe OS updates" ed25519 cert 10y
 FPR=$(gpg --list-keys --with-colons "Universe OS updates" | awk -F: '/^fpr/{print $10; exit}')
-gpg --quick-add-key "$FPR" ed25519 sign 2y
+$G --quick-add-key "$FPR" ed25519 sign 2y
 
 gpg --armor --export "$FPR" >"$ROOT/scripts/apt/universe-os-updates.asc"
-gpg --armor --export-secret-subkeys "$(gpg --list-keys --with-colons "$FPR" | awk -F: '/^fpr/{n++} n==2&&/^fpr/{print $10"!"; exit}')" >"$DIR/ondertekensleutel.asc"
+$G --armor --export-secret-subkeys "$(gpg --list-keys --with-colons "$FPR" | awk -F: '/^fpr/{n++} n==2&&/^fpr/{print $10"!"; exit}')" >"$DIR/ondertekensleutel.asc"
 # gpg maakt zelf een intrekkingscertificaat; vóór gebruik de dubbele punt aan het begin van de sleutelregel weghalen.
 cp "$GNUPGHOME/openpgp-revocs.d/$FPR.rev" "$DIR/intrekking.asc"
 echo "$FPR" >"$ROOT/scripts/apt/vingerafdruk"
