@@ -1,6 +1,6 @@
 # Voorstel: eigen updates voor Universe OS
 
-Status: **voorstel, niets gepubliceerd.** Er is nog geen sleutel gemaakt en geen bron online gezet. Axel beslist.
+Status (6 okt 2026): **besloten door Axel: GitHub Pages, hoofdsleutel op USB-stick, twee kanalen.** Sleutel gemaakt (vingerafdruk `771F 7DCD 1FB9 4C8D 5C4C  1B37 9D38 DB26 1B78 24AC`). Scripts gebouwd en getest met een wegwerpsleutel. **Nog niets gepubliceerd.**
 
 ## Kort
 
@@ -20,7 +20,7 @@ bouw-VM: build-deb.sh ──► test-VM: installeren + testen ──► Axel keu
 | Onderdeel | Keuze |
 |---|---|
 | Hosting | Een aparte GitHub-repo `universe-os-apt` met GitHub Pages (HTTPS). Gratis; ons pakket is ~1 MB, ruim binnen de limieten (1 GB opslag, ~100 GB verkeer per maand). Een eigen domeinnaam (± €10 per jaar) kan later, zodat we niet aan GitHub vastzitten. |
-| Pakketbron maken | `reprepro` in de bouw-VM. Dat maakt `dists/` en `pool/` en de `Release`-bestanden. Script: `scripts/publiceer-apt.sh` (nog te bouwen). |
+| Pakketbron maken | `apt-ftparchive` (apt-utils) in de bouw-VM, via `scripts/publiceer-apt.sh`. Alle versies blijven in `pool/` (terugdraaien via apt); `kanalen/test.lijst` en `kanalen/stable.lijst` bepalen wat elk kanaal ziet. (reprepro 5.3.1 in trixie bewaart maar één versie per kanaal, daarom niet gebruikt.) |
 | Ondertekening | OpenPGP-sleutel (ed25519; `sqv` in Debian 13 accepteert die). **Hoofdsleutel offline** bij Axel (USB-stick of `D:\UniverseOS-VMs\keys`, nooit in git of op GitHub). Ondertekenen gebeurt met een **subsleutel die 2 jaar geldig is**. |
 | Sleutel op de pc's | Pakket `universe-os-archive-keyring` zet de publieke sleutel in `/usr/share/keyrings/universe-os.gpg`. De bron staat in `/etc/apt/sources.list.d/universe-os.sources` met `Signed-By:` alleen voor onze bron; de sleutel geldt dus niet voor Debian of Google. |
 | Sleutel vervangen | Ruim vóór het verlopen een nieuwe subsleutel maken en via een update van `universe-os-archive-keyring` meesturen. Een tijd lang worden beide geaccepteerd, daarna wordt met de nieuwe getekend. Bij een gelekte sleutel: intrekken en een nieuw keyring-pakket (alleen bereikbaar zolang de oude sleutel nog vertrouwd wordt, dus de hoofdsleutel goed bewaren). |
@@ -71,3 +71,18 @@ Pages), eventueel ± €10 per jaar voor een eigen domein.
 1. Akkoord met GitHub Pages als eerste hosting (of meteen een eigen domein)?
 2. Waar bewaren we de offline hoofdsleutel (bijv. aparte USB-stick + kopie)?
 3. Twee kanalen (`stable` + `test`) of eerst alleen `stable`?
+
+## Stand van de uitvoering (6 oktober 2026)
+
+Getest in de bouw-VM met een wegwerpsleutel: publiceren naar test en daarna stable; 0.1.0 en 0.1.1 blijven allebei
+installeerbaar; dezelfde versie met andere inhoud wordt geweigerd; een vervalste `InRelease` wordt door apt (sqv)
+geweigerd; een stable-computer ziet geen testversies; `universe-updates-helper kanaal stable|test` (polkit-actie
+`nl.universeos.admin.updates`) zet het testkanaal aan en uit.
+
+Nog te doen, in deze volgorde:
+1. Repo `universe-os-apt` op GitHub aanmaken met GitHub Pages (tak `main`, map `/`).
+2. Ondertekensleutel (`ondertekensleutel.asc` van de stick) in de bouw-VM importeren; wachtwoordzin bij Axel.
+3. Eerste publicatie (`publiceer-apt.sh test`, dan `stable`, met `--push`), daarna controleren via HTTPS.
+4. Pas dan `scripts/apt/bron-actief` aanmaken, zodat het volgende ISO de bron meekrijgt.
+5. Nog niet getest: sleutelrotatie (oude client → nieuwe subsleutel → verlopen oude subsleutel) en het omkeren van
+   migraties bij terugdraaien. Herstel na een gelekte sleutel is geen automatisch pad: dat vraagt een nieuw ISO.
