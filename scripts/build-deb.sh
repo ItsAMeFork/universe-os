@@ -18,11 +18,16 @@ find "$STAGE" -name '__pycache__' -prune -exec rm -rf {} +
 install -Dm644 "$ROOT/branding/universe.json" "$STAGE/usr/share/universe-os/universe.json"
 echo "$VERSION" >"$STAGE/usr/share/universe-os/version"
 
-# Eigen updatebron (docs/UPDATES-VOORSTEL.md): alleen als de updatesleutel al gemaakt is. Kanaal stable voor iedereen;
-# het testkanaal zet een testcomputer zelf aan met een extra bestand universe-os-test.sources (Suites: test).
+# Eigen updatebron (docs/UPDATES-VOORSTEL.md). De publieke sleutel gaat mee zodra hij bestaat; de bron zelf pas als hij
+# echt online staat en getest is (scripts/apt/bron-actief), anders krijgt een ISO een onbereikbare bron mee.
+# UNIVERSE_APT_URL zet hem ook aan (alleen voor tests). Kanaal stable voor iedereen; een testcomputer zet het
+# testkanaal aan met een extra universe-os-test.sources (Suites: test).
 if [ -f "$ROOT/scripts/apt/universe-os-updates.asc" ]; then
-    install -d "$STAGE/usr/share/keyrings" "$STAGE/etc/apt/sources.list.d"
+    install -d "$STAGE/usr/share/keyrings"
     gpg --dearmor <"$ROOT/scripts/apt/universe-os-updates.asc" >"$STAGE/usr/share/keyrings/universe-os-updates.gpg"
+fi
+if [ -f "$ROOT/scripts/apt/universe-os-updates.asc" ] && { [ -f "$ROOT/scripts/apt/bron-actief" ] || [ -n "${UNIVERSE_APT_URL:-}" ]; }; then
+    install -d "$STAGE/etc/apt/sources.list.d"
     cat >"$STAGE/etc/apt/sources.list.d/universe-os.sources" <<SRC
 # Universe OS: updates van de interface en instellingen (ondertekend; sleutel alleen geldig voor deze bron).
 Types: deb
@@ -31,8 +36,6 @@ Suites: stable
 Components: main
 Signed-By: /usr/share/keyrings/universe-os-updates.gpg
 SRC
-    grep -qx /etc/apt/sources.list.d/universe-os.sources "$STAGE/DEBIAN/conffiles" ||
-        echo /etc/apt/sources.list.d/universe-os.sources >>"$STAGE/DEBIAN/conffiles"
 fi
 
 # Vergrendelscherm (swaylock --image): planeetstijl met "Vergrendeld". swaylock schaalt het per scherm.
@@ -45,6 +48,12 @@ python3 -m pywayland.scanner -i /usr/share/wayland/wayland.xml \
     "$ROOT/scripts/protocols/wlr-foreign-toplevel-management-unstable-v1.xml" -o "$PROTO" >/dev/null 2>&1
 touch "$PROTO/__init__.py"
 [ -f "$PROTO/wlr_foreign_toplevel_management_unstable_v1/__init__.py" ] || { echo "Genereren van de Wayland-bindingen mislukt" >&2; exit 1; }
+
+# Elk bestand onder /etc is een conffile: eigen aanpassingen van de gebruiker worden bij een update niet stil
+# overschreven (dpkg vraagt het dan). DEBIAN/conffiles hoeft dus niet met de hand bijgehouden te worden.
+(cd "$STAGE" && find etc -type f | sed 's|^|/|') | sort -u | cat - "$STAGE/DEBIAN/conffiles" 2>/dev/null | sort -u >"$STAGE/DEBIAN/conffiles.nieuw"
+mv "$STAGE/DEBIAN/conffiles.nieuw" "$STAGE/DEBIAN/conffiles"
+while read -r f; do [ -f "$STAGE$f" ] || { echo "conffile $f bestaat niet in het pakket" >&2; exit 1; }; done <"$STAGE/DEBIAN/conffiles"
 
 # Rechten: alles van root, programma's uitvoerbaar, de rest leesbaar.
 find "$STAGE" -type d -exec chmod 0755 {} +
