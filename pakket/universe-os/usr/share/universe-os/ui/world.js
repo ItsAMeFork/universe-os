@@ -132,6 +132,11 @@ const ROOMS={
    const q=search.value.trim().toLowerCase();list.replaceChildren();
    if(q){list.append(appGrid(all.filter(a=>(a.name+' '+a.comment+' '+a.keywords).toLowerCase().includes(q)),'Geen programma gevonden.'));return;}
    const used=new Set();
+   const windows=all.filter(a=>a.id.startsWith('universe-wine-'));
+   windows.forEach(a=>used.add(a.id));used.add('universe-windows-apps.desktop');
+   const windowsGrid=appGrid(windows,'Nog geen Windows-programma’s geïnstalleerd.');
+   windowsGrid.prepend(tile({name:'Windows-programma’s beheren',sub:'Installeren, starten, logboeken en verwijderen',iconName:'grid',onClick:()=>launch('universe-windows-apps.desktop')}));
+   list.append(section('Windows-programma’s',windowsGrid));
    for(const [title,cat] of CATEGORIES){const part=all.filter(a=>!used.has(a.id)&&a.categories.includes(cat));part.forEach(a=>used.add(a.id));if(part.length)list.append(section(title,appGrid(part)));}
    const rest=all.filter(a=>!used.has(a.id));if(rest.length)list.append(section('Overig',appGrid(rest)));
   };

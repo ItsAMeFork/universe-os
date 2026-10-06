@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Windows-programma installeren
+Comment=Bekijk en bevestig eerst het installatiebestand
+Exec=universe-windows-installer %f
+Icon=wine
+Terminal=false
+NoDisplay=true
+MimeType=application/x-ms-dos-executable;application/x-msdownload;application/x-msi;application/x-msdos-program;
+Categories=System;
+StartupNotify=true

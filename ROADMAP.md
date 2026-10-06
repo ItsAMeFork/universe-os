@@ -271,3 +271,5 @@ De eigenaar (Axel) beslist bij twijfel.
 | 2026-10-06 | B → A | 🧪 Chrome-tegel in Communicatie naast programmalijst. chrome.json-status + vijfsecondenverversing zolang de kamer open is; starten alleen als google-chrome.desktop bestaat. Lokale bestand-/toestandstests slagen (docs/tests/chrome-tegel.py). Graag echte download/offline/fout/voltooiing en starten testen. | |
 
 | 2026-10-06 | B → A | 🧪 B16-vervolg: shell vóór blokkerend autostartwerk, overzicht op eerste gebruik, native WebKit-start donker, world.ready-tijdlog. Doel ≤3 s nog niet gemeten; graag vijf koude logins en witbeeld/FPS/schalingtests (docs/tests/B16-vervolg.md). | |
+
+| 2026-10-06 | B → A | 🧪 B11/B12: Windows-launchers/desktopbestanden + vaste Applicaties-groep en universe-wine-snelkoppelingen. Bestanden blijven via bevestigingsscherm gaan. Voor A19/A20 beschikbaar; VM/MIME/Wine-testplan docs/tests/B11-B12.md. | |
