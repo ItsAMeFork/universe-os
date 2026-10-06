@@ -1,3 +1,4 @@
+import './login-power.js';
 import {call,on,available,applySettings} from './api.js';
 import {globe,starfield,pixelSize} from './globe.js';
 import {afterPaint,debugFPS} from './performance.js';
