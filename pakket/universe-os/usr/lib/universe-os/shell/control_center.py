@@ -284,7 +284,7 @@ class ControlCenter(Gtk.Application):
         if self.window:
             self.window.present()
             return
-        bridge = Bridge(handlers(self), threaded={'status', 'audio.outputs', 'audio.select', 'wifi.list', 'wifi.connect', 'users.add', 'users.remove', 'users.admin',
+        bridge = Bridge(handlers(self), threaded={'network.status', 'status', 'audio.outputs', 'audio.select', 'wifi.list', 'wifi.connect', 'users.add', 'users.remove', 'users.admin',
                                                    'users.password', 'account.password', 'timezone.set', 'updates.status', 'keyboard.set',
                                                    'locale.set', 'bluetooth.get', 'updates.refresh'}, log=lambda *args: None)
         self.window = Gtk.ApplicationWindow(application=self, title='Controlecentrum')
