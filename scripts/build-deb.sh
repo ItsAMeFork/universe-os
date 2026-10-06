@@ -1,7 +1,7 @@
 #!/bin/sh
 # Bouwt het universe-os deb-pakket uit pakket/universe-os (draai dit in de Debian 13-bouwomgeving).
 #   scripts/build-deb.sh            ->  uitvoer/universe-os_<versie>_all.deb
-# Nodig: dpkg-dev, python3-pywayland, libwayland-dev, pkgconf (voor het genereren van de Wayland-bindingen).
+# Nodig: dpkg-dev, librsvg2-bin, python3-pywayland, libwayland-dev, pkgconf (voor het genereren van de Wayland-bindingen).
 set -eu
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 OUT="$ROOT/uitvoer"
@@ -17,6 +17,9 @@ find "$STAGE" -name '__pycache__' -prune -exec rm -rf {} +
 # Centrale vormgeving en versie.
 install -Dm644 "$ROOT/branding/universe.json" "$STAGE/usr/share/universe-os/universe.json"
 echo "$VERSION" >"$STAGE/usr/share/universe-os/version"
+
+# Vergrendelscherm (swaylock --image): planeetstijl met "Vergrendeld". swaylock schaalt het per scherm.
+rsvg-convert -w 2560 -h 1440 "$ROOT/scripts/assets/vergrendeld.svg" -o "$STAGE/usr/share/universe-os/backgrounds/vergrendeld.png"
 
 # Python-bindingen voor wlr-foreign-toplevel (vensteroverzicht), gegenereerd met de pywayland-scanner.
 PROTO="$STAGE/usr/lib/universe-os/shell/protocols"
