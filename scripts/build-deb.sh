@@ -11,6 +11,18 @@ trap 'rm -rf "$STAGE"' EXIT
 mkdir -p "$OUT"
 
 echo "Universe OS-pakket $VERSION bouwen"
+
+# Syntaxcontrole vóór het bouwen: één fout in een JavaScript-module laat de hele pagina leeg (0.2.0: zwarte ruimtewereld
+# door een ')' te veel in world.js). Python altijd; JavaScript als node beschikbaar is.
+python3 -m py_compile "$ROOT"/pakket/universe-os/usr/lib/universe-os/shell/*.py
+find "$ROOT/pakket/universe-os" -name '__pycache__' -prune -exec rm -rf {} +
+if command -v node >/dev/null 2>&1; then
+    for f in "$ROOT"/pakket/universe-os/usr/share/universe-os/ui/*.js; do
+        node --input-type=module --check <"$f" || { echo "Syntaxfout in $f" >&2; exit 1; }
+    done
+else
+    echo "Let op: node ontbreekt, JavaScript niet gecontroleerd (apt install nodejs)." >&2
+fi
 cp -a "$ROOT/pakket/universe-os/." "$STAGE/"
 find "$STAGE" -name '__pycache__' -prune -exec rm -rf {} +
 

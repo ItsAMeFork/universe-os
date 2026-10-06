@@ -26,7 +26,7 @@ async function refreshAppPlanets(){
    const hue=[...app.id].reduce((n,c)=>(n*31+c.charCodeAt(0))%360,0);
    const button=h('button',{class:'app-planet',type:'button','aria-label':`${app.name} openen`},globe(hue,false,96),h('span',{},app.name));
    button.addEventListener('click',()=>launch(app.id));return button;
-  }))));appOrbit.hidden=!apps.length;root.classList.toggle('has-app-planets',!!apps.length);
+  })));appOrbit.hidden=!apps.length;root.classList.toggle('has-app-planets',!!apps.length);
  }catch(e){if(appOrbit.isConnected)toast('Programmaplaneten ophalen mislukt: '+e.message);}
 }
 let logoutOverlay=null;
