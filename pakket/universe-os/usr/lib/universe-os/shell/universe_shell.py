@@ -70,7 +70,7 @@ class Shell:
         self.started = time.time()
         self.toplevels = Toplevels(self.windows_changed, log)
         self.bridge = Bridge(self.handlers(), threaded={'status', 'updates.status', 'power', 'volume.set', 'volume.mute',
-                                                        'notifications.clear', 'search.files'}, log=log)
+                                                        'notifications.clear', 'search.files', 'updates.status', 'updates.refresh'}, log=log)
         self.worlds = []
         self.panel = None
         self.overview = None
@@ -232,6 +232,7 @@ class Shell:
             'notifications.clear': lambda a: backend.clear_notifications(),
             'power': lambda a: backend.power(a.get('action')),
             'updates.status': lambda a: backend.updates_status(),
+            'updates.refresh': lambda a: backend.updates.refresh(),
             'run': lambda a: backend.run_tool(a.get('tool'), a),
             'windows.list': lambda a: self.window_list(),
             'windows.activate': lambda a: self.toplevels.activate(str(a.get('id'))),

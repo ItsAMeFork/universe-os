@@ -15,6 +15,7 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gio, GLib, Gtk  # noqa: E402
 
 import config  # noqa: E402
+import updates  # noqa: E402
 
 HELPER = '/usr/lib/universe-os/universe-admin-helper'
 
@@ -281,12 +282,7 @@ def power(action):
 
 
 def updates_status():
-    count = None
-    # PackageKit knows the last refresh; this does not download anything.
-    text = out(['pkcon', '--plain', '--cache-age', '86400', 'get-updates'], timeout=20) if shutil.which('pkcon') else ''
-    if text:
-        count = len([line for line in text.splitlines() if re.match(r'^(Normal|Security|Important|Bugfix|Enhancement|Low)\s', line.strip())])
-    return {'rebootRequired': os.path.exists('/run/reboot-required'), 'count': count}
+    return updates.status()
 
 
 # ---------- tools ----------

@@ -1,3 +1,4 @@
+import {updatesView} from './updates-ui.js';
 import {call,on,applySettings,toast,h,icon} from './api.js';
 // Compact control panel: a small pill at the top (above all windows, top layer). Clicking it (or Windows+A) opens
 // the full panel with volume, network, battery, notifications and the power actions. No taskbar, no app list.
@@ -42,7 +43,7 @@ function renderPanel(){
   h('div',{class:'card'},h('div',{class:'line'},h('span',{},icon(v.muted?'mute':'volume'),`Geluid ${v.level}%`),mute),status.volume?slider:h('div',{class:'small'},'Geen geluidsapparaat gevonden.')),
   h('div',{class:'card'},h('div',{class:'line'},h('span',{},icon(netIcon(n)),netText(n))),h('div',{class:'quick'},tool('Netwerk','wifi','control',{page:'network'}),tool('Geluid','volume','control',{page:'sound'}))),
   b?.present?h('div',{class:'card'},h('div',{class:'line'},h('span',{},icon('battery'),`Batterij ${b.percent}%`),h('span',{class:'small'},b.charging?'Wordt opgeladen':b.state||''))):null,
-  status.rebootRequired?h('div',{class:'card'},h('div',{},'Herstart nodig om updates af te ronden.')):null,
+  h('div',{class:'card'},h('div',{},'Updates'),updatesView()),
   h('div',{class:'card'},h('div',{class:'line'},h('span',{},icon('bell'),'Meldingen'),list.length?act('Wissen','close',()=>call('notifications.clear').then(refresh)):null),notes),
   h('div',{class:'quick'},act('Ruimtewereld','planet',()=>{call('desktop.show');toggle(false);}),act('Overzicht','windows',()=>{call('surface.show',{name:'overview'});toggle(false);}),tool('Instellingen','gear','control'),tool('Bestanden','folder','files')),
   h('div',{class:'power'},act('Vergrendelen','lock',()=>{toggle(false);call('power',{action:'lock'});}),act('Afmelden','logout',()=>ask('Afmelden','logout')),act('Opnieuw opstarten','restart',()=>ask('Opnieuw opstarten','reboot')),act('Afsluiten','power',()=>ask('Afsluiten','poweroff')),
