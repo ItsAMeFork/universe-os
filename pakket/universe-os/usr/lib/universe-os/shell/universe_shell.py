@@ -179,7 +179,10 @@ class Shell:
         return result
 
     def windows_changed(self):
-        if self.toplevels.list():
+        windows = self.toplevels.list()
+        for world in self.worlds:
+            world.emit('background-busy', any(not w.get('minimized') for w in windows))
+        if windows:
             self.release_initial_focus()
         if self.overview and self.overview.window.get_visible():
             self.overview.emit('windows', self.window_list())
@@ -228,6 +231,7 @@ class Shell:
             return True
 
         return {
+            'background.busy': lambda a: any(not w.get('minimized') for w in self.toplevels.list()),
             'world.ready': lambda a: self.ready(a),
             'config.get': lambda a: backend.full_config(),
             'config.set': set_config,
