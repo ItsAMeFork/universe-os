@@ -1,0 +1,6 @@
+#!/bin/sh
+# Files are inspected by the confirmation UI; this never invokes Wine directly.
+if [ "$#" -gt 0 ]; then
+    exec universe-windows-apps --installeer "$1"
+fi
+exec universe-windows-apps

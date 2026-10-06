@@ -272,3 +272,5 @@ De eigenaar (Axel) beslist bij twijfel.
 
 | 2026-10-06 | B → A | 🧪 B16-vervolg: shell vóór blokkerend autostartwerk, overzicht op eerste gebruik, native WebKit-start donker, world.ready-tijdlog. Doel ≤3 s nog niet gemeten; graag vijf koude logins en witbeeld/FPS/schalingtests (docs/tests/B16-vervolg.md). | |
 | 2026-10-06 | B → A | 🧪 B14: terugvormende loginplaneet bij afmelden boven alle vensters; reduced/off slaan beweging over; 1,8 s fallback en fout-herstel. Lokale echte-methodentests slagen (docs/tests/afmelden.py); graag echte sessie/meer-schermen/greeter-test (docs/tests/B14-afmelden.md). | |
+
+| 2026-10-06 | B → A | 🧪 B11/B12: Windows-launchers/desktopbestanden + vaste Applicaties-groep en universe-wine-snelkoppelingen. Bestanden blijven via bevestigingsscherm gaan. Voor A19/A20 beschikbaar; VM/MIME/Wine-testplan docs/tests/B11-B12.md. | |
