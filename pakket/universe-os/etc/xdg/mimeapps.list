@@ -1,0 +1,7 @@
+# Universe OS: standaardprogramma's voor alle gebruikers (eigen keuzes per gebruiker in ~/.config/mimeapps.list winnen).
+# Webbrowser: Google Chrome (wens Axel); zolang Chrome nog niet is geïnstalleerd, gebruikt het systeem Firefox.
+[Default Applications]
+x-scheme-handler/http=google-chrome.desktop;firefox-esr.desktop;
+x-scheme-handler/https=google-chrome.desktop;firefox-esr.desktop;
+text/html=google-chrome.desktop;firefox-esr.desktop;
+application/xhtml+xml=google-chrome.desktop;firefox-esr.desktop;

@@ -1,0 +1,14 @@
+[Unit]
+Description=Universe OS: Google Chrome installeren bij de eerste start met internet
+Documentation=file:///usr/lib/universe-os/universe-chrome-install
+Wants=network-online.target
+After=network-online.target NetworkManager.service
+ConditionPathIsDirectory=!/run/live
+ConditionPathExists=!/usr/bin/google-chrome-stable
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/universe-os/universe-chrome-install
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=45min

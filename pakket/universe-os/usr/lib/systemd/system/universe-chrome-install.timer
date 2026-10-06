@@ -1,0 +1,11 @@
+[Unit]
+Description=Universe OS: Google Chrome installeren zodra er internet is (opnieuw proberen)
+ConditionPathIsDirectory=!/run/live
+ConditionPathExists=!/usr/bin/google-chrome-stable
+
+[Timer]
+OnBootSec=1min
+OnUnitInactiveSec=15min
+
+[Install]
+WantedBy=timers.target

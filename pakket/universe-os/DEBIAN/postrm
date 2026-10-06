@@ -3,5 +3,6 @@ set -e
 if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
     dpkg-divert --package universe-os --remove --rename \
         --divert /usr/share/universe-os/diverted/wine.desktop /usr/share/applications/wine.desktop || true
+    systemctl disable universe-chrome-install.timer >/dev/null 2>&1 || true
 fi
 exit 0
