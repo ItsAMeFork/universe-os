@@ -38,7 +38,8 @@ def pkexec_helper(args, stdin=None):
     if r.returncode in (126, 127):
         raise PermissionError('Geen toestemming: het beheerderswachtwoord is niet bevestigd.')
     if r.returncode:
-        raise RuntimeError(r.stderr.strip() or 'Mislukt')
+        raise RuntimeError('De systeemwijziging is mislukt.' +
+                           (' Technische melding: ' + r.stderr.strip() if r.stderr.strip() else ''))
     return True
 
 
@@ -207,7 +208,8 @@ def handlers(app):
     def display_scale(a):
         r = subprocess.run(['/usr/lib/universe-os/universe-displays', 'scale', str(a['name']), str(float(a['scale']))], capture_output=True, text=True)
         if r.returncode:
-            raise RuntimeError(r.stderr.strip() or 'Schaal niet gewijzigd')
+            raise RuntimeError('De beeldschermschaal is niet gewijzigd.' +
+                               (' Technische melding: ' + r.stderr.strip() if r.stderr.strip() else ''))
         return True
 
     def set_shortcuts(a):

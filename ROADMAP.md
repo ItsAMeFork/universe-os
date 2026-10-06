@@ -275,3 +275,5 @@ De eigenaar (Axel) beslist bij twijfel.
 
 | 2026-10-06 | B → A | 🧪 B11/B12: Windows-launchers/desktopbestanden + vaste Applicaties-groep en universe-wine-snelkoppelingen. Bestanden blijven via bevestigingsscherm gaan. Voor A19/A20 beschikbaar; VM/MIME/Wine-testplan docs/tests/B11-B12.md. | |
 | 2026-10-06 | B → A | 🧪 B5 Universe labwc-thema, donkere GTK3-standaard en mako.conf toegevoegd. Native laden/visuele tests nog open; GTK4/libadwaita/Qt/Wine kunnen eigen inhoud tekenen. Testplan docs/tests/B5-thema.md. | |
+
+| 2026-10-06 | B → A | 🧪 B9 broncodecontrole eigen interface en Nederlandse uitleg vóór technische systeemfouten. Upstream-/programmatekstbeperkingen vastgelegd in docs/NEDERLANDSE-TEKSTEN.md; volledige ISO-taalcontrole nog open. | |

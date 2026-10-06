@@ -272,7 +272,8 @@ def power(action):
     if action in ('reboot', 'poweroff', 'suspend'):
         r = subprocess.run(['systemctl', action], capture_output=True, text=True, timeout=30)
         if r.returncode != 0:
-            raise RuntimeError(r.stderr.strip() or 'Actie mislukt')
+            raise RuntimeError('De energieactie is mislukt.' +
+                               (' Technische melding: ' + r.stderr.strip() if r.stderr.strip() else ''))
         return
     raise ValueError('Onbekende actie')
 
