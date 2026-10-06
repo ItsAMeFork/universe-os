@@ -143,7 +143,7 @@ standaardinstellingen. De pakketbouw kopieert dit naar
 `/usr/share/universe-os/universe.json`. Wijzig de bron, controleer dat de JSON geldig
 blijft en laat het pakket opnieuw bouwen en installeren. Handmatig wijzigen van
 het geïnstalleerde bestand vereist beheerdersrechten en kan bij een pakketupdate
-worden overschreven. Een apart hoofdstuk met de bouwstappen volgt nog.
+worden overschreven. Zie "Bouwen, testen en op een USB-stick zetten" hieronder.
 
 ## Standaardprogramma’s wijzigen
 
@@ -181,3 +181,34 @@ Shell-/sessielogboeken staan in ~/.local/state/universe-os/. Deel geen
 wachtwoorden, sleutels of persoonlijke gegevens. Bij een vastlopende shell
 kunnen open programma’s blijven bestaan; herstelmodus is een aparte sessieoptie.
 Bekende vertaalbeperkingen staan in NEDERLANDSE-TEKSTEN.md.
+
+## Bouwen, testen en op een USB-stick zetten
+
+Universe OS wordt gebouwd in een Debian 13-omgeving (bij ons: de bouw-VM), nooit
+direct op Windows. Nodig: `live-build`, `librsvg2-bin`, `dpkg-dev`,
+`python3-pywayland`, `libwayland-dev` en `pkgconf`.
+
+1. **Pakket bouwen (snel, ter controle):** `sh scripts/build-deb.sh`. Dit maakt
+   `uitvoer/universe-os_<versie>_all.deb` en controleert onderweg de Python- en
+   shellbestanden.
+2. **ISO bouwen (20–60 minuten, internet nodig):** `sh scripts/build-iso.sh`.
+   Dit bouwt eerst het pakket en daarna het live-ISO. Resultaat:
+   `uitvoer/universe-os-<versie>-amd64.iso` met een `.sha256`-bestand, de
+   pakketlijst en de logboeken in `uitvoer/logs/<datum>/`. Bouw één ISO tegelijk.
+3. **Op Windows met de VM's** (PowerShell, vanuit de projectmap):
+   - `vm\start-bouw-vm.ps1` start de bouw-VM; `vm\sync-naar-vm.ps1` zet de
+     gecommitte projectstand erin (ongecommitte wijzigingen gaan niet mee).
+   - `vm\haal-iso.ps1` haalt het ISO naar `D:\UniverseOS-VMs\iso\` en controleert
+     de SHA-256.
+   - `vm\start-test-vm.ps1 -Iso <pad naar ISO> -Nieuw` start de test-VM met een
+     lege schijf en het ISO; daarna `vm\start-test-vm.ps1` om zonder ISO op te
+     starten. Installeer Universe OS nooit in de bouw-VM.
+4. **Op een USB-stick zetten:** controleer eerst de SHA-256 van het ISO. Schrijf
+   het ISO als geheel naar de stick (alles op de stick wordt gewist). Op Windows
+   kan dat met Rufus in de stand "DD-image" of met balenaEtcher; op Linux met
+   `sudo dd if=universe-os-<versie>-amd64.iso of=/dev/sdX bs=4M conv=fsync status=progress`,
+   waarbij `/dev/sdX` de hele stick is (controleer dat met `lsblk`).
+5. **Opstarten van de stick:** kies de stick in het opstartmenu van de computer
+   (vaak F12, F11, F8 of Esc bij het aanzetten). Universe OS start via UEFI. De
+   live-sessie start in de ruimtewereld; installeren kan via de installer-tegel.
+   Na installatie: stick eruit en herstarten.
