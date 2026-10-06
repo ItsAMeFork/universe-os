@@ -1,0 +1,4 @@
+#!/bin/sh
+# Het Controlecentrum (instellingen). Gestart vanuit de ruimtewereld, het paneel en universe-ctl run control.
+export GDK_BACKEND=wayland
+exec python3 /usr/lib/universe-os/shell/control_center.py "$@"

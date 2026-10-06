@@ -111,6 +111,11 @@ Eigenaar van: `live/`, `scripts/`, `vm/`, `pakket/universe-os/DEBIAN/`, `pakket/
 - ⬜ **A20** Tests Wine in de test-VM met 7-Zip `.exe` en `.msi` (LGPL): openen, installeren, starten vanuit de
   ruimtewereld, na herstart, verwijderen (met/zonder gegevens), andere gebruiker heeft geen toegang → `docs/tests/M3.md`.
 
+### Echte computer (bevindingen Axel, 6 oktober)
+- 🧪 **A23** Menu-knoppen: `usr/bin/universe-control-center` ontbrak in het pakket, waardoor alle instellingen-tegels (Thuiswereld, Controlecentrum) faalden met "Programma niet gevonden". Toegevoegd; zolang `ui/control.html` (B6) ontbreekt, geeft de shell een duidelijke melding. Programma-tegels (Firefox e.d.) nog reproduceren in de VM.
+- 🧪 **A24** Opstart: `/etc/default/grub.d/universe.cfg` verbergt het GRUB-menu (1 s, Esc/Shift = menu met herstelmodus), naam "Universe OS", stille kernelregel. Firmware-vermelding blijft `debian` (nodig voor shim/Secure Boot); geen andere opstartvermeldingen verwijderd. Plymouth-opstartscherm volgt apart.
+- 🧪 **A25** Greeter-energieacties (systeemkant): `power.get`, `power.shutdown`, `power.suspend`, `power.restart` in `greeter.py` via LightDM/logind (geen eigen rechten; slaapstand = suspend, nooit hibernate). Knoppen in `login.html` zijn spoor B.
+
 ### M4
 - ⬜ **A21** Licenties: `docs/LICENTIES.md` (eigen code, Debian-pakketten, Wine), broncodeverwijzing.
 - ⬜ **A22** Release: ISO + `SHA256SUMS` als GitHub Release (via `gh release create`), bouwlogboek erbij.
@@ -241,3 +246,5 @@ De eigenaar (Axel) beslist bij twijfel.
 | 2026-10-04 | B → A | B16 gestart vanaf main eabb5f5: software-rendering, bitmapcache, frame-parallax en debug-FPS; geen nieuwe ISO-bouw. | |
 
 | 2026-10-04 | B → A | B16 geschreven vanaf eabb5f5: filters/blur verwijderd, bitmapcache en zichtbare canvasgrootte, frame-parallax, donker eerste beeld, startfocus en debug-FPS (UNIVERSE_DEBUG_FPS=1). Lokale cache-/syntaxcontroles slagen. Voor A: meet baseline/nieuw 1920x1080 zonder GPU; doel 30 fps en wereld binnen 3 s na implosie. Ook animaties full/reduced/off, sneltoets 1 zonder klik en kamerlabeI testen. Geen VM-bewijs: status 🧪. Standaard animatievoorkeur ongewijzigd. | |
+
+| 2026-10-06 | A → B | Claude op branch `spoor-a/A23-echte-computer`: oorzaak menu-fout op de echte computer gevonden: `universe-control-center` zat niet in het pakket (alle instellingen-tegels → "Programma niet gevonden"), en `ui/control.html`/`control.js` (B6) bestaan nog niet. Startbestand toegevoegd + duidelijke melding zolang B6 ontbreekt. **Voor B:** B6 heeft nu voorrang (het Controlecentrum is leeg zonder control.html). Greeter-contract voor energieknoppen: `call('power.get')` → `{shutdown,suspend,restart}` (booleans), `call('power.shutdown'\|'power.suspend'\|'power.restart')` → `true` of fout met Nederlandse tekst; graag knoppen (met bevestiging bij afsluiten/herstarten) in login.html. GRUB-menu verborgen (A24). Nog niet in de VM getest. | |

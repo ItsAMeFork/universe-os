@@ -307,6 +307,8 @@ def run_tool(tool, args):
     if tool == 'deb':
         return spawn(['universe-install-deb'])
     if tool == 'control':
+        if not os.path.exists('/usr/share/universe-os/ui/control.html'):
+            raise RuntimeError('Het Controlecentrum is nog in aanbouw; deze instelling kan nog niet worden geopend.')
         page = args.get('page') or ''
         return spawn(['universe-control-center'] + (['--pagina', page] if re.fullmatch(r'[a-z]+', page) else []))
     if tool == 'installer':
