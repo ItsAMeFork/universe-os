@@ -10,6 +10,9 @@ import {keepTab} from './focus.js';
 const KIND={local:['local','Werkt lokaal'],online:['online','Internet nodig'],mixed:['mixed','Lokaal + online']};
 let config=null,settings={},user={},planets=[],current=null,lastFocus=null,appsCache=null;
 let initialFocus=true;
+let backgroundBusy=false;
+const setBackgroundBusy=value=>{backgroundBusy=!!value;document.documentElement.classList.toggle('background-busy',backgroundBusy);};
+on('background-busy',setBackgroundBusy);
 const root=h('main',{class:'universe','aria-label':'Ruimtewereld van Universe OS'});
 const scene=h('div',{class:'scene'});
 const room=h('section',{class:'room glass',hidden:true,role:'dialog','aria-modal':'true'});
@@ -30,6 +33,7 @@ async function start(){
  try{config=await call('config.get');}catch(e){config={settings:{animations:'full',travel:true},world:{planets:[]},user:{}};console.error(e);}
  settings=config.settings;user=config.user||{};applySettings({...settings,colors:config.world.colors});
  await afterPaint();build();debugFPS();await afterPaint();
+ call('background.busy').then(setBackgroundBusy).catch(()=>{});
  call('world.ready',{milliseconds:performance.now()}).catch(()=>{});
 }
 function build(){
@@ -65,9 +69,9 @@ function parallax(){
  if(parallaxFrame)cancelAnimationFrame(parallaxFrame);parallaxFrame=0;
  root.style.setProperty('--px','0px');root.style.setProperty('--py','0px');
  root.onmousemove=e=>{
-  if(!motionAllowed(settings))return;mouse=[e.clientX,e.clientY];
+  if(backgroundBusy||!motionAllowed(settings))return;mouse=[e.clientX,e.clientY];
   if(parallaxFrame)return;
-  parallaxFrame=requestAnimationFrame(()=>{parallaxFrame=0;if(!motionAllowed(settings))return;
+  parallaxFrame=requestAnimationFrame(()=>{parallaxFrame=0;if(backgroundBusy||!motionAllowed(settings))return;
    root.style.setProperty('--px',((mouse[0]/innerWidth-.5)*-14).toFixed(1)+'px');
    root.style.setProperty('--py',((mouse[1]/innerHeight-.5)*-10).toFixed(1)+'px');
   });

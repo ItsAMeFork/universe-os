@@ -286,3 +286,5 @@ De eigenaar (Axel) beslist bij twijfel.
 | 2026-10-06 | B → A | 🧪 B7/B8/B13: eerlijke communicatie/foutstatus, inert achtergrondplaneten en Tab-grenzen in kamers/paneel; docs/HANDLEIDING.md. Lokale focus-/JS-tests slagen. Native focus/inert, 1024×768–4K, grote tekst, animaties en handleiding tegen ISO nog testen (docs/tests/B7-B8-B13.md). | |
 
 | 2026-10-06 | B → A | 🧪 Kleine vervolgpunten: virtuele netwerkapparaten uitgefilterd en connecting-status; handleiding heeft wereldindeling/branding en standaardprogrammakeuze; eigen B-roadmapregels op 🧪 met open bewijs vermeld. Lokale netwerkregressies slagen; bouwen/VM/USB-hoofdstuk blijft van Claude. | |
+
+| 2026-10-06 | B → A | 🧪 Chrome-beeld en vertraagde invoer/installatie gemeld. Achtergrondplaneten pauzeren bij zichtbare programmavensters; lokale compositor-state-test slaagt. GPU-oorzaak nog onbekend. CPU/invoer en hardwarediagnose testen volgens docs/tests/B16-achtergrondrust.md. | |
