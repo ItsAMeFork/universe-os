@@ -2,7 +2,7 @@ Origin: Universe OS
 Label: Universe OS
 Suite: stable
 Codename: stable
-Architectures: amd64 all
+Architectures: amd64
 Components: main
 Description: Universe OS - updates voor iedereen
 SignWith: VINGERAFDRUK
@@ -11,7 +11,7 @@ Origin: Universe OS
 Label: Universe OS test
 Suite: test
 Codename: test
-Architectures: amd64 all
+Architectures: amd64
 Components: main
 Description: Universe OS - testkanaal (eerst hier, daarna naar stable)
 SignWith: VINGERAFDRUK
