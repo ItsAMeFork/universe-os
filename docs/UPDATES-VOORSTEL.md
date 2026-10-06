@@ -1,6 +1,6 @@
 # Voorstel: eigen updates voor Universe OS
 
-Status (6 okt 2026): **besloten door Axel: GitHub Pages, hoofdsleutel op USB-stick, twee kanalen.** Sleutel gemaakt (vingerafdruk `771F 7DCD 1FB9 4C8D 5C4C  1B37 9D38 DB26 1B78 24AC`). Scripts gebouwd en getest met een wegwerpsleutel. **Nog niets gepubliceerd.**
+Status (6 okt 2026): **besloten door Axel: GitHub Pages, hoofdsleutel op USB-stick, twee kanalen.** Sleutel gemaakt (vingerafdruk `771F 7DCD 1FB9 4C8D 5C4C  1B37 9D38 DB26 1B78 24AC`). **Online sinds 6 oktober 2026:** https://itsamefork.github.io/universe-os-apt/ (repo `ItsAMeFork/universe-os-apt`), versie 0.2.0 in test en stable, via HTTPS met apt getest.
 
 ## Kort
 
@@ -80,9 +80,9 @@ geweigerd; een stable-computer ziet geen testversies; `universe-updates-helper k
 `nl.universeos.admin.updates`) zet het testkanaal aan en uit.
 
 Nog te doen, in deze volgorde:
-1. Repo `universe-os-apt` op GitHub aanmaken met GitHub Pages (tak `main`, map `/`).
-2. Ondertekensleutel (`ondertekensleutel.asc` van de stick) in de bouw-VM importeren; wachtwoordzin bij Axel.
-3. Eerste publicatie (`publiceer-apt.sh test`, dan `stable`, met `--push`), daarna controleren via HTTPS.
-4. Pas dan `scripts/apt/bron-actief` aanmaken, zodat het volgende ISO de bron meekrijgt.
+1. ✅ Repo `universe-os-apt` met GitHub Pages (tak `main`, map `/`); de bouw-VM pusht met een eigen deploy key (alleen deze repo).
+2. ✅ Ondertekensubsleutel geïmporteerd in de bouw-VM (de hoofdsleutel blijft op de stick).
+3. ✅ 0.2.0 gepubliceerd in test en stable; apt via HTTPS gecontroleerd (handtekening, beide kanalen, download).
+4. ✅ `scripts/apt/bron-actief` aangemaakt: het volgende ISO krijgt de bron mee.
 5. Nog niet getest: sleutelrotatie (oude client → nieuwe subsleutel → verlopen oude subsleutel) en het omkeren van
    migraties bij terugdraaien. Herstel na een gelekte sleutel is geen automatisch pad: dat vraagt een nieuw ISO.
