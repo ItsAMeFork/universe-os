@@ -17,6 +17,18 @@ on('background-busy',setBackgroundBusy);
 const root=h('main',{class:'universe','aria-label':'Ruimtewereld van Universe OS'});
 const scene=h('div',{class:'scene'});
 const room=h('section',{class:'room glass',hidden:true,role:'dialog','aria-modal':'true'});
+const appOrbit=h('section',{class:'app-orbit',hidden:true,'aria-label':'Nieuwe programma’s'});
+let appRefresh=0;
+async function refreshAppPlanets(){
+ const token=++appRefresh;
+ try{const apps=await call('apps.desktop');if(token!==appRefresh)return;
+  appOrbit.replaceChildren(h('h2',{},'Jouw programmaplaneten'),h('div',{class:'app-orbit-list'},...apps.map(app=>{
+   const hue=[...app.id].reduce((n,c)=>(n*31+c.charCodeAt(0))%360,0);
+   const button=h('button',{class:'app-planet',type:'button','aria-label':`${app.name} openen`},globe(hue,false,96),h('span',{},app.name));
+   button.addEventListener('click',()=>launch(app.id));return button;
+  }))));appOrbit.hidden=!apps.length;root.classList.toggle('has-app-planets',!!apps.length);
+ }catch(e){if(appOrbit.isConnected)toast('Programmaplaneten ophalen mislukt: '+e.message);}
+}
 let logoutOverlay=null;
 on('logout-begin',async()=>{
  if(logoutOverlay)return;
@@ -38,7 +50,7 @@ async function start(){
  call('world.ready',{milliseconds:performance.now()}).catch(()=>{});
 }
 function build(){
- root.replaceChildren(Object.assign(starfield(),{className:'space-stars'}),scene,room);
+ root.replaceChildren(Object.assign(starfield(),{className:'space-stars'}),scene,room,appOrbit);
  scene.replaceChildren();
  const home=config.world.planets.find(p=>p.id==='home');
  if(home){const paths=h('div',{class:'space-paths'},h('i'),h('i'),h('i'));paths.style.left=home.x+'%';paths.style.top=home.y+'%';scene.append(paths);}
@@ -61,6 +73,7 @@ function build(){
  }
  root.append(h('div',{class:'hint'},'Klik op een planeet of druk ',h('kbd',{},'1'),'–',h('kbd',{},String(planets.length)),' · ',h('kbd',{},'Windows'),' zoeken en open programma\'s · ',h('kbd',{},'Windows'),'+',h('kbd',{},'D'),' ruimtewereld · ',h('kbd',{},'Windows'),'+',h('kbd',{},'A'),' bedieningspaneel'));
  parallax();
+ refreshAppPlanets();
  if(initialFocus){initialFocus=false;planets[0]?.button.focus({preventScroll:true});}
 }
 
@@ -80,7 +93,7 @@ function parallax(){
 }
 
 async function land(p,{travel}){
- if(current)return;current=p;lastFocus=document.activeElement;scene.inert=true;
+ if(current)return;current=p;lastFocus=document.activeElement;scene.inert=true;appOrbit.inert=true;appOrbit.style.visibility='hidden';
  const token=++travelToken;
  const planet=planets.find(x=>x.p===p)?.button;
  const animate=travel&&settings.travel!==false&&motionAllowed(settings)&&planet;
@@ -93,7 +106,7 @@ async function land(p,{travel}){
  if(token===travelToken&&current===p)openRoom(p);
 }
 function leave(){
- if(!current)return;travelToken++;current=null;room.hidden=true;room.replaceChildren();scene.inert=false;
+ if(!current)return;travelToken++;current=null;room.hidden=true;room.replaceChildren();scene.inert=false;appOrbit.inert=false;appOrbit.style.visibility='';
  scene.style.visibility='';scene.classList.remove('travelling');scene.style.transform='';
  (lastFocus&&lastFocus.isConnected?lastFocus:planets[0]?.button)?.focus({preventScroll:true});
 }
@@ -119,7 +132,7 @@ function tile({name,sub,iconName,img,onClick,wide}){
 }
 function section(title,...kids){return h('section',{},h('h2',{},title),...kids);}
 async function apps(){if(!appsCache)appsCache=await call('apps.list');return appsCache;}
-on('apps-changed',()=>{appsCache=null;});
+on('apps-changed',()=>{appsCache=null;refreshAppPlanets();});
 
 function appGrid(list,empty){
  const grid=h('div',{class:'tiles'});

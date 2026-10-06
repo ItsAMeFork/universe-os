@@ -17,6 +17,7 @@ from gi.repository import Gio, GLib, Gtk  # noqa: E402
 import config  # noqa: E402
 import updates  # noqa: E402
 import audio  # noqa: E402
+import app_planets  # noqa: E402
 import network_status  # noqa: E402
 import chrome_status  # noqa: E402
 
@@ -101,6 +102,17 @@ def launch(app_id):
 
 def chrome():
     return chrome_status.read(Gio.DesktopAppInfo.new('google-chrome.desktop') is not None)
+
+
+def desktop_apps():
+    path = os.path.join(config.user_dir(), 'app-planets.json')
+    installed = apps()
+    previous = config.read_json(path, None)
+    state = app_planets.reconcile(installed, previous)
+    if state != previous:
+        config.write_json(path, state)
+    by_id = {app['id']: app for app in installed}
+    return [by_id[app_id] for app_id in state['planets']]
 
 
 # ---------- files ----------
