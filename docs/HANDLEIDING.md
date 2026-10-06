@@ -55,8 +55,8 @@ geïnstalleerd programma of website. Een lege lijst betekent dat er nog geen
 communicatieprogramma gevonden is, niet dat Universe een chataccount heeft.
 
 Chrome wordt van Google gedownload bij de eerste start van het geïnstalleerde
-systeem met internet, ook op een verbinding met datalimiet zoals gekozen door
-Axel. De tegel toont wachten/downloaden/fout en wordt pas bruikbaar als het
+systeem met internet, ook op een verbinding met datalimiet.
+De tegel toont wachten/downloaden/fout en wordt pas bruikbaar als het
 programma beschikbaar is. Downloadstatus vernieuwen controleert de status;
 dit is geen knop om een tweede installatie te starten. Zonder Chrome kun je een
 al aanwezige browser vanuit Applicaties gebruiken. Chrome krijgt daarna updates
@@ -70,7 +70,8 @@ zonder bevestigd internet of verbonden met internet. Een netwerk kan eerst
 aanmelding op een website vereisen. Onbekende internettoegang blijft onbekend.
 Geen apparaat is geen bewijs dat een specifieke driver ontbreekt; controleer
 dan kabel, adapter, driver en firmware. Netwerkinstellingen zijn via het paneel
-bereikbaar. Verbindingsproblemen vragen soms hardwareonderzoek door spoor A.
+bereikbaar. Blijft de verbinding ontbreken, noteer het apparaat en de melding
+zodat de oorzaak onderzocht kan worden.
 
 Geluidsuitgang toont beschikbare analoge, HDMI/DisplayPort-, USB- en
 Bluetooth-uitgangen en de actieve uitgang. Kies een uitgang en Deze uitgang

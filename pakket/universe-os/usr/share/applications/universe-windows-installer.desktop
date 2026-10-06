@@ -6,6 +6,6 @@ Exec=universe-windows-installer %f
 Icon=wine
 Terminal=false
 NoDisplay=true
-MimeType=application/x-ms-dos-executable;application/x-msdownload;application/x-msi;application/x-msdos-program;
+MimeType=application/x-ms-dos-executable;application/x-msdownload;application/x-msi;application/x-msdos-program;application/vnd.microsoft.portable-executable;application/x-dosexec;application/x-ms-ne-executable;
 Categories=System;
 StartupNotify=true
