@@ -105,7 +105,7 @@ Eigenaar van: `live/`, `scripts/`, `vm/`, `pakket/universe-os/DEBIAN/`, `pakket/
 ### M3 (Wine-systeemkant)
 - 🧪 **A18** Live-build hook `config/hooks/live/0100-wine32.hook.chroot`: `dpkg --add-architecture i386`,
   `apt-get update`, `apt-get install wine wine64 wine32:i386 msitools`. **Geen** `wine-binfmt` (dat zou .exe direct uitvoeren).
-- ⬜ **A19** MIME: `universe-windows-installer.desktop` als standaard voor `application/x-ms-dos-executable`,
+- 🧪 **A19** MIME (6 okt: alle Debian 13-typen voor .exe/.msi in `etc/xdg/mimeapps.list`, ook `application/vnd.microsoft.portable-executable` en `x-dosexec`): `universe-windows-installer.desktop` als standaard voor `application/x-ms-dos-executable`,
   `application/x-msdownload`, `application/vnd.microsoft.portable-executable`, `application/x-msi`, `application/x-ole-storage`
   in `/etc/xdg/mimeapps.list` (of `usr/share/applications/mimeapps.list`).
 - ⬜ **A20** Tests Wine in de test-VM met 7-Zip `.exe` en `.msi` (LGPL): openen, installeren, starten vanuit de
