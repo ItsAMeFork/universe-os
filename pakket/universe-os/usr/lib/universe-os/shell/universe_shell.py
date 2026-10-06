@@ -69,7 +69,7 @@ class Shell:
     def __init__(self):
         self.started = time.time()
         self.toplevels = Toplevels(self.windows_changed, log)
-        self.bridge = Bridge(self.handlers(), threaded={'status', 'updates.status', 'power', 'volume.set', 'volume.mute',
+        self.bridge = Bridge(self.handlers(), threaded={'status', 'audio.outputs', 'audio.select', 'updates.status', 'power', 'volume.set', 'volume.mute',
                                                         'notifications.clear', 'search.files', 'updates.status', 'updates.refresh'}, log=log)
         self.worlds = []
         self.panel = None
@@ -227,6 +227,8 @@ class Shell:
             'open.path': lambda a: backend.open_path(a.get('path', '')),
             'search': search,
             'status': lambda a: backend.status(),
+            'audio.outputs': lambda a: backend.audio.outputs(),
+            'audio.select': lambda a: backend.audio.select(a),
             'volume.set': lambda a: backend.set_volume(a.get('level', 50)),
             'volume.mute': lambda a: backend.toggle_mute(),
             'notifications.clear': lambda a: backend.clear_notifications(),

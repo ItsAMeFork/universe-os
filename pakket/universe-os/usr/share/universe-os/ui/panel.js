@@ -1,3 +1,4 @@
+import {audioView} from './audio-ui.js';
 import {updatesView} from './updates-ui.js';
 import {call,on,applySettings,toast,h,icon} from './api.js';
 // Compact control panel: a small pill at the top (above all windows, top layer). Clicking it (or Windows+A) opens
@@ -40,7 +41,7 @@ function renderPanel(){
  const ask=(label,action)=>{confirmBox.replaceChildren(h('div',{},`${label}? Niet-opgeslagen werk in open programma's kan verloren gaan.`),h('div',{class:'power'},act('Ja, '+label.toLowerCase(),'power',()=>call('power',{action}).catch(e=>toast(e.message)),'danger'),act('Annuleren','close',()=>confirmBox.replaceChildren())));confirmBox.querySelector('button').focus();};
  panel.replaceChildren(...[
   h('div',{class:'top'},h('div',{},h('div',{class:'clock'},fmtTime(now)),h('div',{class:'date'},fmtDate(now))),close),
-  h('div',{class:'card'},h('div',{class:'line'},h('span',{},icon(v.muted?'mute':'volume'),`Geluid ${v.level}%`),mute),status.volume?slider:h('div',{class:'small'},'Geen geluidsapparaat gevonden.')),
+  h('div',{class:'card'},h('div',{class:'line'},h('span',{},icon(v.muted?'mute':'volume'),`Geluid ${v.level}%`),mute),status.volume?slider:h('div',{class:'small'},'Geen geluidsapparaat gevonden.'),audioView()),
   h('div',{class:'card'},h('div',{class:'line'},h('span',{},icon(netIcon(n)),netText(n))),h('div',{class:'quick'},tool('Netwerk','wifi','control',{page:'network'}),tool('Geluid','volume','control',{page:'sound'}))),
   b?.present?h('div',{class:'card'},h('div',{class:'line'},h('span',{},icon('battery'),`Batterij ${b.percent}%`),h('span',{class:'small'},b.charging?'Wordt opgeladen':b.state||''))):null,
   h('div',{class:'card'},h('div',{},'Updates'),updatesView()),

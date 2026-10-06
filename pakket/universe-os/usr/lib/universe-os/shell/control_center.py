@@ -234,6 +234,8 @@ def handlers(app):
         'apps.launch': lambda a: backend.launch(a.get('id')),
         'run': lambda a: backend.run_tool(a.get('tool'), a),
         'status': lambda a: backend.status(),
+        'audio.outputs': lambda a: backend.audio.outputs(),
+        'audio.select': lambda a: backend.audio.select(a),
         'volume.set': lambda a: backend.set_volume(a.get('level', 50)),
         'volume.mute': lambda a: backend.toggle_mute(),
         'mic.get': mic, 'mic.set': set_mic,
@@ -282,7 +284,7 @@ class ControlCenter(Gtk.Application):
         if self.window:
             self.window.present()
             return
-        bridge = Bridge(handlers(self), threaded={'status', 'wifi.list', 'wifi.connect', 'users.add', 'users.remove', 'users.admin',
+        bridge = Bridge(handlers(self), threaded={'status', 'audio.outputs', 'audio.select', 'wifi.list', 'wifi.connect', 'users.add', 'users.remove', 'users.admin',
                                                    'users.password', 'account.password', 'timezone.set', 'updates.status', 'keyboard.set',
                                                    'locale.set', 'bluetooth.get', 'updates.refresh'}, log=lambda *args: None)
         self.window = Gtk.ApplicationWindow(application=self, title='Controlecentrum')
