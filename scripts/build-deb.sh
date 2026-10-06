@@ -18,6 +18,23 @@ find "$STAGE" -name '__pycache__' -prune -exec rm -rf {} +
 install -Dm644 "$ROOT/branding/universe.json" "$STAGE/usr/share/universe-os/universe.json"
 echo "$VERSION" >"$STAGE/usr/share/universe-os/version"
 
+# Eigen updatebron (docs/UPDATES-VOORSTEL.md): alleen als de updatesleutel al gemaakt is. Kanaal stable voor iedereen;
+# het testkanaal zet een testcomputer zelf aan met een extra bestand universe-os-test.sources (Suites: test).
+if [ -f "$ROOT/scripts/apt/universe-os-updates.asc" ]; then
+    install -d "$STAGE/usr/share/keyrings" "$STAGE/etc/apt/sources.list.d"
+    gpg --dearmor <"$ROOT/scripts/apt/universe-os-updates.asc" >"$STAGE/usr/share/keyrings/universe-os-updates.gpg"
+    cat >"$STAGE/etc/apt/sources.list.d/universe-os.sources" <<SRC
+# Universe OS: updates van de interface en instellingen (ondertekend; sleutel alleen geldig voor deze bron).
+Types: deb
+URIs: ${UNIVERSE_APT_URL:-https://itsamefork.github.io/universe-os-apt/}
+Suites: stable
+Components: main
+Signed-By: /usr/share/keyrings/universe-os-updates.gpg
+SRC
+    grep -qx /etc/apt/sources.list.d/universe-os.sources "$STAGE/DEBIAN/conffiles" ||
+        echo /etc/apt/sources.list.d/universe-os.sources >>"$STAGE/DEBIAN/conffiles"
+fi
+
 # Vergrendelscherm (swaylock --image): planeetstijl met "Vergrendeld". swaylock schaalt het per scherm.
 rsvg-convert -w 2560 -h 1440 "$ROOT/scripts/assets/vergrendeld.svg" -o "$STAGE/usr/share/universe-os/backgrounds/vergrendeld.png"
 
