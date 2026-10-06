@@ -13,7 +13,7 @@ document.body.append(pill,panel);
 pill.addEventListener('click',()=>toggle(true));
 
 function netIcon(n){return !n||n.state!=='connected'?'offline':n.type==='wifi'?'wifi':'wired';}
-function netText(n){if(!n||n.state==='unavailable')return 'Netwerkbeheer niet beschikbaar';if(n.state!=='connected')return 'Geen verbinding (offline)';return `${n.type==='wifi'?'Wifi':'Kabel'}: ${n.name||'verbonden'}`;}
+function netText(n){if(!n)return 'Netwerkstatus onbekend';const name=n.state==='connected'?`${n.type==='wifi'?'Wifi':n.type==='ethernet'?'Kabel':'Netwerk'}: ${n.name||'verbonden'}. `:'';return name+(n.message||'Netwerkstatus onbekend');}
 function renderPill(){
  const now=new Date(),v=status.volume,b=status.battery,count=status.notifications?.length||0;
  pill.replaceChildren(...[

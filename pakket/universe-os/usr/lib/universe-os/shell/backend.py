@@ -17,6 +17,7 @@ from gi.repository import Gio, GLib, Gtk  # noqa: E402
 import config  # noqa: E402
 import updates  # noqa: E402
 import audio  # noqa: E402
+import network_status  # noqa: E402
 
 HELPER = '/usr/lib/universe-os/universe-admin-helper'
 
@@ -168,18 +169,7 @@ def search(query):
 
 # ---------- status ----------
 def network():
-    if not shutil.which('nmcli'):
-        return {'state': 'unavailable'}
-    best = None
-    for line in out(['nmcli', '-t', '-f', 'TYPE,STATE,CONNECTION', 'device']).splitlines():
-        parts = line.split(':')
-        if len(parts) < 3 or parts[0] not in ('wifi', 'ethernet'):
-            continue
-        if parts[1].startswith('connected'):
-            best = {'state': 'connected', 'type': parts[0], 'name': ':'.join(parts[2:])}
-            if parts[0] == 'ethernet':
-                break
-    return best or {'state': 'disconnected'}
+    return network_status.status()
 
 
 def volume():
