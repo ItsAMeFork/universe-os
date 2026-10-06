@@ -7,7 +7,8 @@
 #
 # Opbouw (apt-ftparchive, geen database): alle versies blijven in pool/, zodat terugdraaien via apt altijd kan
 # (apt install universe-os=<oude versie>). kanalen/<kanaal>.lijst bepaalt welke versies een kanaal ziet.
-# Ondertekenen met de ondertekensubsleutel in de gpg-sleutelbos van de bouw-VM; gpg vraagt de wachtwoordzin.
+# Ondertekenen met de ondertekensubsleutel in de gpg-sleutelbos van de bouw-VM; gpg vraagt de wachtwoordzin, of leest
+# die uit UNIVERSE_SLEUTEL_WACHTWOORDBESTAND (komt niet in de procesregel; verwijder het bestand daarna).
 set -eu
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 REPO=${UNIVERSE_APT_REPO:-$HOME/universe-os-apt}
@@ -21,6 +22,8 @@ FPR=$(cat "$ROOT/scripts/apt/vingerafdruk" 2>/dev/null || true)
 case "$KANAAL" in test|stable) ;; *) echo "Kanaal moet test of stable zijn." >&2; exit 2 ;; esac
 command -v apt-ftparchive >/dev/null || { echo "apt-ftparchive ontbreekt: sudo apt-get install apt-utils" >&2; exit 1; }
 [ -d "$REPO/.git" ] || { echo "$REPO is geen git-checkout van de updatebron (universe-os-apt)." >&2; exit 1; }
+G="gpg --batch --yes"
+[ -n "${UNIVERSE_SLEUTEL_WACHTWOORDBESTAND:-}" ] && G="$G --pinentry-mode loopback --passphrase-file $UNIVERSE_SLEUTEL_WACHTWOORDBESTAND"
 POOL=pool/main/u/universe-os
 mkdir -p "$REPO/$POOL" "$REPO/kanalen"
 touch "$REPO/kanalen/test.lijst" "$REPO/kanalen/stable.lijst"
@@ -59,8 +62,8 @@ for k in test stable; do
         -o APT::FTPArchive::Release::Architectures=amd64 -o APT::FTPArchive::Release::Components=main \
         release "$REPO/dists/$k" >"$REPO/dists/$k/Release.tmp"
     mv "$REPO/dists/$k/Release.tmp" "$REPO/dists/$k/Release"
-    gpg --batch --yes -u "$FPR" --clearsign -o "$REPO/dists/$k/InRelease" "$REPO/dists/$k/Release"
-    gpg --batch --yes -u "$FPR" -abs -o "$REPO/dists/$k/Release.gpg" "$REPO/dists/$k/Release"
+    $G -u "$FPR" --clearsign -o "$REPO/dists/$k/InRelease" "$REPO/dists/$k/Release"
+    $G -u "$FPR" -abs -o "$REPO/dists/$k/Release.gpg" "$REPO/dists/$k/Release"
 done
 cp "$ROOT/scripts/apt/universe-os-updates.asc" "$REPO/universe-os-updates.asc"
 touch "$REPO/.nojekyll"

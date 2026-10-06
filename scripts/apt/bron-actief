@@ -1,0 +1,2 @@
+De eigen updatebron staat online (https://itsamefork.github.io/universe-os-apt/), gecontroleerd op 6 oktober 2026.
+Zolang dit bestand bestaat, zet build-deb.sh universe-os.sources (kanaal stable) in het pakket.
