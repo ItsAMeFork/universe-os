@@ -1,11 +1,12 @@
 import {audioView} from './audio-ui.js';
 import {updatesView} from './updates-ui.js';
 import {keepTab} from './focus.js';
+import {latestValue} from './requests.js';
 import {call,on,applySettings,toast,h,icon} from './api.js';
 // Compact control panel: a small pill at the top (above all windows, top layer). Clicking it (or Windows+A) opens
 // the full panel with volume, network, battery, notifications and the power actions. No taskbar, no app list.
 
-let status={},open=false,config=null;
+let status={},open=false,config=null,toggleToken=0,refreshPromise=null;
 const fmtTime=d=>d.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
 const fmtDate=d=>d.toLocaleDateString('nl-NL',{weekday:'long',day:'numeric',month:'long'});
 const pill=h('button',{class:'pill',type:'button','aria-label':'Bedieningspaneel openen','aria-expanded':'false'});
@@ -26,12 +27,20 @@ function renderPill(){
  pill.setAttribute('aria-label',`Bedieningspaneel openen. ${fmtTime(now)}. ${netText(status.network)}.${count?` ${count} meldingen.`:''}`);
 }
 function renderPanel(){
+ const focused=panel.contains(document.activeElement)?document.activeElement:null;
+ const focusKey=focused&&(focused.getAttribute('aria-label')||focused.textContent);
+ const scroll=panel.scrollTop;
+ const expanded=[...panel.querySelectorAll('details[open]')].map(d=>d.querySelector('summary').textContent);
+ const deferred=(title,create)=>{const details=h('details',{},h('summary',{},title));let loaded=false;details.addEventListener('toggle',()=>{if(details.open&&!loaded){loaded=true;details.append(create());}});return details;};
  const now=new Date(),v=status.volume||{level:0,muted:false},b=status.battery,n=status.network;
  const close=h('button',{type:'button','aria-label':'Paneel sluiten'},icon('close'));close.addEventListener('click',()=>toggle(false));
  const slider=h('input',{type:'range',min:'0',max:'100',value:String(v.level),'aria-label':'Volume'});
- slider.addEventListener('input',()=>call('volume.set',{level:Number(slider.value)}).catch(e=>toast(e.message)));
+ const setVolume=latestValue(level=>call('volume.set',{level}),e=>toast(e.message));
+ const volumeLabel=h('span',{},icon(v.muted?'mute':'volume'),`Geluid ${v.level}%`);
+ slider.addEventListener('input',()=>{volumeLabel.replaceChildren(icon(v.muted?'mute':'volume'),`Geluid ${slider.value}%`);setVolume(Number(slider.value));});
  const mute=h('button',{type:'button','aria-pressed':String(!!v.muted)},icon(v.muted?'mute':'volume'),v.muted?'Gedempt':'Dempen');
  mute.addEventListener('click',()=>call('volume.mute').then(refresh).catch(e=>toast(e.message)));
+ mute.disabled=!status.volume;
  const act=(label,iconName,fn,cls='')=>{const b=h('button',{type:'button',class:cls},icon(iconName),label);b.addEventListener('click',fn);return b;};
  const tool=(label,iconName,tool,args={})=>act(label,iconName,()=>{call('run',{tool,...args}).catch(e=>toast(e.message));toggle(false);});
  const notes=h('div',{class:'notes'});
@@ -42,23 +51,31 @@ function renderPanel(){
  const ask=(label,action)=>{confirmBox.replaceChildren(h('div',{},`${label}? Niet-opgeslagen werk in open programma's kan verloren gaan.`),h('div',{class:'power'},act('Ja, '+label.toLowerCase(),'power',()=>call('power',{action}).catch(e=>toast(e.message)),'danger'),act('Annuleren','close',()=>confirmBox.replaceChildren())));confirmBox.querySelector('button').focus();};
  panel.replaceChildren(...[
   h('div',{class:'top'},h('div',{},h('div',{class:'clock'},fmtTime(now)),h('div',{class:'date'},fmtDate(now))),close),
-  h('div',{class:'card'},h('div',{class:'line'},h('span',{},icon(v.muted?'mute':'volume'),`Geluid ${v.level}%`),mute),status.volume?slider:h('div',{class:'small'},'Geen geluidsapparaat gevonden.'),audioView()),
+  h('h2',{class:'panel-heading'},'Geluid en verbinding'),
+  h('div',{class:'card'},h('div',{class:'line'},volumeLabel,mute),status.volume?slider:h('div',{class:'small'},'Geen geluidsapparaat gevonden.'),deferred('Geluidsuitgang kiezen',audioView)),
   h('div',{class:'card'},h('div',{class:'line'},h('span',{},icon(netIcon(n)),netText(n))),h('div',{class:'quick'},tool('Netwerk','wifi','control',{page:'network'}),tool('Geluid','volume','control',{page:'sound'}))),
   b?.present?h('div',{class:'card'},h('div',{class:'line'},h('span',{},icon('battery'),`Batterij ${b.percent}%`),h('span',{class:'small'},b.charging?'Wordt opgeladen':b.state||''))):null,
-  h('div',{class:'card'},h('div',{},'Updates'),updatesView()),
+  h('h2',{class:'panel-heading'},'Updates en meldingen'),
+  h('div',{class:'card'},deferred('Updatestatus en controleren',updatesView)),
   h('div',{class:'card'},h('div',{class:'line'},h('span',{},icon('bell'),'Meldingen'),list.length?act('Wissen','close',()=>call('notifications.clear').then(refresh)):null),notes),
-  h('div',{class:'quick'},act('Ruimtewereld','planet',()=>{call('desktop.show');toggle(false);}),act('Overzicht','windows',()=>{call('surface.show',{name:'overview'});toggle(false);}),tool('Instellingen','gear','control'),tool('Bestanden','folder','files')),
+  h('h2',{class:'panel-heading'},'Navigatie'),
+  h('div',{class:'quick'},act('Ruimtewereld','planet',()=>{call('desktop.show').catch(e=>toast(e.message));toggle(false);}),act('Overzicht','windows',()=>{call('surface.show',{name:'overview'}).catch(e=>toast(e.message));toggle(false);}),tool('Instellingen','gear','control'),tool('Bestanden','folder','files')),
+  h('h2',{class:'panel-heading'},'Sessie en energie'),
   h('div',{class:'power'},act('Vergrendelen','lock',()=>{toggle(false);call('power',{action:'lock'});}),act('Afmelden','logout',()=>ask('Afmelden','logout')),act('Opnieuw opstarten','restart',()=>ask('Opnieuw opstarten','reboot')),act('Afsluiten','power',()=>ask('Afsluiten','poweroff')),
    status.canSuspend?act('Slaapstand','sleep',()=>{toggle(false);call('power',{action:'suspend'});}):null),
   confirmBox].filter(child=>child!=null));
+ for(const details of panel.querySelectorAll('details'))if(expanded.includes(details.querySelector('summary').textContent))details.open=true;
+ if(focusKey){const replacement=[...panel.querySelectorAll('button,input,select,summary')].find(el=>(el.getAttribute('aria-label')||el.textContent)===focusKey);replacement?.focus({preventScroll:true});}
+ panel.scrollTop=scroll;
 }
 async function toggle(value){
- open=value;pill.setAttribute('aria-expanded',String(open));
+ const token=++toggleToken;open=value;pill.setAttribute('aria-expanded',String(open));
+ pill.hidden=open;panel.hidden=!open;if(open){renderPanel();panel.querySelector('button,input')?.focus();}
  await call('surface.size',{name:'panel',open}).catch(()=>{});
- pill.hidden=open;panel.hidden=!open;
- if(open){await refresh();panel.querySelector('button,input')?.focus();}else pill.blur();
+ if(token!==toggleToken)return;
+ if(open)await refresh();else pill.blur();
 }
-async function refresh(){try{status=await call('status');}catch(e){status={};}renderPill();if(open)renderPanel();}
+async function refresh(){if(refreshPromise)return refreshPromise;refreshPromise=(async()=>{try{status=await call('status');}catch(e){toast('Status ophalen mislukt: '+e.message);}renderPill();if(open)renderPanel();})();try{await refreshPromise;}finally{refreshPromise=null;}}
 addEventListener('keydown',e=>{if(open)keepTab(e,panel);if(e.key==='Escape'&&open){e.preventDefault();toggle(false);}});
 on('status',s=>{status=s;renderPill();});
 on('panel-toggle',()=>toggle(!open));

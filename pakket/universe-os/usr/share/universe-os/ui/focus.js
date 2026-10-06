@@ -8,7 +8,7 @@ export function nextBoundary(list,current,backwards){
 }
 export function keepTab(event,container){
  if(event.key!=='Tab'||container.hidden)return;
- const list=[...container.querySelectorAll('button,input,select,textarea,a[href],[tabindex]')]
+ const list=[...container.querySelectorAll('button,input,select,textarea,summary,a[href],[tabindex]')]
   .filter(el=>!el.disabled&&el.tabIndex>=0&&!el.closest('[hidden],[inert]')&&el.getClientRects().length);
  const next=nextBoundary(list,document.activeElement,event.shiftKey);
  if(next){event.preventDefault();next.focus();}

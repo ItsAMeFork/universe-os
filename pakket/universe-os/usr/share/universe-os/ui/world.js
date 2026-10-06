@@ -10,6 +10,7 @@ import {keepTab} from './focus.js';
 const KIND={local:['local','Werkt lokaal'],online:['online','Internet nodig'],mixed:['mixed','Lokaal + online']};
 let config=null,settings={},user={},planets=[],current=null,lastFocus=null,appsCache=null;
 let initialFocus=true;
+let travelToken=0;
 let backgroundBusy=false;
 const setBackgroundBusy=value=>{backgroundBusy=!!value;document.documentElement.classList.toggle('background-busy',backgroundBusy);};
 on('background-busy',setBackgroundBusy);
@@ -80,6 +81,7 @@ function parallax(){
 
 async function land(p,{travel}){
  if(current)return;current=p;lastFocus=document.activeElement;scene.inert=true;
+ const token=++travelToken;
  const planet=planets.find(x=>x.p===p)?.button;
  const animate=travel&&settings.travel!==false&&motionAllowed(settings)&&planet;
  if(animate){
@@ -88,10 +90,10 @@ async function land(p,{travel}){
   scene.style.transformOrigin=`${cx}px ${cy}px`;scene.style.transform=`translate(${innerWidth/2-cx}px,${innerHeight/2-cy}px) scale(3.2)`;scene.classList.add('travelling');
   await new Promise(r=>setTimeout(r,650));
  }else scene.style.visibility='hidden';
- openRoom(p);
+ if(token===travelToken&&current===p)openRoom(p);
 }
 function leave(){
- if(!current)return;current=null;room.hidden=true;room.replaceChildren();scene.inert=false;
+ if(!current)return;travelToken++;current=null;room.hidden=true;room.replaceChildren();scene.inert=false;
  scene.style.visibility='';scene.classList.remove('travelling');scene.style.transform='';
  (lastFocus&&lastFocus.isConnected?lastFocus:planets[0]?.button)?.focus({preventScroll:true});
 }
@@ -103,7 +105,8 @@ function openRoom(p){
  const side=h('aside',{class:'room-side'},back,globe(p.hue,!!p.rock,pixelSize(Math.min(220,innerWidth*.2))),h('h1',{},p.name),h('span',{class:`badge ${kind}`},kindText),h('p',{},p.description));
  const main=h('div',{class:'room-main'});
  room.replaceChildren(side,main);room.hidden=false;
- (ROOMS[p.id]||(m=>m.append(h('p',{class:'empty'},'Deze planeet heeft nog geen inhoud.'))))(main);
+ Promise.resolve().then(()=>(ROOMS[p.id]||(m=>m.append(h('p',{class:'empty'},'Deze planeet heeft nog geen inhoud.'))))(main))
+  .catch(e=>{if(main.isConnected)main.append(h('p',{role:'alert'},'Deze kamer kon niet worden geladen: '+e.message));});
  (main.querySelector('input,button')||back).focus({preventScroll:true});
 }
 
@@ -214,5 +217,5 @@ addEventListener('keydown',e=>{
 // Commands from the shell: open a planet directly (search results, universe-ctl), settings changed, back to space.
 on('open-planet',({id})=>{const p=config?.world.planets.find(x=>x.id===id);if(!p)return;if(current)leave();land(p,{travel:false});});
 on('show-space',()=>leave());
-on('config',c=>{config=c;settings=c.settings;user=c.user||user;applySettings({...settings,colors:c.world.colors});current=null;build();});
+on('config',c=>{if(current)leave();config=c;settings=c.settings;user=c.user||user;applySettings({...settings,colors:c.world.colors});build();});
 start();
