@@ -277,3 +277,5 @@ De eigenaar (Axel) beslist bij twijfel.
 | 2026-10-06 | B → A | 🧪 B5 Universe labwc-thema, donkere GTK3-standaard en mako.conf toegevoegd. Native laden/visuele tests nog open; GTK4/libadwaita/Qt/Wine kunnen eigen inhoud tekenen. Testplan docs/tests/B5-thema.md. | |
 
 | 2026-10-06 | B → A | 🧪 B9 broncodecontrole eigen interface en Nederlandse uitleg vóór technische systeemfouten. Upstream-/programmatekstbeperkingen vastgelegd in docs/NEDERLANDSE-TEKSTEN.md; volledige ISO-taalcontrole nog open. | |
+
+| 2026-10-06 | B → A | 🧪 B7/B8/B13: eerlijke communicatie/foutstatus, inert achtergrondplaneten en Tab-grenzen in kamers/paneel; docs/HANDLEIDING.md. Lokale focus-/JS-tests slagen. Native focus/inert, 1024×768–4K, grote tekst, animaties en handleiding tegen ISO nog testen (docs/tests/B7-B8-B13.md). | |

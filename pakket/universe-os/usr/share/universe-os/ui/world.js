@@ -3,6 +3,7 @@ import {call,on,applySettings,motionAllowed,toast,h,icon} from './api.js';
 import {globe,starfield,pixelSize} from './globe.js';
 import {debugFPS,afterPaint} from './performance.js';
 import {SETTINGS} from './settings-index.js';
+import {keepTab} from './focus.js';
 // The space world. Every planet is a real button (mouse, Tab, arrows, Enter, digits). Landing on a planet opens its
 // room; the travel animation is optional (setting "travel") and is skipped with digits, reduced motion or "off".
 
@@ -74,7 +75,7 @@ function parallax(){
 }
 
 async function land(p,{travel}){
- if(current)return;current=p;lastFocus=document.activeElement;
+ if(current)return;current=p;lastFocus=document.activeElement;scene.inert=true;
  const planet=planets.find(x=>x.p===p)?.button;
  const animate=travel&&settings.travel!==false&&motionAllowed(settings)&&planet;
  if(animate){
@@ -86,7 +87,7 @@ async function land(p,{travel}){
  openRoom(p);
 }
 function leave(){
- if(!current)return;current=null;room.hidden=true;room.replaceChildren();
+ if(!current)return;current=null;room.hidden=true;room.replaceChildren();scene.inert=false;
  scene.style.visibility='';scene.classList.remove('travelling');scene.style.transform='';
  (lastFocus&&lastFocus.isConnected?lastFocus:planets[0]?.button)?.focus({preventScroll:true});
 }
@@ -182,7 +183,7 @@ const ROOMS={
   };
   chromeRefresh.addEventListener('click',refreshChrome);await refreshChrome();
   const poll=()=>setTimeout(async()=>{if(!chrome.isConnected)return;await refreshChrome();poll();},5000);poll();
-  let list=[];try{list=(await apps()).filter(a=>a.categories.includes('InstantMessaging')||a.categories.includes('Chat')||a.categories.includes('Email'));}catch{}
+  let list=[];try{list=(await apps()).filter(a=>a.categories.includes('InstantMessaging')||a.categories.includes('Chat')||a.categories.includes('Email'));}catch(e){main.append(h('p',{role:'alert'},'Communicatieprogramma’s konden niet worden opgehaald: '+e.message));return;}
   main.append(section('Geïnstalleerde communicatieprogramma\'s',appGrid(list,'Geen communicatieprogramma\'s geïnstalleerd.')));
   main.append(section('Meer',h('div',{class:'tiles'},tile({name:'Chatprogramma zoeken',sub:'In de softwarewinkel (internet nodig)',iconName:'store',onClick:()=>run('software',{search:'chat'})}))));
  },
@@ -195,6 +196,7 @@ const ROOMS={
 
 // Keyboard: digits land directly (no travel), arrows move between planets, Esc goes back to space.
 addEventListener('keydown',e=>{
+ if(current)keepTab(e,room);
  if(e.key==='Escape'&&current){e.preventDefault();leave();return;}
  if(current||e.ctrlKey||e.altKey||e.metaKey)return;
  const n=Number(e.key);if(n>=1&&n<=planets.length){e.preventDefault();land(planets[n-1].p,{travel:false});return;}

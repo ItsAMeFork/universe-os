@@ -1,5 +1,6 @@
 import {audioView} from './audio-ui.js';
 import {updatesView} from './updates-ui.js';
+import {keepTab} from './focus.js';
 import {call,on,applySettings,toast,h,icon} from './api.js';
 // Compact control panel: a small pill at the top (above all windows, top layer). Clicking it (or Windows+A) opens
 // the full panel with volume, network, battery, notifications and the power actions. No taskbar, no app list.
@@ -58,7 +59,7 @@ async function toggle(value){
  if(open){await refresh();panel.querySelector('button,input')?.focus();}else pill.blur();
 }
 async function refresh(){try{status=await call('status');}catch(e){status={};}renderPill();if(open)renderPanel();}
-addEventListener('keydown',e=>{if(e.key==='Escape'&&open){e.preventDefault();toggle(false);}});
+addEventListener('keydown',e=>{if(open)keepTab(e,panel);if(e.key==='Escape'&&open){e.preventDefault();toggle(false);}});
 on('status',s=>{status=s;renderPill();});
 on('panel-toggle',()=>toggle(!open));
 on('panel-close',()=>{if(open)toggle(false);});

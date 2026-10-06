@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {nextBoundary} from '../../pakket/universe-os/usr/share/universe-os/ui/focus.js';
+const first={},middle={},last={},list=[first,middle,last];
+assert.equal(nextBoundary(list,last,false),first);
+assert.equal(nextBoundary(list,first,true),last);
+assert.equal(nextBoundary(list,middle,false),null);
+assert.equal(nextBoundary(list,middle,true),null);
+assert.equal(nextBoundary(list,{},false),first);
+assert.equal(nextBoundary(list,{},true),last);
+assert.equal(nextBoundary([],{},false),null);
+assert.equal(nextBoundary([first],first,true),first);
+console.log('PASS: dialog focus boundaries, reverse Tab, missing focus, empty/single controls');
