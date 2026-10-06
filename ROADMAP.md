@@ -115,6 +115,7 @@ Eigenaar van: `live/`, `scripts/`, `vm/`, `pakket/universe-os/DEBIAN/`, `pakket/
 - 🧪 **A23** Menu-knoppen: `usr/bin/universe-control-center` ontbrak in het pakket, waardoor alle instellingen-tegels (Thuiswereld, Controlecentrum) faalden met "Programma niet gevonden". Toegevoegd; zolang `ui/control.html` (B6) ontbreekt, geeft de shell een duidelijke melding. Programma-tegels (Firefox e.d.) nog reproduceren in de VM.
 - 🧪 **A24** Opstart: `/etc/default/grub.d/universe.cfg` verbergt het GRUB-menu (1 s, Esc/Shift = menu met herstelmodus), naam "Universe OS", stille kernelregel. Firmware-vermelding blijft `debian` (nodig voor shim/Secure Boot); geen andere opstartvermeldingen verwijderd. Plymouth-opstartscherm volgt apart.
 - 🧪 **A25** Greeter-energieacties (systeemkant): `power.get`, `power.shutdown`, `power.suspend`, `power.restart` in `greeter.py` via LightDM/logind (geen eigen rechten; slaapstand = suspend, nooit hibernate). Knoppen in `login.html` zijn spoor B.
+- 🧪 **A26** Vergrendelen gaf een "zwart" scherm: swaylock toont zonder `--indicator-idle-visible` alleen de donkere kleur tot je typt. Invoercirkel (en Caps Lock) nu altijd zichtbaar. Scherm-uit (wlopm) en vastlopen nog uitsluiten in de VM.
 
 ### M4
 - ⬜ **A21** Licenties: `docs/LICENTIES.md` (eigen code, Debian-pakketten, Wine), broncodeverwijzing.
@@ -140,7 +141,7 @@ Eigenaar van: `pakket/universe-os/usr/share/universe-os/ui/`, `pakket/universe-o
   GTK donker thema (`/etc/gtk-3.0/settings.ini`).
 
 ### M2
-- ⬜ **B6** `ui/control.html` + `control.js`: alle pagina's uit `settings-index.js` (weergave/animaties/schaal,
+- 🧪 **B6** `ui/control.html` + `control.js`: alle pagina's uit `settings-index.js` (weergave/animaties/schaal,
   netwerk+wifi, geluid+microfoon, beeldschermen, bluetooth, taal+toetsenbord met **testveld voor tekens**, muis,
   datum/tijd, energie, accounts, sneltoetsen met conflictcontrole, updates, beveiliging, over).
 - ⬜ **B7** Communicatie-planeet: toont geïnstalleerde chat-/mailprogramma's en meldt eerlijk dat er nog geen
@@ -248,3 +249,9 @@ De eigenaar (Axel) beslist bij twijfel.
 | 2026-10-04 | B → A | B16 geschreven vanaf eabb5f5: filters/blur verwijderd, bitmapcache en zichtbare canvasgrootte, frame-parallax, donker eerste beeld, startfocus en debug-FPS (UNIVERSE_DEBUG_FPS=1). Lokale cache-/syntaxcontroles slagen. Voor A: meet baseline/nieuw 1920x1080 zonder GPU; doel 30 fps en wereld binnen 3 s na implosie. Ook animaties full/reduced/off, sneltoets 1 zonder klik en kamerlabeI testen. Geen VM-bewijs: status 🧪. Standaard animatievoorkeur ongewijzigd. | |
 
 | 2026-10-06 | A → B | Claude op branch `spoor-a/A23-echte-computer`: oorzaak menu-fout op de echte computer gevonden: `universe-control-center` zat niet in het pakket (alle instellingen-tegels → "Programma niet gevonden"), en `ui/control.html`/`control.js` (B6) bestaan nog niet. Startbestand toegevoegd + duidelijke melding zolang B6 ontbreekt. **Voor B:** B6 heeft nu voorrang (het Controlecentrum is leeg zonder control.html). Greeter-contract voor energieknoppen: `call('power.get')` → `{shutdown,suspend,restart}` (booleans), `call('power.shutdown'\|'power.suspend'\|'power.restart')` → `true` of fout met Nederlandse tekst; graag knoppen (met bevestiging bij afsluiten/herstarten) in login.html. GRUB-menu verborgen (A24). Nog niet in de VM getest. | |
+
+| 2026-10-06 | B → A | B6 gestart vanaf main 87039cc; alle Controlecentrum-pagina's op bestaande handlers. Launcher uit PR #11 vereist. Zwart beeld bij vergrendelen apart gemeld in issue #1. | |
+
+| 2026-10-06 | B → A | B6 geschreven: control.html/control.js met alle 14 pagina's, echte handlers en systeemhulpmiddelen, wachtwoorden gewist voor verzending en bridge-logging uit. Lokale rendercontrole alle pagina's/ontbrekende apparaten/foutmelding en JS/Python-syntax slagen. Voor A: integreer launcher uit PR #11 en test alle instellingstegels, opslaan/herstart, polkit/accounts, wifi en hardware in VM. Zonder VM-bewijs blijft 🧪. | |
+
+| 2026-10-06 | A → B | Claude: B6 (PR #12) samengevoegd in `spoor-a/A23-echte-computer`; alle `call()`-namen in control.js hebben een handler en alle `run`-hulpmiddelen bestaan. Zwart vergrendelscherm: swaylock tekende zonder `--indicator-idle-visible` alleen de achtergrondkleur tot een toets werd ingedrukt; nu altijd zichtbare invoercirkel (A26). Volgende stap: ISO bouwen en alles in de VM testen. | |
