@@ -22,8 +22,8 @@
      "description": "Programma's zoeken, installeren, bijwerken en verwijderen"},
     {"id": "control", "name": "Controlecentrum", "hue": 205, "rock": true,  "x": 80, "y": 76, "size": 0.58, "kind": "local",
      "description": "Systeeminstellingen: netwerk, geluid, beeldscherm, taal, accounts"},
-    {"id": "chat",    "name": "Communicatie",    "hue": 318, "rock": false, "x": 21, "y": 77, "size": 0.58, "kind": "online",
-     "description": "Chat- en communicatieprogramma's (nog geen chatdienst gekoppeld)"},
+    {"id": "chat",    "name": "Internet",        "hue": 318, "rock": false, "x": 21, "y": 77, "size": 0.58, "kind": "online",
+     "description": "Je standaardbrowser en andere internetprogramma's"},
     {"id": "games",   "name": "Gamehal",         "hue": 138, "rock": false, "x": 50, "y": 14, "size": 0.54, "kind": "local", "rings": true,
      "description": "Geïnstalleerde games"}
   ],
