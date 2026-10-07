@@ -48,7 +48,7 @@ Softwarewinkel opent de softwarebeheerder voor programma’s en updates.
 Controlecentrum bevat instellingen voor netwerk, geluid, beeldschermen, taal,
 energie, accounts, sneltoetsen en beveiliging. Gamehal toont geïnstalleerde games.
 
-Communicatie toont geïnstalleerde chat/mailprogramma’s en de Chrome-tegel.
+Internet opent je standaardbrowser direct. Zonder beschikbare standaardbrowser kies je eerst een browser; die keuze wordt voor jouw account opgeslagen. Gebruik **Browser kiezen** in Thuiswereld om te wisselen. In de Internet-kamer staan ook de Chrome-downloadstatus en geïnstalleerde chat/mailprogramma’s. Nieuwe programma’s verschijnen binnen Applicaties; er staat geen aparte programmabalk op het bureaublad.
 Universe OS heeft nog geen eigen chatdienst of chataccount; er wordt geen Space
 Chat of Matrix-dienst automatisch gekoppeld. Je kiest zelf een dienst via een
 geïnstalleerd programma of website. Een lege lijst betekent dat er nog geen

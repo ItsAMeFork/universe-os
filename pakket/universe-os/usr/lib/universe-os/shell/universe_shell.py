@@ -238,6 +238,8 @@ class Shell:
             'apps.list': lambda a: backend.apps(),
             'apps.desktop': lambda a: backend.desktop_apps(),
             'apps.launch': lambda a: backend.launch(a.get('id')),
+            'browser.list': lambda a: backend.browsers(),
+            'browser.select': lambda a: backend.browser_select(a.get('id')),
             'chrome.status': lambda a: backend.chrome(),
             'files.places': lambda a: backend.places(),
             'open.path': lambda a: backend.open_path(a.get('path', '')),
