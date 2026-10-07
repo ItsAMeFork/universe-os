@@ -68,13 +68,17 @@ class Surface:
 class Shell:
     def __init__(self):
         self.started = time.time()
+        self.started_monotonic = time.monotonic()
+        self.world_ready = False
         self.toplevels = Toplevels(self.windows_changed, log)
-        self.bridge = Bridge(self.handlers(), threaded={'status', 'updates.status', 'power', 'volume.set', 'volume.mute',
-                                                        'notifications.clear', 'search.files'}, log=log)
+        self.bridge = Bridge(self.handlers(), threaded={'status', 'audio.outputs', 'audio.select', 'updates.status', 'power', 'volume.set', 'volume.mute',
+                                                        'notifications.clear', 'search.files', 'updates.status', 'updates.refresh'}, log=log)
         self.worlds = []
         self.panel = None
         self.overview = None
         self.panel_open = False
+        self.logout_pending = False
+        self.logout_timer = None
 
     # ----- surfaces -----
     def build(self):
@@ -86,8 +90,7 @@ class Shell:
         L, E, K = GtkLayerShell.Layer, GtkLayerShell.Edge, GtkLayerShell.KeyboardMode
         self.panel = Surface(self, 'panel', 'panel.html', L.TOP, [E.TOP], K.ON_DEMAND, size=PANEL_CLOSED, transparent=True)
         self.panel.window.show_all()
-        self.overview = Surface(self, 'overview', 'overview.html', L.OVERLAY, [E.TOP, E.BOTTOM, E.LEFT, E.RIGHT], K.EXCLUSIVE, transparent=True)
-        self.overview.window.connect('key-press-event', self.overview_key)
+        # Search/overview is constructed on first use, not during login.
 
     def add_world(self, monitor):
         L, E, K = GtkLayerShell.Layer, GtkLayerShell.Edge, GtkLayerShell.KeyboardMode
@@ -120,6 +123,11 @@ class Shell:
             s.emit(name, data)
 
     def show_overview(self):
+        if self.overview is None:
+            L, E, K = GtkLayerShell.Layer, GtkLayerShell.Edge, GtkLayerShell.KeyboardMode
+            self.overview = Surface(self, 'overview', 'overview.html', L.OVERLAY,
+                                    [E.TOP, E.BOTTOM, E.LEFT, E.RIGHT], K.EXCLUSIVE, transparent=True)
+            self.overview.window.connect('key-press-event', self.overview_key)
         if self.panel_open:
             self.panel.emit('panel-close')
         self.overview.window.show_all()
@@ -128,10 +136,11 @@ class Shell:
         self.overview.emit('shown')
 
     def hide_overview(self):
-        self.overview.window.hide()
+        if self.overview:
+            self.overview.window.hide()
 
     def toggle_overview(self):
-        if self.overview.window.get_visible():
+        if self.overview and self.overview.window.get_visible():
             self.hide_overview()
         else:
             self.show_overview()
@@ -170,7 +179,10 @@ class Shell:
         return result
 
     def windows_changed(self):
-        if self.toplevels.list():
+        windows = self.toplevels.list()
+        for world in self.worlds:
+            world.emit('background-busy', any(not w.get('minimized') for w in windows))
+        if windows:
             self.release_initial_focus()
         if self.overview and self.overview.window.get_visible():
             self.overview.emit('windows', self.window_list())
@@ -219,19 +231,28 @@ class Shell:
             return True
 
         return {
+            'background.busy': lambda a: any(not w.get('minimized') for w in self.toplevels.list()),
+            'world.ready': lambda a: self.ready(a),
             'config.get': lambda a: backend.full_config(),
             'config.set': set_config,
             'apps.list': lambda a: backend.apps(),
+            'apps.desktop': lambda a: backend.desktop_apps(),
             'apps.launch': lambda a: backend.launch(a.get('id')),
+            'chrome.status': lambda a: backend.chrome(),
             'files.places': lambda a: backend.places(),
             'open.path': lambda a: backend.open_path(a.get('path', '')),
             'search': search,
+            'search.files': lambda a: backend.search_files((a.get('q') or '').strip()),
             'status': lambda a: backend.status(),
+            'audio.outputs': lambda a: backend.audio.outputs(),
+            'audio.select': lambda a: backend.audio.select(a),
             'volume.set': lambda a: backend.set_volume(a.get('level', 50)),
             'volume.mute': lambda a: backend.toggle_mute(),
             'notifications.clear': lambda a: backend.clear_notifications(),
-            'power': lambda a: backend.power(a.get('action')),
+            'power': lambda a: self.power(a.get('action')),
+            'logout.finish': lambda a: self.finish_logout(),
             'updates.status': lambda a: backend.updates_status(),
+            'updates.refresh': lambda a: backend.updates.refresh(),
             'run': lambda a: backend.run_tool(a.get('tool'), a),
             'windows.list': lambda a: self.window_list(),
             'windows.activate': lambda a: self.toplevels.activate(str(a.get('id'))),
@@ -316,17 +337,73 @@ class Shell:
             threading.Thread(target=work, daemon=True).start()
         return True
 
+    def ready(self, data):
+        if not self.world_ready:
+            self.world_ready = True
+            log('ruimtewereld zichtbaar na %.3f s; pagina %.0f ms' %
+                (time.monotonic() - self.started_monotonic, float(data.get('milliseconds', 0))))
+        return True
+
+    def power(self, action):
+        if action != 'logout':
+            return backend.power(action)
+        GLib.idle_add(self.begin_logout)
+        return True
+
+    def begin_logout(self):
+        if self.logout_pending:
+            return False
+        self.logout_pending = True
+        self.hide_overview()
+        if self.panel:
+            self.panel.emit('panel-close')
+        for world in self.worlds:
+            GtkLayerShell.set_layer(world.window, GtkLayerShell.Layer.OVERLAY)
+            GtkLayerShell.set_keyboard_mode(world.window, GtkLayerShell.KeyboardMode.EXCLUSIVE)
+            world.emit('logout-begin')
+        # Logging out must still work if artwork or the JavaScript callback fails.
+        self.logout_timer = GLib.timeout_add(1800, self.finish_logout)
+        return False
+
+    def finish_logout(self):
+        if not self.logout_pending:
+            return False
+        self.logout_pending = False
+        if self.logout_timer:
+            GLib.source_remove(self.logout_timer)
+            self.logout_timer = None
+        try:
+            backend.power('logout')
+        except Exception as error:
+            for world in self.worlds:
+                GtkLayerShell.set_layer(world.window, GtkLayerShell.Layer.BACKGROUND)
+                GtkLayerShell.set_keyboard_mode(world.window, GtkLayerShell.KeyboardMode.ON_DEMAND)
+                world.emit('logout-error', str(error))
+        return False
+
     def run(self):
         if not GtkLayerShell.is_supported():
             log('De compositor ondersteunt wlr-layer-shell niet; de Universe-shell kan niet starten.')
             return 2
         self.build()
+        self.app_monitor = Gio.AppInfoMonitor.get()
+        self.apps_changed_timer = None
+        self.app_monitor.connect('changed', self.schedule_apps_changed)
         self.serve()
         if not self.toplevels.start():
             log('Zonder vensteroverzicht verder.')
         GLib.timeout_add_seconds(10, self.status_tick)
         Gtk.main()
         return 0
+
+    def schedule_apps_changed(self, *_):
+        if self.apps_changed_timer:
+            GLib.source_remove(self.apps_changed_timer)
+        def send():
+            self.apps_changed_timer = None
+            self.broadcast('apps-changed')
+            return False
+        self.apps_changed_timer = GLib.timeout_add(300, send)
 
 
 def main():

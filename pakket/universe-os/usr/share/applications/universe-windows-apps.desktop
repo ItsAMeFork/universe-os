@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Windows-programma's beheren
+Comment=Windows-programma's installeren, starten en verwijderen
+Exec=universe-windows-apps
+Icon=wine
+Terminal=false
+Categories=System;Utility;
+Keywords=Windows;Wine;programma;exe;msi;
+StartupNotify=true

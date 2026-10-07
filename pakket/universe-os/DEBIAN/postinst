@@ -37,6 +37,9 @@ if [ "$1" = "configure" ]; then
         systemctl enable ufw.service >/dev/null 2>&1 || true
     fi
 
+    # Google Chrome on the first start with internet (installed system only; the unit skips the live session).
+    systemctl enable universe-chrome-install.timer >/dev/null 2>&1 || true
+
     command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database -q /usr/share/applications || true
     command -v glib-compile-schemas >/dev/null 2>&1 && glib-compile-schemas /usr/share/glib-2.0/schemas || true
 fi

@@ -3,7 +3,7 @@ import {SETTINGS} from './settings-index.js';
 // Overview (Windows key): open programs (also minimised ones) and search for programs, files and settings.
 // The page is shown as an overlay with exclusive keyboard focus; Esc or a choice hides it again.
 
-let windows=[],config=null,searchToken=0;
+let windows=[],config=null,searchToken=0,searchTimer=0,appsPromise=null;
 const input=h('input',{type:'search',placeholder:'Zoek programma\'s, bestanden en instellingen','aria-label':'Zoeken',autocomplete:'off'});
 const body=h('div',{class:'block'});
 const wrap=h('div',{class:'wrap',role:'dialog','aria-label':'Overzicht en zoeken'},
@@ -15,19 +15,21 @@ const hide=()=>call('surface.hide',{name:'overview'}).catch(()=>{});
 const done=p=>p.then(hide).catch(e=>toast(e.message));
 
 function render(){
+ clearTimeout(searchTimer);const token=++searchToken;
  const q=input.value.trim();
- if(q)return search(q);
+ if(q){body.replaceChildren(h('p',{class:'empty',role:'status'},'Zoeken…'));searchTimer=setTimeout(()=>search(q,token),180);return;}
  body.replaceChildren();
  const list=h('div',{class:'windows'});
  if(!windows.length)list.append(h('p',{class:'empty'},'Er zijn geen programma\'s geopend.'));
  for(const w of windows){
-  const card=h('button',{class:`win ${w.activated?'active':''}`,type:'button','aria-label':`${w.title||w.appName}${w.minimized?', geminimaliseerd':''}. Enter om te openen.`},
+  const card=h('article',{class:`win ${w.activated?'active':''}`});
+  const activate=h('button',{class:'window-open',type:'button','aria-label':`${w.title||w.appName}${w.minimized?', geminimaliseerd':''}. Enter om te openen.`},
    w.icon?h('img',{src:w.icon,alt:''}):icon('windows'),
    h('span',{class:'t'},h('span',{class:'title'},w.title||w.appName||'Venster'),h('span',{class:'sub'},[w.appName,w.minimized?'geminimaliseerd':'',w.maximized?'gemaximaliseerd':''].filter(Boolean).join(' · '))));
-  card.addEventListener('click',()=>done(call('windows.activate',{id:w.id})));
-  const close=h('span',{class:'x',role:'button',tabindex:'-1','aria-label':'Venster sluiten',title:'Sluiten'},icon('close'));
+  activate.addEventListener('click',()=>done(call('windows.activate',{id:w.id})));
+  const close=h('button',{class:'x',type:'button','aria-label':`${w.title||w.appName||'Venster'} sluiten`,title:'Sluiten'},icon('close'));
   close.addEventListener('click',e=>{e.stopPropagation();call('windows.close',{id:w.id}).catch(err=>toast(err.message));});
-  card.append(close);list.append(card);
+  card.append(activate,close);list.append(card);
  }
  body.append(h('h2',{},`Geopende programma's (${windows.length})`),list);
  if(config){
@@ -37,10 +39,16 @@ function render(){
   body.append(h('h2',{style:'margin-top:22px'},'Planeten'),planets);
  }
 }
-async function search(q){
- const token=++searchToken,lower=q.toLowerCase();
+async function search(q,token){
+ const lower=q.toLowerCase();
  const settings=SETTINGS.filter(s=>(s.name+' '+s.words).toLowerCase().includes(lower));
- let res={apps:[],files:[]};try{res=await call('search',{q});}catch(e){toast(e.message);}
+ let res={apps:[],files:[]};try{
+  if(!appsPromise)appsPromise=call('apps.list').catch(e=>{appsPromise=null;throw e;});
+  const [apps,files]=await Promise.all([appsPromise,call('search.files',{q})]);
+  res={apps:apps.filter(a=>(a.name+' '+a.comment+' '+a.keywords+' '+a.id).toLowerCase().includes(lower)),files};
+  res.apps.sort((a,b)=>Number(a.categories.includes('Settings'))-Number(b.categories.includes('Settings'))||Number(!a.name.toLowerCase().startsWith(lower))-Number(!b.name.toLowerCase().startsWith(lower)));
+  res.apps=res.apps.slice(0,12);
+ }catch(e){if(token===searchToken)body.replaceChildren(h('p',{role:'alert'},'Zoeken mislukt: '+e.message));return;}
  if(token!==searchToken)return;
  body.replaceChildren();
  const group=(title,items,make)=>{if(!items.length)return;const list=h('div',{class:'results'});items.forEach(i=>list.append(make(i)));body.append(h('h2',{style:'margin-top:14px'},title),list);};
@@ -64,6 +72,7 @@ addEventListener('keydown',e=>{
  if(e.key.length===1&&!e.ctrlKey&&!e.altKey&&document.activeElement!==input){input.focus();}
 });
 on('windows',list=>{windows=list||[];if(!input.value.trim())render();});
+on('apps-changed',()=>{appsPromise=null;render();});
 on('shown',()=>{input.value='';render();input.focus();});
 on('config',c=>{config=c;applySettings({...c.settings,colors:c.world.colors});render();});
 (async()=>{

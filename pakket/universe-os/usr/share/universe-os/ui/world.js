@@ -1,25 +1,56 @@
+import {updatesView} from './updates-ui.js';
 import {call,on,applySettings,motionAllowed,toast,h,icon} from './api.js';
 import {globe,starfield,pixelSize} from './globe.js';
 import {debugFPS,afterPaint} from './performance.js';
 import {SETTINGS} from './settings-index.js';
+import {keepTab} from './focus.js';
 // The space world. Every planet is a real button (mouse, Tab, arrows, Enter, digits). Landing on a planet opens its
 // room; the travel animation is optional (setting "travel") and is skipped with digits, reduced motion or "off".
 
 const KIND={local:['local','Werkt lokaal'],online:['online','Internet nodig'],mixed:['mixed','Lokaal + online']};
 let config=null,settings={},user={},planets=[],current=null,lastFocus=null,appsCache=null;
 let initialFocus=true;
+let travelToken=0;
+let backgroundBusy=false;
+const setBackgroundBusy=value=>{backgroundBusy=!!value;document.documentElement.classList.toggle('background-busy',backgroundBusy);};
+on('background-busy',setBackgroundBusy);
 const root=h('main',{class:'universe','aria-label':'Ruimtewereld van Universe OS'});
 const scene=h('div',{class:'scene'});
 const room=h('section',{class:'room glass',hidden:true,role:'dialog','aria-modal':'true'});
+const appOrbit=h('section',{class:'app-orbit',hidden:true,'aria-label':'Nieuwe programma’s'});
+let appRefresh=0;
+async function refreshAppPlanets(){
+ const token=++appRefresh;
+ try{const apps=await call('apps.desktop');if(token!==appRefresh)return;
+  appOrbit.replaceChildren(h('h2',{},'Jouw programmaplaneten'),h('div',{class:'app-orbit-list'},...apps.map(app=>{
+   const hue=[...app.id].reduce((n,c)=>(n*31+c.charCodeAt(0))%360,0);
+   const button=h('button',{class:'app-planet',type:'button','aria-label':`${app.name} openen`},globe(hue,false,96),h('span',{},app.name));
+   button.addEventListener('click',()=>launch(app.id));return button;
+  })));appOrbit.hidden=!apps.length;root.classList.toggle('has-app-planets',!!apps.length);
+ }catch(e){if(appOrbit.isConnected)toast('Programmaplaneten ophalen mislukt: '+e.message);}
+}
+let logoutOverlay=null;
+on('logout-begin',async()=>{
+ if(logoutOverlay)return;
+ const planet=h('div',{class:'logout-planet'},globe(182,true,pixelSize(Math.min(innerWidth*.8,650))));
+ logoutOverlay=h('div',{class:'logout-overlay',role:'status'},starfield(),planet,h('p',{},'Afmelden…'));
+ document.body.append(logoutOverlay);root.inert=true;
+ await afterPaint();logoutOverlay.classList.add('forming');
+ await new Promise(resolve=>setTimeout(resolve,motionAllowed(settings)?1250:30));
+ call('logout.finish').catch(e=>toast(e.message));
+});
+on('logout-error',message=>{logoutOverlay?.remove();logoutOverlay=null;root.inert=false;toast('Afmelden mislukt: '+message);});
 document.body.append(root);
 
 async function start(){
  try{config=await call('config.get');}catch(e){config={settings:{animations:'full',travel:true},world:{planets:[]},user:{}};console.error(e);}
  settings=config.settings;user=config.user||{};applySettings({...settings,colors:config.world.colors});
- await afterPaint();build();debugFPS();
+ await afterPaint();build();debugFPS();await afterPaint();
+ call('background.busy').then(setBackgroundBusy).catch(()=>{});
+ call('world.ready',{milliseconds:performance.now()}).catch(()=>{});
 }
 function build(){
- root.replaceChildren(Object.assign(starfield(),{className:'space-stars'}),scene,room);
+ root.replaceChildren(Object.assign(starfield(),{className:'space-stars'}),scene,room,appOrbit);
  scene.replaceChildren();
  const home=config.world.planets.find(p=>p.id==='home');
  if(home){const paths=h('div',{class:'space-paths'},h('i'),h('i'),h('i'));paths.style.left=home.x+'%';paths.style.top=home.y+'%';scene.append(paths);}
@@ -42,6 +73,7 @@ function build(){
  }
  root.append(h('div',{class:'hint'},'Klik op een planeet of druk ',h('kbd',{},'1'),'–',h('kbd',{},String(planets.length)),' · ',h('kbd',{},'Windows'),' zoeken en open programma\'s · ',h('kbd',{},'Windows'),'+',h('kbd',{},'D'),' ruimtewereld · ',h('kbd',{},'Windows'),'+',h('kbd',{},'A'),' bedieningspaneel'));
  parallax();
+ refreshAppPlanets();
  if(initialFocus){initialFocus=false;planets[0]?.button.focus({preventScroll:true});}
 }
 
@@ -51,9 +83,9 @@ function parallax(){
  if(parallaxFrame)cancelAnimationFrame(parallaxFrame);parallaxFrame=0;
  root.style.setProperty('--px','0px');root.style.setProperty('--py','0px');
  root.onmousemove=e=>{
-  if(!motionAllowed(settings))return;mouse=[e.clientX,e.clientY];
+  if(backgroundBusy||!motionAllowed(settings))return;mouse=[e.clientX,e.clientY];
   if(parallaxFrame)return;
-  parallaxFrame=requestAnimationFrame(()=>{parallaxFrame=0;if(!motionAllowed(settings))return;
+  parallaxFrame=requestAnimationFrame(()=>{parallaxFrame=0;if(backgroundBusy||!motionAllowed(settings))return;
    root.style.setProperty('--px',((mouse[0]/innerWidth-.5)*-14).toFixed(1)+'px');
    root.style.setProperty('--py',((mouse[1]/innerHeight-.5)*-10).toFixed(1)+'px');
   });
@@ -61,7 +93,8 @@ function parallax(){
 }
 
 async function land(p,{travel}){
- if(current)return;current=p;lastFocus=document.activeElement;
+ if(current)return;current=p;lastFocus=document.activeElement;scene.inert=true;appOrbit.inert=true;appOrbit.style.visibility='hidden';
+ const token=++travelToken;
  const planet=planets.find(x=>x.p===p)?.button;
  const animate=travel&&settings.travel!==false&&motionAllowed(settings)&&planet;
  if(animate){
@@ -70,10 +103,10 @@ async function land(p,{travel}){
   scene.style.transformOrigin=`${cx}px ${cy}px`;scene.style.transform=`translate(${innerWidth/2-cx}px,${innerHeight/2-cy}px) scale(3.2)`;scene.classList.add('travelling');
   await new Promise(r=>setTimeout(r,650));
  }else scene.style.visibility='hidden';
- openRoom(p);
+ if(token===travelToken&&current===p)openRoom(p);
 }
 function leave(){
- if(!current)return;current=null;room.hidden=true;room.replaceChildren();
+ if(!current)return;travelToken++;current=null;room.hidden=true;room.replaceChildren();scene.inert=false;appOrbit.inert=false;appOrbit.style.visibility='';
  scene.style.visibility='';scene.classList.remove('travelling');scene.style.transform='';
  (lastFocus&&lastFocus.isConnected?lastFocus:planets[0]?.button)?.focus({preventScroll:true});
 }
@@ -85,7 +118,8 @@ function openRoom(p){
  const side=h('aside',{class:'room-side'},back,globe(p.hue,!!p.rock,pixelSize(Math.min(220,innerWidth*.2))),h('h1',{},p.name),h('span',{class:`badge ${kind}`},kindText),h('p',{},p.description));
  const main=h('div',{class:'room-main'});
  room.replaceChildren(side,main);room.hidden=false;
- (ROOMS[p.id]||(m=>m.append(h('p',{class:'empty'},'Deze planeet heeft nog geen inhoud.'))))(main);
+ Promise.resolve().then(()=>(ROOMS[p.id]||(m=>m.append(h('p',{class:'empty'},'Deze planeet heeft nog geen inhoud.'))))(main))
+  .catch(e=>{if(main.isConnected)main.append(h('p',{role:'alert'},'Deze kamer kon niet worden geladen: '+e.message));});
  (main.querySelector('input,button')||back).focus({preventScroll:true});
 }
 
@@ -98,7 +132,7 @@ function tile({name,sub,iconName,img,onClick,wide}){
 }
 function section(title,...kids){return h('section',{},h('h2',{},title),...kids);}
 async function apps(){if(!appsCache)appsCache=await call('apps.list');return appsCache;}
-on('apps-changed',()=>{appsCache=null;});
+on('apps-changed',()=>{appsCache=null;refreshAppPlanets();});
 
 function appGrid(list,empty){
  const grid=h('div',{class:'tiles'});
@@ -130,6 +164,11 @@ const ROOMS={
    const q=search.value.trim().toLowerCase();list.replaceChildren();
    if(q){list.append(appGrid(all.filter(a=>(a.name+' '+a.comment+' '+a.keywords).toLowerCase().includes(q)),'Geen programma gevonden.'));return;}
    const used=new Set();
+   const windows=all.filter(a=>a.id.startsWith('universe-wine-'));
+   windows.forEach(a=>used.add(a.id));used.add('universe-windows-apps.desktop');
+   const windowsGrid=appGrid(windows,'Nog geen Windows-programma’s geïnstalleerd.');
+   windowsGrid.prepend(tile({name:'Windows-programma’s beheren',sub:'Installeren, starten, logboeken en verwijderen',iconName:'grid',onClick:()=>launch('universe-windows-apps.desktop')}));
+   list.append(section('Windows-programma’s',windowsGrid));
    for(const [title,cat] of CATEGORIES){const part=all.filter(a=>!used.has(a.id)&&a.categories.includes(cat));part.forEach(a=>used.add(a.id));if(part.length)list.append(section(title,appGrid(part)));}
    const rest=all.filter(a=>!used.has(a.id));if(rest.length)list.append(section('Overig',appGrid(rest)));
   };
@@ -142,9 +181,7 @@ const ROOMS={
    tile({name:'Updates',sub:'Systeem- en beveiligingsupdates',iconName:'update',onClick:()=>run('software',{mode:'updates'})}),
    tile({name:'Geïnstalleerde software',sub:'Overzicht en verwijderen',iconName:'grid',onClick:()=>run('software',{mode:'installed'})}),
    tile({name:'Lokaal .deb-bestand',sub:'Een gedownload pakket installeren',iconName:'download',onClick:()=>run('deb')}))));
-  const state=h('div',{});main.append(section('Status',state));
-  try{const s=await call('updates.status');state.append(h('div',{class:'notice ok'},s.rebootRequired?'Er is een herstart nodig om updates af te ronden.':'Geen herstart nodig.',s.count!=null?` ${s.count} update(s) beschikbaar volgens de laatste controle.`:''));}
-  catch(e){state.append(h('p',{class:'empty'},e.message));}
+  main.append(section('Status',updatesView()));
  },
  control(main){
   const grid=h('div',{class:'tiles'});
@@ -154,7 +191,19 @@ const ROOMS={
  async chat(main){
   // Universe OS has no chat service of its own yet and deliberately does not use any existing chat server.
   main.append(h('div',{class:'notice'},'Er is nog geen chatdienst gekoppeld aan Universe OS. Communicatieprogramma\'s die je zelf installeert, verschijnen hier.'));
-  let list=[];try{list=(await apps()).filter(a=>a.categories.includes('InstantMessaging')||a.categories.includes('Chat')||a.categories.includes('Email'));}catch{}
+  const chrome=tile({name:'Google Chrome',sub:'Downloadstatus controleren…',iconName:'grid',onClick:()=>launch('google-chrome.desktop')});
+  chrome.disabled=true;const chromeMessage=h('p',{role:'status'});
+  const chromeRefresh=h('button',{type:'button'},'Downloadstatus vernieuwen');
+  main.append(section('Internet en communicatie',h('div',{class:'tiles'},chrome),chromeMessage,chromeRefresh));
+  let chromeBusy=false;
+  const refreshChrome=async()=>{if(chromeBusy)return;chromeBusy=true;chromeRefresh.disabled=true;
+   try{const s=await call('chrome.status');chrome.disabled=!s.available;chrome.querySelector('.t-sub').textContent=s.available?'Open de internetbrowser':s.state==='installing'?'Wordt gedownload en geïnstalleerd':'Nog niet beschikbaar';chromeMessage.textContent=s.message;}
+   catch(e){chrome.disabled=true;chromeMessage.textContent=e.message;}
+   finally{chromeBusy=false;chromeRefresh.disabled=false;}
+  };
+  chromeRefresh.addEventListener('click',refreshChrome);await refreshChrome();
+  const poll=()=>setTimeout(async()=>{if(!chrome.isConnected)return;await refreshChrome();poll();},5000);poll();
+  let list=[];try{list=(await apps()).filter(a=>a.categories.includes('InstantMessaging')||a.categories.includes('Chat')||a.categories.includes('Email'));}catch(e){main.append(h('p',{role:'alert'},'Communicatieprogramma’s konden niet worden opgehaald: '+e.message));return;}
   main.append(section('Geïnstalleerde communicatieprogramma\'s',appGrid(list,'Geen communicatieprogramma\'s geïnstalleerd.')));
   main.append(section('Meer',h('div',{class:'tiles'},tile({name:'Chatprogramma zoeken',sub:'In de softwarewinkel (internet nodig)',iconName:'store',onClick:()=>run('software',{search:'chat'})}))));
  },
@@ -167,6 +216,7 @@ const ROOMS={
 
 // Keyboard: digits land directly (no travel), arrows move between planets, Esc goes back to space.
 addEventListener('keydown',e=>{
+ if(current)keepTab(e,room);
  if(e.key==='Escape'&&current){e.preventDefault();leave();return;}
  if(current||e.ctrlKey||e.altKey||e.metaKey)return;
  const n=Number(e.key);if(n>=1&&n<=planets.length){e.preventDefault();land(planets[n-1].p,{travel:false});return;}
@@ -180,5 +230,5 @@ addEventListener('keydown',e=>{
 // Commands from the shell: open a planet directly (search results, universe-ctl), settings changed, back to space.
 on('open-planet',({id})=>{const p=config?.world.planets.find(x=>x.id===id);if(!p)return;if(current)leave();land(p,{travel:false});});
 on('show-space',()=>leave());
-on('config',c=>{config=c;settings=c.settings;user=c.user||user;applySettings({...settings,colors:c.world.colors});current=null;build();});
+on('config',c=>{if(current)leave();config=c;settings=c.settings;user=c.user||user;applySettings({...settings,colors:c.world.colors});build();});
 start();

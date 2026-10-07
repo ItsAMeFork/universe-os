@@ -15,6 +15,12 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gio, GLib, Gtk  # noqa: E402
 
 import config  # noqa: E402
+import updates  # noqa: E402
+import update_channel  # noqa: E402
+import audio  # noqa: E402
+import app_planets  # noqa: E402
+import network_status  # noqa: E402
+import chrome_status  # noqa: E402
 
 HELPER = '/usr/lib/universe-os/universe-admin-helper'
 
@@ -95,6 +101,21 @@ def launch(app_id):
     spawn(['gtk-launch', app_id])
 
 
+def chrome():
+    return chrome_status.read(Gio.DesktopAppInfo.new('google-chrome.desktop') is not None)
+
+
+def desktop_apps():
+    path = os.path.join(config.user_dir(), 'app-planets.json')
+    installed = apps()
+    previous = config.read_json(path, None)
+    state = app_planets.reconcile(installed, previous)
+    if state != previous:
+        config.write_json(path, state)
+    by_id = {app['id']: app for app in installed}
+    return [by_id[app_id] for app_id in state['planets']]
+
+
 # ---------- files ----------
 PLACES = [('home', 'Persoonlijke map', None), ('documents', 'Documenten', GLib.UserDirectory.DIRECTORY_DOCUMENTS),
           ('downloads', 'Downloads', GLib.UserDirectory.DIRECTORY_DOWNLOAD), ('pictures', 'Afbeeldingen', GLib.UserDirectory.DIRECTORY_PICTURES),
@@ -166,18 +187,7 @@ def search(query):
 
 # ---------- status ----------
 def network():
-    if not shutil.which('nmcli'):
-        return {'state': 'unavailable'}
-    best = None
-    for line in out(['nmcli', '-t', '-f', 'TYPE,STATE,CONNECTION', 'device']).splitlines():
-        parts = line.split(':')
-        if len(parts) < 3 or parts[0] not in ('wifi', 'ethernet'):
-            continue
-        if parts[1].startswith('connected'):
-            best = {'state': 'connected', 'type': parts[0], 'name': ':'.join(parts[2:])}
-            if parts[0] == 'ethernet':
-                break
-    return best or {'state': 'disconnected'}
+    return network_status.status()
 
 
 def volume():
@@ -275,18 +285,14 @@ def power(action):
     if action in ('reboot', 'poweroff', 'suspend'):
         r = subprocess.run(['systemctl', action], capture_output=True, text=True, timeout=30)
         if r.returncode != 0:
-            raise RuntimeError(r.stderr.strip() or 'Actie mislukt')
+            raise RuntimeError('De energieactie is mislukt.' +
+                               (' Technische melding: ' + r.stderr.strip() if r.stderr.strip() else ''))
         return
     raise ValueError('Onbekende actie')
 
 
 def updates_status():
-    count = None
-    # PackageKit knows the last refresh; this does not download anything.
-    text = out(['pkcon', '--plain', '--cache-age', '86400', 'get-updates'], timeout=20) if shutil.which('pkcon') else ''
-    if text:
-        count = len([line for line in text.splitlines() if re.match(r'^(Normal|Security|Important|Bugfix|Enhancement|Low)\s', line.strip())])
-    return {'rebootRequired': os.path.exists('/run/reboot-required'), 'count': count}
+    return updates.status()
 
 
 # ---------- tools ----------
@@ -307,6 +313,8 @@ def run_tool(tool, args):
     if tool == 'deb':
         return spawn(['universe-install-deb'])
     if tool == 'control':
+        if not os.path.exists('/usr/share/universe-os/ui/control.html'):
+            raise RuntimeError('Het Controlecentrum is nog in aanbouw; deze instelling kan nog niet worden geopend.')
         page = args.get('page') or ''
         return spawn(['universe-control-center'] + (['--pagina', page] if re.fullmatch(r'[a-z]+', page) else []))
     if tool == 'installer':

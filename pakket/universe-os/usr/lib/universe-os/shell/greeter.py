@@ -39,7 +39,10 @@ class PlanetGreeter:
         # Never log bridge arguments, responses, tracebacks or PAM text.
         bridge = Bridge({'login.ready': self.ready, 'login.authenticate': self.authenticate,
                          'login.respond': self.respond, 'login.start': self.start_session,
-                         'login.cancel': self.cancel},
+                         'login.cancel': self.cancel, 'power.get': self.power_get,
+                         'power.shutdown': lambda _: self.power_action('shutdown'),
+                         'power.suspend': lambda _: self.power_action('suspend'),
+                         'power.restart': lambda _: self.power_action('restart')},
                         log=lambda *args: None)
         self.view = make_view('login.html', bridge)
         self.view.get_settings().set_enable_webgl(False)
@@ -57,6 +60,29 @@ class PlanetGreeter:
     def ready(self, _):
         return {'user': self.dm.get_select_user_hint() or '', 'prompt': self.prompt,
                 'animations': config.settings().get('animations', 'full')}
+
+    def power_get(self, _):
+        """Which power actions logind allows before signing in (via LightDM; no own privileges)."""
+        return {'shutdown': bool(LightDM.get_can_shutdown()), 'suspend': bool(LightDM.get_can_suspend()),
+                'restart': bool(LightDM.get_can_restart())}
+
+    def power_action(self, action):
+        """Suspend means suspend to RAM, never hibernate."""
+        allowed = {'shutdown': (LightDM.get_can_shutdown, LightDM.shutdown, 'Afsluiten'),
+                   'suspend': (LightDM.get_can_suspend, LightDM.suspend, 'Slaapstand'),
+                   'restart': (LightDM.get_can_restart, LightDM.restart, 'Herstarten')}
+        if action not in allowed:
+            raise ValueError('Onbekende actie.')
+        can, do, name = allowed[action]
+        if self.starting:
+            raise RuntimeError('Universe OS wordt al gestart.')
+        if not can():
+            raise RuntimeError('%s is op deze computer niet mogelijk.' % name)
+        try:
+            do()
+        except GLib.Error:
+            raise RuntimeError('%s is niet gelukt.' % name) from None
+        return True
 
     def authenticate(self, args):
         if self.starting:

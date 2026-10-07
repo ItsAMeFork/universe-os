@@ -1,8 +1,16 @@
 #!/bin/sh
 # Lock the screen (Windows+L, panel, idle, before sleep). swaylock uses PAM: the normal account password.
+# --indicator-idle-visible: without it swaylock shows only the dark colour until a key is pressed, which looks like a black,
+# frozen screen. The ring now always shows where the password goes; Caps Lock is shown too.
+# Background: planet-style picture with "Vergrendeld" (built from scripts/assets/vergrendeld.svg). swaylock stays the
+# secure lock (ext-session-lock) and keeps the session running; the ring sits on top of the planet.
 pgrep -u "$(id -u)" -x swaylock >/dev/null && exit 0
-exec swaylock -f \
+IMAGE=/usr/share/universe-os/backgrounds/vergrendeld.png
+set --
+[ -r "$IMAGE" ] && set -- --image "$IMAGE" --scaling fill
+exec swaylock -f "$@" \
     --color 050815 \
+    --indicator-idle-visible --indicator-caps-lock \
     --indicator-radius 90 --indicator-thickness 9 \
     --inside-color 0b1021e6 --inside-clear-color 0b1021e6 --inside-ver-color 162335e6 --inside-wrong-color 3a1420e6 \
     --ring-color 85ffe355 --ring-ver-color 85ffe3 --ring-wrong-color ff8a9a --ring-clear-color baf7e8 \

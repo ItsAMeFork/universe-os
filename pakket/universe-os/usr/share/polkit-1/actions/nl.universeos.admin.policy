@@ -15,4 +15,16 @@
     </defaults>
     <annotate key="org.freedesktop.policykit.exec.path">/usr/lib/universe-os/universe-admin-helper</annotate>
   </action>
+  <action id="nl.universeos.admin.updates">
+    <description>Change the Universe OS update channel</description>
+    <description xml:lang="nl">Updatekanaal van Universe OS wijzigen</description>
+    <message>Authentication is required to change the update channel</message>
+    <message xml:lang="nl">Voer het wachtwoord van een beheerder in om het updatekanaal te wijzigen</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/lib/universe-os/universe-updates-helper</annotate>
+  </action>
 </policyconfig>

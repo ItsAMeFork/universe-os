@@ -7,3 +7,7 @@ main::before{content:'';position:absolute;width:min(100vw,900px);aspect-ratio:1;
 html:not(.reduce-motion):not(.no-motion) #planet{will-change:transform}
 html.reduce-motion #planet,html.no-motion #planet{animation:none;will-change:auto}
 @media(prefers-reduced-motion:reduce){#planet{will-change:auto}}
+
+.login-power{position:fixed;right:18px;bottom:12px;z-index:20;display:flex;gap:8px;flex-wrap:wrap;max-width:min(650px,calc(100vw - 36px));padding:12px;border-radius:18px;background:#0b1021e6;border:1px solid var(--line)}
+.power-option{display:flex;flex-direction:column;max-width:190px;gap:5px}.power-option button{display:flex;gap:8px;align-items:center;justify-content:center}.power-option small{font-size:.72em;color:var(--muted)}.power-message{flex-basis:100%;margin:0;font-size:.8em}.power-message:empty{display:none}.power-option button:disabled{opacity:.45;cursor:default}.power-confirm{max-width:420px;background:#0b1021;color:var(--text);border:1px solid var(--line);border-radius:24px;padding:24px}.power-confirm::backdrop{background:#050815bb}.power-confirm button{width:auto;margin:8px}.power-confirm h2{color:var(--accent)}
+@media(max-height:700px){main{padding-bottom:140px}#planet{max-height:65vh}.login-power{padding:8px;gap:6px}.power-option small{max-width:140px}}

@@ -1,0 +1,23 @@
+#!/bin/sh
+# Updatekanaal van de eigen Universe OS-bron wijzigen. Draait ALLEEN via pkexec (polkit vraagt het wachtwoord van een
+# beheerder, actie nl.universeos.admin.updates). Lezen kan iedereen zonder dit hulpprogramma (zie hieronder).
+#   universe-updates-helper kanaal stable|test
+# stable: alleen de updates voor iedereen. test: ook testupdates (extra bron universe-os-test.sources).
+# Uitvoer bij succes: "ok". Bij een fout: Nederlandse tekst op stderr en exitcode 1.
+# Huidig kanaal lezen (zonder rechten): test als /etc/apt/sources.list.d/universe-os-test.sources bestaat, anders
+# stable; bestaat /etc/apt/sources.list.d/universe-os.sources niet, dan is de eigen bron (nog) niet actief.
+set -eu
+DIR=/etc/apt/sources.list.d
+fail() { echo "$1" >&2; exit 1; }
+[ "$(id -u)" = 0 ] || fail 'Dit hulpprogramma moet via pkexec worden gestart.'
+[ $# -eq 2 ] && [ "$1" = kanaal ] || fail 'Gebruik: universe-updates-helper kanaal stable|test'
+[ -f "$DIR/universe-os.sources" ] || fail 'De eigen updatebron van Universe OS is nog niet actief op deze computer.'
+case "$2" in
+    stable) rm -f "$DIR/universe-os-test.sources" ;;
+    test) sed 's/^Suites: stable$/Suites: test/' "$DIR/universe-os.sources" >"$DIR/universe-os-test.sources.tmp"
+          grep -qx 'Suites: test' "$DIR/universe-os-test.sources.tmp" || { rm -f "$DIR/universe-os-test.sources.tmp"; fail 'De updatebron heeft een onverwachte indeling.'; }
+          chmod 0644 "$DIR/universe-os-test.sources.tmp"
+          mv "$DIR/universe-os-test.sources.tmp" "$DIR/universe-os-test.sources" ;;
+    *) fail 'Onbekend kanaal: kies stable of test.' ;;
+esac
+echo ok

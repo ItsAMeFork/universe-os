@@ -1,0 +1,16 @@
+# Universe OS: standaardprogramma's voor alle gebruikers (eigen keuzes per gebruiker in ~/.config/mimeapps.list winnen).
+# Webbrowser: Google Chrome (wens Axel); zolang Chrome nog niet is geïnstalleerd, gebruikt het systeem Firefox.
+[Default Applications]
+x-scheme-handler/http=google-chrome.desktop;firefox-esr.desktop;
+x-scheme-handler/https=google-chrome.desktop;firefox-esr.desktop;
+text/html=google-chrome.desktop;firefox-esr.desktop;
+application/xhtml+xml=google-chrome.desktop;firefox-esr.desktop;
+# Windows-programma's: altijd eerst het bevestigingsscherm, nooit rechtstreeks Wine (A19). Alle typen die
+# shared-mime-info in Debian 13 aan .exe/.msi geeft, plus oudere namen.
+application/vnd.microsoft.portable-executable=universe-windows-installer.desktop;
+application/x-msdownload=universe-windows-installer.desktop;
+application/x-dosexec=universe-windows-installer.desktop;
+application/x-ms-ne-executable=universe-windows-installer.desktop;
+application/x-ms-dos-executable=universe-windows-installer.desktop;
+application/x-msdos-program=universe-windows-installer.desktop;
+application/x-msi=universe-windows-installer.desktop;

@@ -38,7 +38,8 @@ def pkexec_helper(args, stdin=None):
     if r.returncode in (126, 127):
         raise PermissionError('Geen toestemming: het beheerderswachtwoord is niet bevestigd.')
     if r.returncode:
-        raise RuntimeError(r.stderr.strip() or 'Mislukt')
+        raise RuntimeError('De systeemwijziging is mislukt.' +
+                           (' Technische melding: ' + r.stderr.strip() if r.stderr.strip() else ''))
     return True
 
 
@@ -207,7 +208,8 @@ def handlers(app):
     def display_scale(a):
         r = subprocess.run(['/usr/lib/universe-os/universe-displays', 'scale', str(a['name']), str(float(a['scale']))], capture_output=True, text=True)
         if r.returncode:
-            raise RuntimeError(r.stderr.strip() or 'Schaal niet gewijzigd')
+            raise RuntimeError('De beeldschermschaal is niet gewijzigd.' +
+                               (' Technische melding: ' + r.stderr.strip() if r.stderr.strip() else ''))
         return True
 
     def set_shortcuts(a):
@@ -234,6 +236,8 @@ def handlers(app):
         'apps.launch': lambda a: backend.launch(a.get('id')),
         'run': lambda a: backend.run_tool(a.get('tool'), a),
         'status': lambda a: backend.status(),
+        'audio.outputs': lambda a: backend.audio.outputs(),
+        'audio.select': lambda a: backend.audio.select(a),
         'volume.set': lambda a: backend.set_volume(a.get('level', 50)),
         'volume.mute': lambda a: backend.toggle_mute(),
         'mic.get': mic, 'mic.set': set_mic,
@@ -257,6 +261,9 @@ def handlers(app):
         'bluetooth.get': bluetooth,
         'firewall.get': lambda a: firewall(),
         'updates.status': lambda a: backend.updates_status(),
+        'updates.channel.get': lambda a: backend.update_channel.get(),
+        'updates.channel.set': lambda a: backend.update_channel.set_channel(a),
+        'updates.refresh': lambda a: backend.updates.refresh(),
         'about': lambda a: about(),
         'window.page': lambda a: app.pending_page,
     }
@@ -281,9 +288,9 @@ class ControlCenter(Gtk.Application):
         if self.window:
             self.window.present()
             return
-        bridge = Bridge(handlers(self), threaded={'status', 'wifi.list', 'wifi.connect', 'users.add', 'users.remove', 'users.admin',
+        bridge = Bridge(handlers(self), threaded={'updates.channel.set', 'network.status', 'status', 'audio.outputs', 'audio.select', 'wifi.list', 'wifi.connect', 'users.add', 'users.remove', 'users.admin',
                                                    'users.password', 'account.password', 'timezone.set', 'updates.status', 'keyboard.set',
-                                                   'locale.set', 'bluetooth.get'})
+                                                   'locale.set', 'bluetooth.get', 'updates.refresh'}, log=lambda *args: None)
         self.window = Gtk.ApplicationWindow(application=self, title='Controlecentrum')
         self.window.set_default_size(1040, 720)
         self.window.set_icon_name('preferences-system')

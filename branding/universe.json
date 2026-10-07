@@ -1,7 +1,7 @@
 {
   "_uitleg": "Centrale vormgeving van Universe OS. Na wijzigen: scripts/build-deb.sh opnieuw draaien (of het ISO opnieuw bouwen). Gebruikers kunnen de indeling overschrijven in ~/.config/universe-os/world.json.",
   "name": "Universe OS",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "colors": {
     "space": "#050815",
     "panel": "#0b1021",

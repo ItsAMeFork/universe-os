@@ -105,11 +105,23 @@ Eigenaar van: `live/`, `scripts/`, `vm/`, `pakket/universe-os/DEBIAN/`, `pakket/
 ### M3 (Wine-systeemkant)
 - 🧪 **A18** Live-build hook `config/hooks/live/0100-wine32.hook.chroot`: `dpkg --add-architecture i386`,
   `apt-get update`, `apt-get install wine wine64 wine32:i386 msitools`. **Geen** `wine-binfmt` (dat zou .exe direct uitvoeren).
-- ⬜ **A19** MIME: `universe-windows-installer.desktop` als standaard voor `application/x-ms-dos-executable`,
+- 🧪 **A19** MIME (6 okt: alle Debian 13-typen voor .exe/.msi in `etc/xdg/mimeapps.list`, ook `application/vnd.microsoft.portable-executable` en `x-dosexec`): `universe-windows-installer.desktop` als standaard voor `application/x-ms-dos-executable`,
   `application/x-msdownload`, `application/vnd.microsoft.portable-executable`, `application/x-msi`, `application/x-ole-storage`
   in `/etc/xdg/mimeapps.list` (of `usr/share/applications/mimeapps.list`).
 - ⬜ **A20** Tests Wine in de test-VM met 7-Zip `.exe` en `.msi` (LGPL): openen, installeren, starten vanuit de
   ruimtewereld, na herstart, verwijderen (met/zonder gegevens), andere gebruiker heeft geen toegang → `docs/tests/M3.md`.
+
+### Echte computer (bevindingen Axel, 6 oktober)
+- 🧪 **A23** Menu-knoppen: `usr/bin/universe-control-center` ontbrak in het pakket, waardoor alle instellingen-tegels (Thuiswereld, Controlecentrum) faalden met "Programma niet gevonden". Toegevoegd; zolang `ui/control.html` (B6) ontbreekt, geeft de shell een duidelijke melding. Programma-tegels (Firefox e.d.) nog reproduceren in de VM.
+- 🧪 **A24** Opstart: `/etc/default/grub.d/universe.cfg` verbergt het GRUB-menu (1 s, Esc/Shift = menu met herstelmodus), naam "Universe OS", stille kernelregel. Firmware-vermelding blijft `debian` (nodig voor shim/Secure Boot); geen andere opstartvermeldingen verwijderd. Plymouth-opstartscherm volgt apart.
+- 🧪 **A25** Greeter-energieacties (systeemkant): `power.get`, `power.shutdown`, `power.suspend`, `power.restart` in `greeter.py` via LightDM/logind (geen eigen rechten; slaapstand = suspend, nooit hibernate). Knoppen in `login.html` zijn spoor B.
+- 🧪 **A26** Vergrendelen gaf een "zwart" scherm: swaylock toont zonder `--indicator-idle-visible` alleen de donkere kleur tot je typt. Invoercirkel (en Caps Lock) nu altijd zichtbaar. Scherm-uit (wlopm) en vastlopen nog uitsluiten in de VM.
+- 🧪 **A27** Klok, geluid, updates (bevindingen 6 okt, ronde 2). Pakketlijst van het laatste ISO nagelopen: alle firmware zit erin (o.a. `firmware-amd-graphics`, `-nvidia-graphics`, `-intel-graphics`, `-sof-signed`, `-intel-sound`, `-realtek`, `-iwlwifi`, `-atheros`, `-brcm80211`, `-mediatek`, microcode), APT-bronnen in het geïnstalleerde systeem kloppen (trixie, trixie-updates, trixie-security). **Ontbrak** door `--apt-recommends false`: `systemd-timesyncd` (geen NTP → klok op 13 april → updatecontrole/HTTPS faalt → "Updates zijn verouderd" van GNOME Software blijft staan), `alsa-ucm-conf` (geluidsprofielen voor moderne kaarten/HDMI) en `rtkit`. Toegevoegd, plus `alsa-utils`. Netwerk "offline" op de echte computer: oorzaak nog onbekend, hardware-gegevens van Axel nodig.
+- 🧪 **A32** Eigen updatebron: sleutel gemaakt (hoofdsleutel op Axels USB-stick), `publiceer-apt.sh` (apt-ftparchive, kanalen test/stable, alle versies bewaard), `universe-updates-helper` voor het kanaal. Online: https://itsamefork.github.io/universe-os-apt/ met 0.2.0 in test en stable (via HTTPS getest). Zie `docs/UPDATES-VOORSTEL.md`.
+- 🧪 **A31** Slaapstand: wekken met het toetsenbord, niet met de muis. udev-regel `90-universe-wakeup.rules` + `universe-input-wakeup`: per USB-apparaat blijft ontwaken aan als er een toetsenbord op zit, en gaat het uit bij apparaten met alleen een muis. Combi-ontvangers en muizen met een eigen toetsenbordinterface delen één instelling: dan blijft ontwaken aan (beperking, gelogd en in `/run/universe-os/wakeup/`). Logica getest met nagebootste apparaten; echte slaapstand nog op de echte pc testen.
+- 🧪 **A30** Updates: `pkcon` ontbrak ("PackageKit is niet beschikbaar"), want `packagekit-tools` kwam alleen via Recommends mee. Toegevoegd aan de ISO-lijst en aan Depends. Alle door de code aangeroepen programma's nagelopen tegen de chroot: alleen pkcon ontbrak. Chrome-haperen en invoervertraging: hardwaregegevens van Axel nodig.
+- 🧪 **A28** Vergrendelscherm in planeetstijl: swaylock blijft het (veilige) slot en houdt de sessie open; achtergrond `scripts/assets/vergrendeld.svg` → `backgrounds/vergrendeld.png` (bij het bouwen) met "Vergrendeld" en uitleg, invoercirkel op de planeet.
+- ⬜ **A29** Google Chrome: geen meelevering in het ISO (licentie Google laat herverspreiding niet zomaar toe, nog te bevestigen); voorstel = officiële Google-pakketbron + installatie van Google zelf. Wacht op besluit Axel.
 
 ### M4
 - ⬜ **A21** Licenties: `docs/LICENTIES.md` (eigen code, Debian-pakketten, Wine), broncodeverwijzing.
@@ -123,27 +135,31 @@ Eigenaar van: `pakket/universe-os/usr/share/universe-os/ui/`, `pakket/universe-o
 `pakket/universe-os/usr/bin/`, `pakket/universe-os/usr/share/applications/`, `branding/`.
 
 ### M1
-- ⬜ **B1** Shell starten in een echte labwc-sessie (in de live-ISO of de bouw-VM met labwc): fouten oplossen in
+- 🧪 **B1** Shell starten in een echte labwc-sessie (in de live-ISO of de bouw-VM met labwc): fouten oplossen in
   `universe_shell.py`, `toplevels.py`, `webview.py`. Controleer: wereld op achtergrondlaag, paneel boven vensters,
   overzicht met toetsenbordfocus.
-- ⬜ **B2** Windows-toets alleen (`Super_L` met `onRelease`), Windows+D (minimaliseren en terugzetten), Alt+Tab,
+- 🧪 **B2** Windows-toets alleen (`Super_L` met `onRelease`), Windows+D (minimaliseren en terugzetten), Alt+Tab,
   Alt+F4 werkend in labwc 0.8.3.
-- ⬜ **B3** `.desktop`-bestanden: Controlecentrum, Windows-programma's, installer (live).
-- ⬜ **B4** `universe-install` (live: Calamares starten met de juiste Wayland-omgeving) en
+- 🧪 **B3** `.desktop`-bestanden: Controlecentrum, Windows-programma's, installer (live).
+- 🧪 **B4** `universe-install` (live: Calamares starten met de juiste Wayland-omgeving) en
   `universe-install-deb` (zenity + gdebi-gtk).
-- ⬜ **B5** labwc-thema `usr/share/themes/Universe/openbox-3/themerc` in Universe-kleuren; `mako.conf`;
+- 🧪 **B5** labwc-thema `usr/share/themes/Universe/labwc/themerc` in Universe-kleuren; `mako.conf`;
   GTK donker thema (`/etc/gtk-3.0/settings.ini`).
 
+B1/B4: basisopstart en Calamares-installatie hebben bewijs in `docs/tests/M1.md`;
+volledige B1-laag/focuscontrole en B4 .deb-route blijven open. De overige B-regels
+blijven 🧪 tot hun gerichte VM-testverslagen er zijn.
+
 ### M2
-- ⬜ **B6** `ui/control.html` + `control.js`: alle pagina's uit `settings-index.js` (weergave/animaties/schaal,
+- 🧪 **B6** `ui/control.html` + `control.js`: alle pagina's uit `settings-index.js` (weergave/animaties/schaal,
   netwerk+wifi, geluid+microfoon, beeldschermen, bluetooth, taal+toetsenbord met **testveld voor tekens**, muis,
   datum/tijd, energie, accounts, sneltoetsen met conflictcontrole, updates, beveiliging, over).
-- ⬜ **B7** Communicatie-planeet: toont geïnstalleerde chat-/mailprogramma's en meldt eerlijk dat er nog geen
+- 🧪 **B7** Communicatie-planeet: toont geïnstalleerde chat-/mailprogramma's en meldt eerlijk dat er nog geen
   chatdienst gekoppeld is. **Geen** Space Chat en **geen** bestaande Matrix-server gebruiken of noemen: Universe OS
   staat daar los van.
-- ⬜ **B8** Toegankelijkheid: zichtbare focus overal, animaties volledig/verminderd/uit, UI- en tekstschaal,
+- 🧪 **B8** Toegankelijkheid: zichtbare focus overal, animaties volledig/verminderd/uit, UI- en tekstschaal,
   schermformaten 1024×768 t/m 4K.
-- ⬜ **B9** Nederlandse teksten nalopen; lijst van meegeleverde programma's zonder volledige Nederlandse vertaling.
+- 🧪 **B9** Nederlandse teksten nalopen; lijst van meegeleverde programma's zonder volledige Nederlandse vertaling.
 
 ### M3 (Wine-interface)
 - 🧪 **B10** (spoor B / ChatGPT; code geschreven, VM-test nog nodig) `ui/windows.html` + `windows.js`: bevestigingsscherm vóór uitvoeren (bestandsnaam, map, grootte,
@@ -151,17 +167,18 @@ Eigenaar van: `pakket/universe-os/usr/share/universe-os/ui/`, `pakket/universe-o
   (geslaagd/mislukt/geen snelkoppeling) los van status **werking** (niet getest/gestart/fout/werkt volgens gebruiker),
   starten, instellingen (omgeving, logboeken, winecfg, Wine Mono op verzoek), verwijderen met tweede bevestiging bij
   gegevens wissen.
-- ⬜ **B11** `universe-windows-installer.desktop` (NoDisplay, MimeType, `Exec=universe-windows-apps --installeer %f`)
+- 🧪 **B11** `universe-windows-installer.desktop` (NoDisplay, MimeType, `Exec=universe-windows-installer %f`)
   en `universe-windows-apps.desktop`; launchers in `usr/bin/`.
-- ⬜ **B12** Ruimtewereld: in het Applicaties-planeet een groep "Windows-programma's" (categorie `X-Universe-Windows`)
-  en een tegel "Windows-programma's beheren"; `backend.py` uitbreiden (`windows`-vlag, hulpmiddel `windows-apps`).
+- 🧪 **B12** Ruimtewereld: in het Applicaties-planeet een groep "Windows-programma's" (herkende `universe-wine-*`-snelkoppelingen)
+  en een tegel "Windows-programma's beheren"; starten via de geregistreerde `.desktop`-bestanden.
 
 ### M4
-- ⬜ **B14** Omgekeerde overgang bij afmelden (de loginplaneet vormt zich opnieuw). Moet af vóór de oplevering (M4).
-- ⬜ **B15** Ruimtewereld in dezelfde stijl als het planeet-inlogscherm: zelfde donkere achtergrond, sterren, teal gloed en glazen kaarten; alle planeten blijven. Wens van Axel (4 okt).
+- 🧪 **B14** Omgekeerde overgang bij afmelden (de loginplaneet vormt zich opnieuw). Moet af vóór de oplevering (M4).
+- 🧪 **B15** Ruimtewereld in dezelfde stijl als het planeet-inlogscherm: zelfde donkere achtergrond, sterren, teal gloed en glazen kaarten; alle planeten blijven. Wens van Axel (4 okt).
 - 🧪 **B16** Snelheid: geen filters/backdrop-blur op bewegende elementen, alleen transform/opacity animeren, kleinere canvassen, parallax per frame, FPS-meting. Doel ≥ 30 fps in de VM op 1920×1080 (zonder GPU-versnelling).
-- ⬜ **B13** Handleiding `docs/HANDLEIDING.md` (Nederlands): bouwen, testen in VM, USB schrijven, vormgeving en
+- 🧪 **B13** Handleiding `docs/HANDLEIDING.md` (Nederlands): bouwen, testen in VM, USB schrijven, vormgeving en
   wereldindeling aanpassen, standaardprogramma's wijzigen.
+  Gebruiks-, vormgevings- en standaardprogrammahoofdstukken geschreven; bouw/VM/USB-hoofdstuk volgt van Claude.
 
 ---
 
@@ -241,3 +258,46 @@ De eigenaar (Axel) beslist bij twijfel.
 | 2026-10-04 | B → A | B16 gestart vanaf main eabb5f5: software-rendering, bitmapcache, frame-parallax en debug-FPS; geen nieuwe ISO-bouw. | |
 
 | 2026-10-04 | B → A | B16 geschreven vanaf eabb5f5: filters/blur verwijderd, bitmapcache en zichtbare canvasgrootte, frame-parallax, donker eerste beeld, startfocus en debug-FPS (UNIVERSE_DEBUG_FPS=1). Lokale cache-/syntaxcontroles slagen. Voor A: meet baseline/nieuw 1920x1080 zonder GPU; doel 30 fps en wereld binnen 3 s na implosie. Ook animaties full/reduced/off, sneltoets 1 zonder klik en kamerlabeI testen. Geen VM-bewijs: status 🧪. Standaard animatievoorkeur ongewijzigd. | |
+
+| 2026-10-06 | A → B | Claude op branch `spoor-a/A23-echte-computer`: oorzaak menu-fout op de echte computer gevonden: `universe-control-center` zat niet in het pakket (alle instellingen-tegels → "Programma niet gevonden"), en `ui/control.html`/`control.js` (B6) bestaan nog niet. Startbestand toegevoegd + duidelijke melding zolang B6 ontbreekt. **Voor B:** B6 heeft nu voorrang (het Controlecentrum is leeg zonder control.html). Greeter-contract voor energieknoppen: `call('power.get')` → `{shutdown,suspend,restart}` (booleans), `call('power.shutdown'\|'power.suspend'\|'power.restart')` → `true` of fout met Nederlandse tekst; graag knoppen (met bevestiging bij afsluiten/herstarten) in login.html. GRUB-menu verborgen (A24). Nog niet in de VM getest. | |
+
+| 2026-10-06 | B → A | B6 gestart vanaf main 87039cc; alle Controlecentrum-pagina's op bestaande handlers. Launcher uit PR #11 vereist. Zwart beeld bij vergrendelen apart gemeld in issue #1. | |
+
+| 2026-10-06 | B → A | B6 geschreven: control.html/control.js met alle 14 pagina's, echte handlers en systeemhulpmiddelen, wachtwoorden gewist voor verzending en bridge-logging uit. Lokale rendercontrole alle pagina's/ontbrekende apparaten/foutmelding en JS/Python-syntax slagen. Voor A: integreer launcher uit PR #11 en test alle instellingstegels, opslaan/herstart, polkit/accounts, wifi en hardware in VM. Zonder VM-bewijs blijft 🧪. | |
+
+| 2026-10-06 | A → B | Claude: B6 (PR #12) samengevoegd in `spoor-a/A23-echte-computer`; alle `call()`-namen in control.js hebben een handler en alle `run`-hulpmiddelen bestaan. Zwart vergrendelscherm: swaylock tekende zonder `--indicator-idle-visible` alleen de achtergrondkleur tot een toets werd ingedrukt; nu altijd zichtbare invoercirkel (A26). Volgende stap: ISO bouwen en alles in de VM testen. | |
+
+| 2026-10-06 | A → B | Claude: verdeling bevindingen ronde 2 in issue #1. A: A27 (timesyncd, alsa-ucm-conf, rtkit), A28 (vergrendelscherm planeetstijl via swaylock-afbeelding), A29 (Chrome, wacht op Axel). **Voor B:** energieknoppen login, eerlijke updatestatus (4 toestanden + echt verversen), geluidsuitgang kiezen, netwerkstatus met reden, Chrome-tegel; daarna B16/B14/B11/B12. | |
+
+| 2026-10-06 | B → A | 🧪 Login-energie: drie knoppen altijd rechtsonder zichtbaar; niet-beschikbaar grijs met uitleg; afsluiten/herstarten pas na bevestiging. Lokale capability-/annuleer-/bevestigingscontrole slaagt. Voor A: VM-test logind/PAM, verschillende resoluties en hervatten na slaapstand. Chrome-keuze van Axel: automatisch bij eerste start met internet, ook met datalimiet. | |
+
+| 2026-10-06 | B → A | 🧪 Updateweergave: current/available/stale/error; updates.refresh ververst echt via pkcon refresh force, achtergrondthread en bescherming tegen dubbele verversing. Control/wereld/paneel delen dezelfde UI; softwarewinkel openen claimt geen installatie. Lokale tests vier toestanden en verversfouten slagen. Voor A: VM-test PackageKit get-time/output, polkit/offline, oude lijst, echte update en melding van GNOME Software. Dat laatste notificatiegedrag is niet door B aangepast. | |
+
+| 2026-10-06 | B → A | 🧪 Geluidsuitgangkiezer in paneel en Controlecentrum: audio.outputs/audio.select gebruiken PipeWire + wpctl, actieve uitgang zichtbaar, apparaatnummer én naam gecontroleerd. Lokale parser-/selectie-/syntaxcontroles slagen; docs/tests/geluidsuitgang.md beschrijft de open hardware-, herstart- en VM-tests. Geen ISO-bouw gestart. | |
+
+| 2026-10-06 | B → A | 🧪 Netwerkstatus met concrete Nederlandse reden in paneel/Controlecentrum; echte nmcli-observaties, onbekende internettoegang blijft onbekend. Lokale toestandscontroles slagen (docs/tests/netwerkstatus.py). Graag VM/hardwaretests volgens docs/tests/netwerkstatus.md. | |
+| 2026-10-06 | B → A | 🧪 Chrome-tegel in Communicatie naast programmalijst. chrome.json-status + vijfsecondenverversing zolang de kamer open is; starten alleen als google-chrome.desktop bestaat. Lokale bestand-/toestandstests slagen (docs/tests/chrome-tegel.py). Graag echte download/offline/fout/voltooiing en starten testen. | |
+
+| 2026-10-06 | B → A | 🧪 B16-vervolg: shell vóór blokkerend autostartwerk, overzicht op eerste gebruik, native WebKit-start donker, world.ready-tijdlog. Doel ≤3 s nog niet gemeten; graag vijf koude logins en witbeeld/FPS/schalingtests (docs/tests/B16-vervolg.md). | |
+| 2026-10-06 | B → A | 🧪 B14: terugvormende loginplaneet bij afmelden boven alle vensters; reduced/off slaan beweging over; 1,8 s fallback en fout-herstel. Lokale echte-methodentests slagen (docs/tests/afmelden.py); graag echte sessie/meer-schermen/greeter-test (docs/tests/B14-afmelden.md). | |
+
+| 2026-10-06 | B → A | 🧪 B11/B12: Windows-launchers/desktopbestanden + vaste Applicaties-groep en universe-wine-snelkoppelingen. Bestanden blijven via bevestigingsscherm gaan. Voor A19/A20 beschikbaar; VM/MIME/Wine-testplan docs/tests/B11-B12.md. | |
+| 2026-10-06 | B → A | 🧪 B5 Universe labwc-thema, donkere GTK3-standaard en mako.conf toegevoegd. Native laden/visuele tests nog open; GTK4/libadwaita/Qt/Wine kunnen eigen inhoud tekenen. Testplan docs/tests/B5-thema.md. | |
+
+| 2026-10-06 | B → A | 🧪 B9 broncodecontrole eigen interface en Nederlandse uitleg vóór technische systeemfouten. Upstream-/programmatekstbeperkingen vastgelegd in docs/NEDERLANDSE-TEKSTEN.md; volledige ISO-taalcontrole nog open. | |
+
+| 2026-10-06 | B → A | 🧪 B7/B8/B13: eerlijke communicatie/foutstatus, inert achtergrondplaneten en Tab-grenzen in kamers/paneel; docs/HANDLEIDING.md. Lokale focus-/JS-tests slagen. Native focus/inert, 1024×768–4K, grote tekst, animaties en handleiding tegen ISO nog testen (docs/tests/B7-B8-B13.md). | |
+
+| 2026-10-06 | B → A | 🧪 Kleine vervolgpunten: virtuele netwerkapparaten uitgefilterd en connecting-status; handleiding heeft wereldindeling/branding en standaardprogrammakeuze; eigen B-roadmapregels op 🧪 met open bewijs vermeld. Lokale netwerkregressies slagen; bouwen/VM/USB-hoofdstuk blijft van Claude. | |
+
+| 2026-10-06 | B → A | 🧪 Chrome-beeld en vertraagde invoer/installatie gemeld. Achtergrondplaneten pauzeren bij zichtbare programmavensters; lokale compositor-state-test slaagt. GPU-oorzaak nog onbekend. CPU/invoer en hardwarediagnose testen volgens docs/tests/B16-achtergrondrust.md. | |
+
+| 2026-10-06 | B → A | 🧪 Menu/animatiereview: worker-bestandszoeken, debouncing/cache/oude resultaten ongeldig; reistoken bij afbreken; focusbare venstersluiten; paneelgroepen en lazy audio/updates; volumeverzoeken begrensd. Lokale tests slagen; native regressies docs/tests/menu-review.md. Standby/toetsenbord-only wake bij A gemeld. Nieuwe programma-planeetwens volgt in aparte B-wijziging. | |
+
+| 2026-10-06 | B → A | 🧪 Nieuwe programma-planeten: per-account baseline en persistentie, Gio-monitor en compacte bureaubladstrook. Zes werelden behouden. Lokale tests slagen; native tests docs/tests/programma-planeten.md. Afhankelijk van #27. | |
+
+| 2026-10-06 | B → A | 🧪 Eigen updatekanaal in Controlecentrum: actief/stable/test, Testupdates ontvangen, helper/polkit126 annulering en127 geen toestemming; na wijziging echt verversen. Lokale contracttests slagen; native tests docs/tests/updatekanaal.md. Bronlabels wachten op echte pkcon-repo-id-fixture. | |
+
+| 2026-10-07 | A → B | Claude: **zwart scherm in 0.2.0 opgelost.** Eén `)` te veel in `world.js` (refreshAppPlanets, commit f46923f) liet de hele module niet laden: shell en paneel draaiden, de wereld bleef leeg. Hersteld in 6eba5ea; `build-deb.sh` controleert nu Python (py_compile) en JS. **Voor B:** draai vóór elke push `node --input-type=module --check < bestand.js` op gewijzigde ui/*.js (gewoon `node --check` zag deze fout niet). 0.2.1 staat online en is getest in de VM (planeten zichtbaar). **Nieuwe updatesleutel** 19FAEFC86A1F7E25C78408AA0189D5914EAE81F2 (oude wachtwoordzin kwijt). | |
+| 2026-10-07 | A → B | Claude, review `spoor-b/installer-wachtwoordverplicht` (1d7cee2): `displayAutologin` bestaat niet in Calamares **3.3.14** (Debian 13; ook niet in 3.3.12/13, pas in nieuwere upstream). Het vinkje "automatisch aanmelden" blijft dus zichtbaar en werkt. Graag een oplossing die in 3.3.14 werkt, bijv. in `shellprocess-afronden.conf` `autologin-user` uit de LightDM-config van het doelsysteem halen, en/of het vinkje via het eigen Calamares-thema verbergen. Niet samengevoegd. | Open |
+| 2026-10-07 | A → B | Claude, review `spoor-b/internet-zonder-programmabalk` (e7ffd6b): JS-syntax van alle ui/*.js in orde, Python nagelezen (browsers/browser_select). Opmerking: `world.js` zet in `start()` de naam "Internet" nogmaals vast; dat is dubbel met `branding/universe.json` en overschrijft een eigen naam uit `~/.config/universe-os/world.json`. Graag weghalen. VM-test (browser direct openen, browser kiezen, Thuiswereld-tegel) nog open. Niet samengevoegd tot Axel beslist. | Open |

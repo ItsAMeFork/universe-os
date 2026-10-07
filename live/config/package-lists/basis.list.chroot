@@ -10,6 +10,9 @@ locales
 console-setup
 keyboard-configuration
 tzdata
+# Klok gelijkzetten via internet (NTP). Kwam zonder Recommends niet mee: de klok stond op 13 april, en een verkeerde
+# tijd laat updatecontroles en HTTPS mislukken.
+systemd-timesyncd
 dbus-user-session
 bash-completion
 ca-certificates
@@ -27,6 +30,11 @@ ufw
 pipewire-audio
 pipewire-pulse
 wireplumber
+# Geluidsprofielen (UCM) voor moderne geluidskaarten, SOF-laptops en HDMI/DisplayPort; zonder dit vaak geen geluid.
+alsa-ucm-conf
+alsa-utils
+# Realtime-prioriteit voor PipeWire (minder haperend geluid).
+rtkit
 pavucontrol
 bluez
 blueman

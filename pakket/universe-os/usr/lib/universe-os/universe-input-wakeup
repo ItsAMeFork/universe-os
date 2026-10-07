@@ -1,0 +1,46 @@
+#!/bin/sh
+# Called by udev (90-universe-wakeup.rules) for a USB keyboard or mouse: decides whether its USB device may wake the
+# computer from sleep. Wish: wake with the keyboard, not by moving the mouse.
+#  - a USB device that offers a keyboard keeps wakeup enabled, so the keyboard always works;
+#  - a USB device that offers only a pointer (mouse, touchpad) gets wakeup disabled.
+# Limitation: a combined wireless receiver (keyboard + mouse on one dongle) or a mouse with its own keyboard interface
+# shares one USB wakeup setting. Then wakeup stays on (otherwise the keyboard could not wake the computer either) and
+# the mouse can still wake it; that is logged and written to the status file.
+# Status per USB device: /run/universe-os/wakeup/<usb-id>  (decision + reason, for the interface and diagnosis).
+set -u
+[ $# -ge 1 ] || exit 0
+dev="/sys$1"
+while [ "$dev" != /sys ] && [ ! -f "$dev/idVendor" ]; do dev=${dev%/*}; done
+[ -f "$dev/idVendor" ] && [ -w "$dev/power/wakeup" ] || exit 0
+
+keyboard=0
+pointer=0
+# The device udev is handling now: its properties are in the environment (its database entry may not exist yet).
+[ "${ID_INPUT_KEYBOARD:-}" = 1 ] && keyboard=1
+[ "${ID_INPUT_MOUSE:-}" = 1 ] && pointer=1
+# Other input devices of the same USB device (other interfaces, added earlier).
+for input in $(find "$dev" -mindepth 3 -maxdepth 7 -type d -name 'input[0-9]*' -path '*/input/input*' 2>/dev/null); do
+    props=$(udevadm info --query=property --path="$input" 2>/dev/null) || continue
+    case "$props" in *ID_INPUT_KEYBOARD=1*) keyboard=1 ;; esac
+    case "$props" in *ID_INPUT_MOUSE=1*) pointer=1 ;; esac
+done
+
+name="$(cat "$dev/manufacturer" 2>/dev/null) $(cat "$dev/product" 2>/dev/null)"
+id="$(cat "$dev/idVendor"):$(cat "$dev/idProduct") ${dev##*/}"
+if [ "$keyboard" = 1 ]; then
+    echo enabled >"$dev/power/wakeup"
+    if [ "$pointer" = 1 ]; then
+        verdict="aan; beperking: toetsenbord en muis delen dit USB-apparaat, dus de muis kan de computer ook wekken"
+    else
+        verdict="aan (toetsenbord)"
+    fi
+elif [ "$pointer" = 1 ]; then
+    echo disabled >"$dev/power/wakeup"
+    verdict="uit (alleen muis)"
+else
+    exit 0
+fi
+mkdir -p /run/universe-os/wakeup
+printf '%s\n%s\n%s\n' "$id" "$name" "$verdict" >"/run/universe-os/wakeup/${dev##*/}"
+logger -t universe-wakeup "$id ($name): ontwaken $verdict" 2>/dev/null || true
+exit 0

@@ -16,6 +16,8 @@ gnome-system-monitor
 # Software beheren
 gnome-software
 packagekit
+# pkcon: de updatestatus en "Nu controleren" in Universe gebruiken dit (komt zonder Recommends niet vanzelf mee).
+packagekit-tools
 gdebi
 wdisplays
 
