@@ -86,3 +86,10 @@ Nog te doen, in deze volgorde:
 4. ✅ `scripts/apt/bron-actief` aangemaakt: het volgende ISO krijgt de bron mee.
 5. Nog niet getest: sleutelrotatie (oude client → nieuwe subsleutel → verlopen oude subsleutel) en het omkeren van
    migraties bij terugdraaien. Herstel na een gelekte sleutel is geen automatisch pad: dat vraagt een nieuw ISO.
+
+## Een update publiceren (in één keer)
+1. Versienummer verhogen in `branding/universe.json` (reparatie: 0.2.0 → 0.2.1) en committen.
+2. Op de laptop dubbelklikken op **"Universe OS update publiceren"** (bureaublad), of `vm\publiceer-update.ps1`.
+   Het script start zo nodig de bouw-VM, zet de laatste commit erheen, bouwt het pakket, vraagt de wachtwoordzin
+   (alleen in de VM, daarna gewist), publiceert naar test en stable en controleert of de versie online staat.
+   Alleen het testkanaal: `vm\publiceer-update.ps1 -Kanaal test`.
