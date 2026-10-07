@@ -1,0 +1,12 @@
+// Universe OS: updates automatisch installeren (unattended-upgrades).
+// Dagelijks (apt-daily.timer en apt-daily-upgrade.timer; stond de computer uit, dan kort na het opstarten):
+// pakketlijsten verversen en updates installeren. Debian-beveiligingsupdates staan al in 50unattended-upgrades;
+// hier komt de eigen Universe OS-bron bij (Origin "Universe OS", kanaal stable of test, zie scripts/publiceer-apt.sh).
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";
+APT::Periodic::AutocleanInterval "7";
+Unattended-Upgrade::Origins-Pattern {
+        "origin=Universe OS";
+};
+// Heeft iemand een configuratiebestand van een pakket zelf aangepast, dan slaat unattended-upgrades dat pakket over
+// (geen vraag op de achtergrond); het staat dan als update klaar in het Controlecentrum.
