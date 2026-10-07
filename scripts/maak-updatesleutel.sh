@@ -13,8 +13,8 @@ set -eu
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 STICK="/$(echo "$1" | tr 'A-Z' 'a-z' | tr -d ':')"
 [ -d "$STICK" ] || { echo "Station $1 niet gevonden." >&2; exit 1; }
-DIR="$STICK/universe-os-updatesleutel"
-[ -e "$DIR" ] && { echo "$DIR bestaat al; er wordt niets overschreven." >&2; exit 1; }
+DIR=${UNIVERSE_SLEUTEL_MAP:-$STICK/universe-os-updatesleutel}   # andere map: UNIVERSE_SLEUTEL_MAP="/f/sleutel universe os"
+[ -e "$DIR/gnupg" ] && { echo "$DIR/gnupg bestaat al; er wordt niets overschreven." >&2; exit 1; }
 mkdir -p "$DIR/gnupg"
 chmod 700 "$DIR/gnupg"
 export GNUPGHOME="$DIR/gnupg"
