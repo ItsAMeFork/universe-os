@@ -29,6 +29,11 @@ if (-not (Bereikbaar)) {
     }
 }
 
+# Na een slaapstand van de laptop loopt de VM-klok achter; gpg weigert dan een sleutel "uit de toekomst".
+$nu = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd HH:mm:ss')
+& ssh @opts -o BatchMode=yes bouwer@127.0.0.1 "sudo -n date -u -s '$nu' >/dev/null"
+if ($LASTEXITCODE -ne 0) { Write-Host 'Let op: klok van de bouw-VM niet gelijkgezet.' -ForegroundColor Yellow }
+
 Write-Host '== Code naar de bouw-VM'
 & "$PSScriptRoot\sync-naar-vm.ps1"
 
