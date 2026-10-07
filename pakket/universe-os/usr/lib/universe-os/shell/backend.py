@@ -105,6 +105,28 @@ def chrome():
     return chrome_status.read(Gio.DesktopAppInfo.new('google-chrome.desktop') is not None)
 
 
+def browsers():
+    default = Gio.AppInfo.get_default_for_type('x-scheme-handler/https', False)
+    available = {app.get_id(): app for app in Gio.AppInfo.get_all()
+                 if isinstance(app, Gio.DesktopAppInfo) and app.should_show()
+                 and ('WebBrowser' in (app.get_categories() or '').split(';')
+                      or 'x-scheme-handler/https' in (app.get_supported_types() or []))}
+    default_id = default.get_id() if default and default.get_id() in available else None
+    return {'default': default_id, 'apps': [
+        {'id': key, 'name': app.get_display_name(), 'icon': icon_uri(app.get_icon())}
+        for key, app in sorted(available.items(), key=lambda item: item[1].get_display_name().lower())]}
+
+
+def browser_select(app_id):
+    if app_id not in {app['id'] for app in browsers()['apps']}:
+        raise ValueError('Deze browser is niet beschikbaar.')
+    app = Gio.DesktopAppInfo.new(app_id)
+    for mime in ('x-scheme-handler/http', 'x-scheme-handler/https', 'text/html'):
+        if not app.set_as_default_for_type(mime):
+            raise RuntimeError('De standaardbrowser kon niet worden opgeslagen.')
+    return browsers()
+
+
 def desktop_apps():
     path = os.path.join(config.user_dir(), 'app-planets.json')
     installed = apps()

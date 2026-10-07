@@ -17,18 +17,6 @@ on('background-busy',setBackgroundBusy);
 const root=h('main',{class:'universe','aria-label':'Ruimtewereld van Universe OS'});
 const scene=h('div',{class:'scene'});
 const room=h('section',{class:'room glass',hidden:true,role:'dialog','aria-modal':'true'});
-const appOrbit=h('section',{class:'app-orbit',hidden:true,'aria-label':'Nieuwe programma’s'});
-let appRefresh=0;
-async function refreshAppPlanets(){
- const token=++appRefresh;
- try{const apps=await call('apps.desktop');if(token!==appRefresh)return;
-  appOrbit.replaceChildren(h('h2',{},'Jouw programmaplaneten'),h('div',{class:'app-orbit-list'},...apps.map(app=>{
-   const hue=[...app.id].reduce((n,c)=>(n*31+c.charCodeAt(0))%360,0);
-   const button=h('button',{class:'app-planet',type:'button','aria-label':`${app.name} openen`},globe(hue,false,96),h('span',{},app.name));
-   button.addEventListener('click',()=>launch(app.id));return button;
-  })));appOrbit.hidden=!apps.length;root.classList.toggle('has-app-planets',!!apps.length);
- }catch(e){if(appOrbit.isConnected)toast('Programmaplaneten ophalen mislukt: '+e.message);}
-}
 let logoutOverlay=null;
 on('logout-begin',async()=>{
  if(logoutOverlay)return;
@@ -44,13 +32,14 @@ document.body.append(root);
 
 async function start(){
  try{config=await call('config.get');}catch(e){config={settings:{animations:'full',travel:true},world:{planets:[]},user:{}};console.error(e);}
+ config.world.planets.forEach(p=>{if(p.id==='chat'){p.name='Internet';p.description='Je standaardbrowser en andere internetprogramma’s';}});
  settings=config.settings;user=config.user||{};applySettings({...settings,colors:config.world.colors});
  await afterPaint();build();debugFPS();await afterPaint();
  call('background.busy').then(setBackgroundBusy).catch(()=>{});
  call('world.ready',{milliseconds:performance.now()}).catch(()=>{});
 }
 function build(){
- root.replaceChildren(Object.assign(starfield(),{className:'space-stars'}),scene,room,appOrbit);
+ root.replaceChildren(Object.assign(starfield(),{className:'space-stars'}),scene,room);
  scene.replaceChildren();
  const home=config.world.planets.find(p=>p.id==='home');
  if(home){const paths=h('div',{class:'space-paths'},h('i'),h('i'),h('i'));paths.style.left=home.x+'%';paths.style.top=home.y+'%';scene.append(paths);}
@@ -73,7 +62,6 @@ function build(){
  }
  root.append(h('div',{class:'hint'},'Klik op een planeet of druk ',h('kbd',{},'1'),'–',h('kbd',{},String(planets.length)),' · ',h('kbd',{},'Windows'),' zoeken en open programma\'s · ',h('kbd',{},'Windows'),'+',h('kbd',{},'D'),' ruimtewereld · ',h('kbd',{},'Windows'),'+',h('kbd',{},'A'),' bedieningspaneel'));
  parallax();
- refreshAppPlanets();
  if(initialFocus){initialFocus=false;planets[0]?.button.focus({preventScroll:true});}
 }
 
@@ -92,8 +80,9 @@ function parallax(){
  };
 }
 
-async function land(p,{travel}){
- if(current)return;current=p;lastFocus=document.activeElement;scene.inert=true;appOrbit.inert=true;appOrbit.style.visibility='hidden';
+async function land(p,{travel,chooseBrowser=false}){
+ if(p.id==='chat'&&!chooseBrowser){try{const b=await call('browser.list');if(b.default){await launch(b.default);return;}}catch(e){toast('Browserkeuze ophalen mislukt: '+e.message);}}
+ if(current)return;current=p;lastFocus=document.activeElement;scene.inert=true;
  const token=++travelToken;
  const planet=planets.find(x=>x.p===p)?.button;
  const animate=travel&&settings.travel!==false&&motionAllowed(settings)&&planet;
@@ -106,7 +95,7 @@ async function land(p,{travel}){
  if(token===travelToken&&current===p)openRoom(p);
 }
 function leave(){
- if(!current)return;travelToken++;current=null;room.hidden=true;room.replaceChildren();scene.inert=false;appOrbit.inert=false;appOrbit.style.visibility='';
+ if(!current)return;travelToken++;current=null;room.hidden=true;room.replaceChildren();scene.inert=false;
  scene.style.visibility='';scene.classList.remove('travelling');scene.style.transform='';
  (lastFocus&&lastFocus.isConnected?lastFocus:planets[0]?.button)?.focus({preventScroll:true});
 }
@@ -132,7 +121,7 @@ function tile({name,sub,iconName,img,onClick,wide}){
 }
 function section(title,...kids){return h('section',{},h('h2',{},title),...kids);}
 async function apps(){if(!appsCache)appsCache=await call('apps.list');return appsCache;}
-on('apps-changed',()=>{appsCache=null;refreshAppPlanets();});
+on('apps-changed',()=>{appsCache=null;if(current&&['apps','chat','games'].includes(current.id))openRoom(current);});
 
 function appGrid(list,empty){
  const grid=h('div',{class:'tiles'});
@@ -147,6 +136,7 @@ const ROOMS={
   const card=h('div',{class:'user-card'},h('div',{class:'avatar','aria-hidden':'true'},(user.fullName||user.name||'?').slice(0,1).toUpperCase()),
    h('div',{},h('div',{style:'font-weight:600;font-size:1.1em'},user.fullName||user.name),h('div',{class:'muted'},`${user.name} · ${user.admin?'Beheerder':'Standaardaccount'}${user.live?' · tijdelijk live-account':''}`)));
   main.append(card);
+  main.append(tile({name:'Browser kiezen',sub:'Standaardbrowser instellen of veranderen',iconName:'grid',onClick:()=>{leave();const p=config.world.planets.find(p=>p.id==='chat');if(p)land(p,{travel:false,chooseBrowser:true});}}));
   const places=h('div',{class:'tiles'});main.append(section('Persoonlijke bestanden',places));
   try{for(const pl of await call('files.places'))places.append(tile({name:pl.name,sub:pl.exists?'':'(nog niet aangemaakt)',iconName:pl.id==='trash'?'close':'folder',onClick:()=>call('open.path',{path:pl.path}).catch(e=>toast(e.message))}));}
   catch(e){places.append(h('p',{class:'empty'},e.message));}
@@ -189,12 +179,14 @@ const ROOMS={
   main.append(section('Instellingen',grid));
  },
  async chat(main){
-  // Universe OS has no chat service of its own yet and deliberately does not use any existing chat server.
-  main.append(h('div',{class:'notice'},'Er is nog geen chatdienst gekoppeld aan Universe OS. Communicatieprogramma\'s die je zelf installeert, verschijnen hier.'));
+  main.append(h('p',{},'Kies een browser. Je keuze wordt opgeslagen voor jouw account; de Internet-planeet opent die browser daarna direct.'));
+  const choices=h('div',{class:'tiles'});main.append(section('Browsers',choices));
+  try{const b=await call('browser.list');for(const a of b.apps){const button=tile({name:a.name,sub:a.id===b.default?'Standaardbrowser':'Als standaardbrowser gebruiken',img:a.icon,onClick:async()=>{button.disabled=true;try{await call('browser.select',{id:a.id});await launch(a.id);leave();}catch(e){toast(e.message);}finally{button.disabled=false;}}});choices.append(button);}if(!b.apps.length)choices.append(h('p',{},'Nog geen browser beschikbaar. De downloadstatus van Chrome staat hieronder.'));}
+  catch(e){choices.append(h('p',{role:'alert'},e.message));}
   const chrome=tile({name:'Google Chrome',sub:'Downloadstatus controleren…',iconName:'grid',onClick:()=>launch('google-chrome.desktop')});
   chrome.disabled=true;const chromeMessage=h('p',{role:'status'});
   const chromeRefresh=h('button',{type:'button'},'Downloadstatus vernieuwen');
-  main.append(section('Internet en communicatie',h('div',{class:'tiles'},chrome),chromeMessage,chromeRefresh));
+  main.append(section('Chrome-download',h('div',{class:'tiles'},chrome),chromeMessage,chromeRefresh));
   let chromeBusy=false;
   const refreshChrome=async()=>{if(chromeBusy)return;chromeBusy=true;chromeRefresh.disabled=true;
    try{const s=await call('chrome.status');chrome.disabled=!s.available;chrome.querySelector('.t-sub').textContent=s.available?'Open de internetbrowser':s.state==='installing'?'Wordt gedownload en geïnstalleerd':'Nog niet beschikbaar';chromeMessage.textContent=s.message;}

@@ -3,9 +3,6 @@ html,body{background:var(--space);overflow:hidden}
 .universe{position:fixed;inset:0;overflow:hidden;isolation:isolate;--unit:min(1vw,1.6vh);--px:0px;--py:0px}
 .space-stars{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:1;pointer-events:none;transform:translate(calc(var(--px)*.4),calc(var(--py)*.4))}
 .scene{position:absolute;inset:0;transform-origin:50% 50%;transition:transform .75s cubic-bezier(.6,.05,.3,1),opacity .6s ease}
-.has-app-planets .scene{bottom:165px}
-.app-orbit{position:absolute;bottom:40px;left:3vw;right:3vw;height:140px;background:#0b1021e6;border:1px solid var(--line);border-radius:20px;padding:8px 12px;z-index:5}
-.app-orbit[hidden]{display:none}.app-orbit h2{font-size:.85em;color:var(--accent);margin:0 0 6px}.app-orbit-list{display:flex;gap:12px;overflow-x:auto;padding:5px;max-height:112px}.app-planet{flex:0 0 125px;display:flex;align-items:center;flex-direction:column;gap:3px;padding:0;border:0;background:transparent}.app-planet canvas{width:64px;height:64px}.app-planet span{font-size:.8em;max-width:120px;line-height:1.2;overflow-wrap:anywhere}.app-planet:hover{background:#162335}.app-orbit-list:focus-within{overflow-y:auto}
 .scene.travelling{opacity:.0;}
 .space-paths{position:absolute;width:0;height:0;pointer-events:none;opacity:.55;transform:translate(var(--px),var(--py))}
 .space-paths i{position:absolute;border:1px solid #91aac522;border-radius:50%}
@@ -43,7 +40,7 @@ html,body{background:var(--space);overflow:hidden}
 .room-side h1{margin:0;font-size:1.6em;letter-spacing:.5px}
 .room-side p{margin:0;color:var(--muted);line-height:1.45}
 .room-back{display:flex;align-items:center;gap:8px;align-self:flex-start}
-.room-main{padding:28px 32px;overflow:auto;display:flex;flex-direction:column;gap:22px}
+.room-main{min-width:0;min-height:0;padding:28px 32px;overflow:auto;display:flex;flex-direction:column;gap:22px}
 .room-main h2{margin:0 0 10px;font-size:1em;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);font-weight:600}
 .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
 .tile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:118px;padding:14px 10px;border-radius:24px;text-align:center;background:#0b1021c9;border:1px solid var(--line);box-shadow:0 12px 32px #0006}
@@ -80,3 +77,5 @@ html.background-busy .planet,html.background-busy .space-stars,html.background-b
 @media(prefers-reduced-motion:reduce){.planet .float{will-change:auto!important}}
 
 .logout-overlay{position:fixed;inset:0;z-index:10000;background:#050815;display:grid;place-items:center}.logout-overlay>canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.logout-planet{width:min(80vw,650px);aspect-ratio:1;transform:scale(0) rotate(160deg);opacity:0}.logout-planet canvas{width:100%;height:100%}.logout-overlay p{position:absolute;bottom:15%;color:var(--accent)}.logout-overlay.forming .logout-planet{animation:planet-forms 1.2s ease-out forwards}@keyframes planet-forms{0%{transform:scale(0) rotate(160deg);opacity:0}40%{transform:scale(.5) rotate(60deg);opacity:1}100%{transform:scale(1);opacity:1}}html.reduce-motion .logout-overlay.forming .logout-planet,html.no-motion .logout-overlay.forming .logout-planet{animation:none;transform:scale(1);opacity:1}@media(prefers-reduced-motion:reduce){.logout-overlay.forming .logout-planet{animation:none;transform:scale(1);opacity:1}}
+
+@media(max-width:500px){.room-side{flex-wrap:wrap}.room-main{padding:16px}.tiles{grid-template-columns:repeat(auto-fill,minmax(125px,1fr))}}
