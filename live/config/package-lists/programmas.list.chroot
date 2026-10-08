@@ -18,8 +18,6 @@ gnome-software
 packagekit
 # pkcon: de updatestatus en "Nu controleren" in Universe gebruiken dit (komt zonder Recommends niet vanzelf mee).
 packagekit-tools
-# Updates automatisch installeren (ook die van de eigen Universe OS-bron), zie etc/apt/apt.conf.d/52universe-os-auto-updates.
-unattended-upgrades
 gdebi
 wdisplays
 

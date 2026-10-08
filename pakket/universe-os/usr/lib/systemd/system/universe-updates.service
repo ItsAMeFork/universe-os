@@ -1,0 +1,18 @@
+[Unit]
+Description=Universe OS: updates controleren en installeren
+Documentation=file:///usr/lib/universe-os/universe-updates-run
+Wants=network-online.target
+After=network-online.target
+# Mislukt het (geen internet): na 20 min opnieuw, onbeperkt (geen startlimiet).
+StartLimitIntervalSec=0
+# Niet in de live-sessie van de USB-stick (daar wordt niet bijgewerkt, alleen geïnstalleerd).
+ConditionPathIsDirectory=!/run/live
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/universe-os/universe-updates-run
+Restart=on-failure
+RestartSec=20min
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=3h

@@ -1,0 +1,127 @@
+#!/usr/bin/python3
+"""Universe OS: updates controleren en verplicht installeren (draait als root via universe-updates.service).
+
+Eén taak voor alles: de knop "Updates installeren", de controle bij inloggen en de timer (3 min na opstarten, daarna
+elke 24 uur) starten allemaal deze unit. Loopt hij al, dan start systemd geen tweede; daarnaast een eigen slot.
+Stappen: controleren (apt-get update) -> downloaden -> installeren (apt-get upgrade --with-new-pkgs: nieuwe
+afhankelijkheden mogen, niets wordt verwijderd; eigen aanpassingen in configuratiebestanden blijven). Nooit herstarten.
+Status voor de interface: /var/lib/universe-os/updates/status.json (leesbaar voor iedereen).
+Mislukt het (geen internet, slot bezet te lang), dan exitcode 1: de unit probeert het na 20 minuten opnieuw.
+"""
+import fcntl
+import json
+import os
+import subprocess
+import sys
+import time
+
+STATE_DIR = '/var/lib/universe-os/updates'
+STATUS = os.path.join(STATE_DIR, 'status.json')
+LOCK = '/run/universe-os-updates.lock'
+TEST_SOURCE = '/etc/apt/sources.list.d/universe-os-test.sources'
+APT_ENV = dict(os.environ, LC_ALL='C', LANG='C', DEBIAN_FRONTEND='noninteractive', APT_LISTCHANGES_FRONTEND='none')
+APT_OPTS = ['-q', '-o', 'DPkg::Lock::Timeout=900', '-o', 'Dpkg::Options::=--force-confdef',
+            '-o', 'Dpkg::Options::=--force-confold']
+
+
+def read():
+    try:
+        with open(STATUS) as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def write(state, **fields):
+    data = read()
+    data.update(fields)
+    data['state'] = state
+    data['updatedAt'] = time.time()
+    data['rebootRequired'] = os.path.exists('/run/reboot-required')
+    os.makedirs(STATE_DIR, exist_ok=True)
+    os.chmod(STATE_DIR, 0o755)
+    tmp = STATUS + '.tmp'
+    with open(tmp, 'w') as f:
+        json.dump(data, f, ensure_ascii=False)
+    os.chmod(tmp, 0o644)
+    os.replace(tmp, STATUS)
+    print('[universe-updates] %s: %s' % (state, fields.get('message') or fields.get('error') or ''), flush=True)
+
+
+def apt(args, timeout):
+    return subprocess.run(['apt-get'] + APT_OPTS + args, env=APT_ENV, capture_output=True, text=True, timeout=timeout)
+
+
+def dpkg_busy():
+    """True when another program (Softwarewinkel, apt) holds the dpkg frontend lock right now."""
+    try:
+        with open('/var/lib/dpkg/lock-frontend', 'w') as f:
+            fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fcntl.lockf(f, fcntl.LOCK_UN)
+        return False
+    except OSError:
+        return True
+
+
+def fail(message, detail=''):
+    write('error', error=message, message=message, errorAt=time.time())
+    if detail:
+        print(detail[-2000:], file=sys.stderr, flush=True)
+    sys.exit(1)
+
+
+def main():
+    lock = open(LOCK, 'w')
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        return 0  # al bezig: niets dubbel doen
+    # Alleen het stabiele kanaal: een testbron van vroeger verdwijnt (geïnstalleerde versies blijven staan, geen downgrade).
+    if os.path.exists(TEST_SOURCE):
+        os.remove(TEST_SOURCE)
+    if dpkg_busy():
+        write('waiting', message='Wacht tot een ander installatieprogramma klaar is…', error=None)
+    write('checking', message='Controleren op updates…', error=None)
+    try:
+        result = apt(['update'], 900)
+    except subprocess.TimeoutExpired:
+        fail('Controleren duurde te lang. Een nieuwe poging volgt over 20 minuten.')
+    if result.returncode != 0 or 'Err:' in result.stdout or 'W: Failed to fetch' in result.stderr:
+        fail('Controleren mislukt: geen internet of een updatebron is onbereikbaar. Een nieuwe poging volgt over 20 minuten.',
+             result.stdout + result.stderr)
+    checked = time.time()
+    simulate = apt(['-s', 'upgrade', '--with-new-pkgs'], 300)
+    count = sum(1 for line in simulate.stdout.splitlines() if line.startswith('Inst '))
+    shell_update = any(line.startswith('Inst universe-os ') for line in simulate.stdout.splitlines())
+    if count == 0:
+        write('current', count=0, checkedAt=checked, message='Alles is bijgewerkt.', error=None)
+        return 0
+    write('downloading', count=count, checkedAt=checked, message='%d update%s downloaden…' % (count, '' if count == 1 else 's'))
+    try:
+        result = apt(['-y', '-d', 'upgrade', '--with-new-pkgs'], 3600)
+    except subprocess.TimeoutExpired:
+        fail('Downloaden duurde te lang. Een nieuwe poging volgt over 20 minuten.')
+    if result.returncode != 0:
+        fail('Downloaden mislukt: controleer de internetverbinding. Een nieuwe poging volgt over 20 minuten.',
+             result.stdout + result.stderr)
+    write('installing', count=count, checkedAt=checked, message='%d update%s installeren… De computer niet uitzetten.' % (count, '' if count == 1 else 's'))
+    try:
+        result = apt(['-y', 'upgrade', '--with-new-pkgs'], 3600)
+    except subprocess.TimeoutExpired:
+        fail('Installeren duurde te lang. Een nieuwe poging volgt over 20 minuten.')
+    if result.returncode != 0:
+        subprocess.run(['dpkg', '--configure', '-a'], env=APT_ENV, capture_output=True, timeout=1800)
+        fail('Installeren is niet gelukt. Een nieuwe poging volgt over 20 minuten.', result.stdout + result.stderr)
+    reboot = os.path.exists('/run/reboot-required')
+    message = '%d update%s geïnstalleerd.' % (count, '' if count == 1 else 's')
+    if reboot:
+        message += ' Herstart de computer om af te ronden.'
+    elif shell_update:
+        message += ' Meld je af en weer aan voor de nieuwste Universe-versie.'
+    write('current', count=0, installed=count, installedAt=time.time(), checkedAt=checked, message=message, error=None)
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

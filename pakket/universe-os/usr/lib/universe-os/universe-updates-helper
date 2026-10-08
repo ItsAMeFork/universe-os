@@ -14,10 +14,7 @@ fail() { echo "$1" >&2; exit 1; }
 [ -f "$DIR/universe-os.sources" ] || fail 'De eigen updatebron van Universe OS is nog niet actief op deze computer.'
 case "$2" in
     stable) rm -f "$DIR/universe-os-test.sources" ;;
-    test) sed 's/^Suites: stable$/Suites: test/' "$DIR/universe-os.sources" >"$DIR/universe-os-test.sources.tmp"
-          grep -qx 'Suites: test' "$DIR/universe-os-test.sources.tmp" || { rm -f "$DIR/universe-os-test.sources.tmp"; fail 'De updatebron heeft een onverwachte indeling.'; }
-          chmod 0644 "$DIR/universe-os-test.sources.tmp"
-          mv "$DIR/universe-os-test.sources.tmp" "$DIR/universe-os-test.sources" ;;
+    test) fail 'Testupdates bestaan niet meer: Universe OS gebruikt alleen het stabiele kanaal.' ;;
     *) fail 'Onbekend kanaal: kies stable of test.' ;;
 esac
 echo ok

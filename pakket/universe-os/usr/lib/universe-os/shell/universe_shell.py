@@ -10,6 +10,7 @@ Commands from keyboard shortcuts arrive on a Unix socket (universe-ctl).
 """
 import os
 import sys
+import threading
 import time
 
 import gi
@@ -72,7 +73,7 @@ class Shell:
         self.world_ready = False
         self.toplevels = Toplevels(self.windows_changed, log)
         self.bridge = Bridge(self.handlers(), threaded={'status', 'audio.outputs', 'audio.select', 'updates.status', 'power', 'volume.set', 'volume.mute',
-                                                        'notifications.clear', 'search.files', 'updates.status', 'updates.refresh'}, log=log)
+                                                        'notifications.clear', 'search.files', 'updates.status', 'updates.refresh', 'updates.install'}, log=log)
         self.worlds = []
         self.panel = None
         self.overview = None
@@ -256,6 +257,7 @@ class Shell:
             'logout.finish': lambda a: self.finish_logout(),
             'updates.status': lambda a: backend.updates_status(),
             'updates.refresh': lambda a: backend.updates.refresh(),
+            'updates.install': lambda a: backend.updates.install(),
             'run': lambda a: backend.run_tool(a.get('tool'), a),
             'windows.list': lambda a: self.window_list(),
             'windows.activate': lambda a: self.toplevels.activate(str(a.get('id'))),
@@ -393,11 +395,22 @@ class Shell:
         self.apps_changed_timer = None
         self.app_monitor.connect('changed', self.schedule_apps_changed)
         self.serve()
+        # Verplichte updates: bij inloggen een echte controle (+ installatie) als de laatste controle ouder is dan 20 uur.
+        GLib.timeout_add_seconds(45, self.check_updates_at_login)
         if not self.toplevels.start():
             log('Zonder vensteroverzicht verder.')
         GLib.timeout_add_seconds(10, self.status_tick)
         Gtk.main()
         return 0
+
+    def check_updates_at_login(self):
+        if backend.is_live():
+            return False  # live-sessie van de USB-stick: niet bijwerken
+        def work():
+            if backend.updates.check_at_login():
+                log('Updatecontrole bij inloggen gestart.')
+        threading.Thread(target=work, daemon=True).start()
+        return False
 
     def schedule_apps_changed(self, *_):
         if self.apps_changed_timer:

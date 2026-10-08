@@ -37,6 +37,15 @@ if [ "$1" = "configure" ]; then
         systemctl enable ufw.service >/dev/null 2>&1 || true
     fi
 
+    # Updates: één taak (universe-updates.service) voor de knop, het inloggen en de timer. Alleen het stabiele kanaal:
+    # een oude testbron verdwijnt (geïnstalleerde versies blijven, geen downgrade).
+    rm -f /etc/apt/sources.list.d/universe-os-test.sources
+    systemctl enable universe-updates.timer >/dev/null 2>&1 || true
+    if [ -d /run/systemd/system ] && ! systemd-detect-virt --quiet --chroot 2>/dev/null; then
+        systemctl daemon-reload >/dev/null 2>&1 || true
+        systemctl start universe-updates.timer >/dev/null 2>&1 || true
+    fi
+
     # Google Chrome on the first start with internet (installed system only; the unit skips the live session).
     systemctl enable universe-chrome-install.timer >/dev/null 2>&1 || true
 
