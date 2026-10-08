@@ -32,7 +32,6 @@ document.body.append(root);
 
 async function start(){
  try{config=await call('config.get');}catch(e){config={settings:{animations:'full',travel:true},world:{planets:[]},user:{}};console.error(e);}
- config.world.planets.forEach(p=>{if(p.id==='chat'){p.name='Internet';p.description='Je standaardbrowser en andere internetprogramma’s';}});
  settings=config.settings;user=config.user||{};applySettings({...settings,colors:config.world.colors});
  await afterPaint();build();debugFPS();await afterPaint();
  call('background.busy').then(setBackgroundBusy).catch(()=>{});
