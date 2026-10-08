@@ -27,12 +27,16 @@ def _read():
         return {}
 
 
-def _active():
+def _running():
+    """True alleen als de taak nu echt bezig is. Wacht hij op een nieuwe poging (RestartSec, SubState auto-restart),
+    dan telt dat niet als bezig: een klik moet dan meteen een nieuwe poging starten."""
     try:
-        out = subprocess.run(['systemctl', 'is-active', UNIT], capture_output=True, text=True, timeout=5).stdout.strip()
+        out = subprocess.run(['systemctl', 'show', UNIT, '-p', 'ActiveState', '-p', 'SubState'],
+                             capture_output=True, text=True, timeout=5).stdout
     except (OSError, subprocess.TimeoutExpired):
         return False
-    return out in ('active', 'activating', 'reloading')
+    props = dict(line.split('=', 1) for line in out.splitlines() if '=' in line)
+    return props.get('ActiveState') in ('active', 'activating', 'reloading') and props.get('SubState') != 'auto-restart'
 
 
 def status():
@@ -43,7 +47,11 @@ def status():
               'installedAt': data.get('installedAt'), 'installed': data.get('installed'),
               'rebootRequired': os.path.exists('/run/reboot-required'),
               'message': data.get('message'), 'error': data.get('error')}
-    if state in BUSY and not _active():
+    running = _running()
+    if running and state not in BUSY:
+        # Net gestart; de taak heeft zijn eerste status nog niet geschreven.
+        result.update(state='checking', message='Controleren op updates…', error=None)
+    elif state in BUSY and not running:
         # De taak is gestopt zonder eindstatus (bijv. computer uitgezet): niet blijven hangen op "bezig".
         result.update(state='error', error='De vorige updatepoging is onderbroken. Probeer het opnieuw.',
                       message='De vorige updatepoging is onderbroken. Probeer het opnieuw.')
@@ -55,7 +63,7 @@ def status():
 
 def install():
     """Start controleren + installeren (idempotent) en geef meteen de status terug."""
-    if not _active():
+    if not _running():
         try:
             done = subprocess.run(['systemctl', 'start', '--no-block', UNIT], capture_output=True, text=True, timeout=20)
         except (OSError, subprocess.TimeoutExpired):
