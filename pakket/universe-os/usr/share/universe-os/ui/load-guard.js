@@ -14,7 +14,8 @@
   const title=document.createElement('h1');title.textContent=page==='panel'?'Het bedieningspaneel kon niet laden':'De ruimtewereld kon niet laden';
   const help=document.createElement('p');help.textContent='Druk op Ctrl+Alt+T om een terminal te openen en voer universe-ctl reload uit. Of meld je hieronder af; niet-opgeslagen werk kan verloren gaan.';
   const retry=document.createElement('button');retry.textContent='Opnieuw proberen';retry.onclick=()=>location.reload();
-  const logout=document.createElement('button');logout.textContent='Afmelden';logout.onclick=()=>{if(!confirm('Afmelden? Niet-opgeslagen werk kan verloren gaan.'))return;try{window.webkit.messageHandlers.universe.postMessage(JSON.stringify({id:-3,cmd:'power',args:{action:'logout'}}));}catch{help.textContent='Afmelden lukt niet. Open een terminal met Ctrl+Alt+T.';}};
+  let confirmLogout=false;
+  const logout=document.createElement('button');logout.textContent='Afmelden';logout.onclick=()=>{if(!confirmLogout){confirmLogout=true;logout.textContent='Ja, afmelden';help.textContent='Niet-opgeslagen werk kan verloren gaan. Klik nogmaals om af te melden.';return;}try{window.webkit.messageHandlers.universe.postMessage(JSON.stringify({id:-3,cmd:'power',args:{action:'logout'}}));}catch{help.textContent='Afmelden lukt niet. Open een terminal met Ctrl+Alt+T.';}};
   notice.append(title,help,retry,logout);document.body.append(notice);notice.focus();
   if(page==='panel')try{window.webkit.messageHandlers.universe.postMessage(JSON.stringify({id:-2,cmd:'surface.size',args:{name:'panel',open:true}}));}catch{}
  };

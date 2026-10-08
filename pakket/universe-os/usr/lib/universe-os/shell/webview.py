@@ -55,6 +55,9 @@ def _js(view, code):
 
 
 def reply(view, mid, ok, data):
+    # Classic load-guard messages are fire-and-forget, even if api.js never loaded.
+    if mid < 0:
+        return False
     return _js(view, 'window.__universeReply(%d,%s,%s)' % (mid, 'true' if ok else 'false', json.dumps(data, ensure_ascii=False)))
 
 
