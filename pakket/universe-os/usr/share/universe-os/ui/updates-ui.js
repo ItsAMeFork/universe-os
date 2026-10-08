@@ -5,7 +5,7 @@ export function updateText(s){
  if(s.state==='downloading')return 'Updates downloaden…';
  if(s.state==='installing')return 'Updates installeren… Je kunt verder werken.';
  if(s.state==='waiting')return s.message||'Installatie wacht op internet of een andere pakketbewerking.';
- if(s.state==='current')return 'Geen updates beschikbaar volgens de laatste geslaagde controle.';
+ if(s.state==='current')return s.message||'Geen updates beschikbaar volgens de laatste geslaagde controle.';
  if(s.state==='available')return `${s.count} updates beschikbaar.`;
  if(s.state==='stale')return 'De pakketlijst is oud of de datum van de laatste controle is onbekend. Controleer nu.';
  return s.error||'Controle mislukt. Controleer je internetverbinding en de datum en tijd.';
