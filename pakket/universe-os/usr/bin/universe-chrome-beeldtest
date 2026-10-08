@@ -1,0 +1,45 @@
+#!/usr/bin/python3
+"""Controlled rendering comparison; never edits the real Chrome profile."""
+import argparse
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import tempfile
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Chrome-beeldtest met apart tijdelijk profiel (geen Google-inlog nodig).')
+    parser.add_argument('mode', choices=('auto', 'wayland', 'x11', 'software'))
+    args = parser.parse_args()
+    if os.geteuid() == 0:
+        parser.error('Start als gewone ingelogde gebruiker, niet met sudo.')
+    browser = shutil.which('google-chrome-stable') or shutil.which('google-chrome')
+    if not browser:
+        parser.error('Google Chrome is niet geïnstalleerd.')
+    if args.mode == 'wayland' and not os.environ.get('WAYLAND_DISPLAY'):
+        parser.error('Geen Wayland-sessie beschikbaar.')
+    if args.mode == 'x11' and not os.environ.get('DISPLAY'):
+        parser.error('Geen X11/XWayland beschikbaar.')
+    state = Path(os.environ.get('XDG_STATE_HOME', Path.home() / '.local/state')) / 'universe-os'
+    state.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix='universe-chrome-test-') as profile:
+        command = [browser, '--user-data-dir=' + profile, '--no-first-run', '--no-default-browser-check', '--enable-logging=stderr']
+        if args.mode in ('wayland', 'x11'):
+            command.append('--ozone-platform=' + args.mode)
+        elif args.mode == 'software':
+            command.append('--disable-gpu')
+        command.append('chrome://gpu')
+        log = state / ('chrome-beeldtest-' + args.mode + '.log')
+        print('Apart testprofiel. Test nieuw tabblad, typen, scrollen en vensters vergroten. Sluit alle testvensters om af te ronden.')
+        print('Log:', log)
+        with log.open('w', encoding='utf-8') as output:
+            output.write('mode=' + args.mode + '\n')
+            subprocess.run([browser, '--version'], stdout=output, stderr=output, check=False)
+            output.flush()
+            result = subprocess.run(command, stdout=output, stderr=output, check=False)
+        return result.returncode
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())
