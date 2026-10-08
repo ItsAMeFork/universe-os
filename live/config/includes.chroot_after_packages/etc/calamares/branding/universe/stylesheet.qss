@@ -1,0 +1,5 @@
+/* Verberg het vinkje "Automatisch aanmelden" omdat Calamares 3.3.14 displayAutologin niet ondersteunt. */
+/* Na installatie wordt automatisch aanmelden toch uitgezet door modules/shellprocess-afronden.conf. */
+/* De instelling displayAutologin werkt pas in nieuwere Calamares-versies. */
+QCheckBox#checkBoxDoAutoLogin { max-height: 0px; min-height: 0px; max-width: 0px; margin: 0px; padding: 0px; border: none; font-size: 1px; color: transparent; }
+QCheckBox#checkBoxDoAutoLogin::indicator { width: 0px; height: 0px; }
