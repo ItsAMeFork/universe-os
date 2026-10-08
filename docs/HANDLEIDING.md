@@ -86,14 +86,17 @@ geen vast videokaartmodel in de interface ingesteld.
 Nu controleren ververst de echte pakketlijst via PackageKit. De interface
 onderscheidt geen updates, beschikbare updates, een oude lijst en een mislukte
 controle. Een softwarevenster openen is geen bewijs dat updates geïnstalleerd
-zijn. Gebruik de softwarebeheerder om beschikbare updates te installeren.
+zijn. Updates installeren start rechtstreeks de systeemtaak. De kaart toont
+ook downloaden, installeren, wachten en fouten. Het systeembeleid is dagelijks
+bij aanmelden controleren en gevonden updates automatisch installeren;
+dit vereist de bijbehorende installatieservice. Een herstart wordt gemeld.
 Zonder internet of met verkeerde tijd kan een controle mislukken. Een oude
 melding kan van de softwarebeheerder komen; controleer de laatste geslaagde
 verversing, verbinding en klok.
 
 Debian-pakketten komen uit Debian- en Debian Security-bronnen. Chrome gebruikt
-Google. Universe OS heeft nog geen eigen distributiebron voor nieuwe
-interfaceversies: die zijn niet automatisch gelijk aan Debian-updates.
+Google. Vrijgegeven Universe OS-interfaceversies komen uit de eigen
+ondertekende pakketbron. Er is geen testkanaalkeuze in de gebruikersinterface.
 
 ## Windows-programma’s
 
