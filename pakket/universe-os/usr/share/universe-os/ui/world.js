@@ -36,6 +36,7 @@ async function start(){
  await afterPaint();build();debugFPS();await afterPaint();
  call('background.busy').then(setBackgroundBusy).catch(()=>{});
  call('world.ready',{milliseconds:performance.now()}).catch(()=>{});
+ window.__universePageReady?.();
 }
 function build(){
  root.replaceChildren(Object.assign(starfield(),{className:'space-stars'}),scene,room);

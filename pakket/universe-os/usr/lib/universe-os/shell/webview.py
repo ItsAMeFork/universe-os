@@ -78,6 +78,7 @@ def make_view(page, bridge, transparent=False, zoom=1.0):
     settings = view.get_settings()
     settings.set_allow_file_access_from_file_urls(True)
     settings.set_enable_developer_extras(False)
+    settings.set_enable_write_console_messages_to_stdout(True)
     settings.set_enable_webgl(True)
     settings.set_javascript_can_access_clipboard(False)
     settings.set_enable_back_forward_navigation_gestures(False)

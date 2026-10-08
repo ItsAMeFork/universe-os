@@ -25,6 +25,7 @@ function renderPill(){
   b?.present?h('span',{class:'item',title:'Batterij'},icon('battery'),`${b.percent}%${b.charging?' ⚡':''}`):null,
   h('span',{class:'item',title:'Meldingen'},icon('bell'),count?h('span',{class:'count'},String(count)):null)].filter(child=>child!=null));
  pill.setAttribute('aria-label',`Bedieningspaneel openen. ${fmtTime(now)}. ${netText(status.network)}.${count?` ${count} meldingen.`:''}`);
+ window.__universePageReady?.();
 }
 function renderPanel(){
  const focused=panel.contains(document.activeElement)?document.activeElement:null;

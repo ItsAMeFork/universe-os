@@ -233,6 +233,7 @@ class Shell:
         return {
             'background.busy': lambda a: any(not w.get('minimized') for w in self.toplevels.list()),
             'world.ready': lambda a: self.ready(a),
+            'ui.error': lambda a: log('UI %s: %s' % (str(a.get('page', 'unknown'))[:40], str(a.get('message', ''))[:1500].replace('\n', ' '))),
             'config.get': lambda a: backend.full_config(),
             'config.set': set_config,
             'apps.list': lambda a: backend.apps(),
