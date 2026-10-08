@@ -31,11 +31,13 @@ on('logout-error',message=>{logoutOverlay?.remove();logoutOverlay=null;root.iner
 document.body.append(root);
 
 async function start(){
- try{config=await call('config.get');}catch(e){config={settings:{animations:'full',travel:true},world:{planets:[]},user:{}};console.error(e);}
+ config=await call('config.get');
+ if(!config?.world?.planets?.length)throw new Error('De wereldindeling ontbreekt.');
  settings=config.settings;user=config.user||{};applySettings({...settings,colors:config.world.colors});
  await afterPaint();build();debugFPS();await afterPaint();
  call('background.busy').then(setBackgroundBusy).catch(()=>{});
  call('world.ready',{milliseconds:performance.now()}).catch(()=>{});
+ window.__universePageReady?.();
 }
 function build(){
  root.replaceChildren(Object.assign(starfield(),{className:'space-stars'}),scene,room);
