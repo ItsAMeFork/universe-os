@@ -1,4 +1,5 @@
 // Classic script: must run even when the module graph cannot be parsed or loaded.
+// Timeout 30 s: a first start without GPU took ~14 s on real hardware (B16 test), 5 s showed a false alarm.
 (()=>{
  const page=document.currentScript.dataset.page||'world';
  let ready=false,notice=null,reported=0;
@@ -22,5 +23,5 @@
  window.__universePageReady=()=>{ready=true;clearTimeout(timer);notice?.remove();notice=null;};
  window.addEventListener('error',event=>{report(event.message||'Een scriptbestand kon niet laden');if(!ready)show();},true);
  window.addEventListener('unhandledrejection',event=>{report(event.reason?.message||String(event.reason));if(!ready)show();});
- const timer=setTimeout(()=>{if(!ready){report('Geen gereedmelding binnen 5 seconden');show();}},5000);
+ const timer=setTimeout(()=>{if(!ready){report('Geen gereedmelding binnen 30 seconden');show();}},30000);
 })();
