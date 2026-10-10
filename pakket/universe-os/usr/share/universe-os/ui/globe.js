@@ -101,18 +101,20 @@ function* earthRows(px,d){
  * follow the display refresh, so the world never waits for it (VM 10 Oct: a setTimeout chain kept WebKit from painting
  * and the world only appeared after 186 s). Internal size is capped at 480 px (the desktop Earth is large); CSS scales it up. */
 const earthQueue=[];let earthStarted=false,earthBusy=false;
-export function earth(size=320){
- const px=Math.min(480,Math.max(32,Math.ceil(size))),key=`earth:${px}`;
+export function earth(size=320,max=480){
+ const px=Math.min(max,Math.max(32,Math.ceil(size))),key=`earth:${px}`;
  if(bitmaps.has(key))return copy(bitmaps.get(key),'space-globe earth');
  const shown=globe(208,false,px);shown.classList.add('earth');
  earthQueue.push({px,key,shown});if(earthStarted)paintNext();
  return shown;
 }
-/** Starts painting queued Earths; call once the page is ready. */
-export function paintEarths(){earthStarted=true;paintNext();}
+/** Starts painting queued Earths; call once the page is ready. Resolves when all queued Earths are painted. */
+let earthWaiters=[];
+export function paintEarths(){earthStarted=true;paintNext();return earthsPainted();}
+export function earthsPainted(){return !earthBusy&&!earthQueue.length?Promise.resolve():new Promise(r=>earthWaiters.push(r));}
 function paintNext(){
  if(earthBusy)return;
- const job=earthQueue.shift();if(!job)return;
+ const job=earthQueue.shift();if(!job){const w=earthWaiters;earthWaiters=[];w.forEach(r=>r());return;}
  const done=()=>{const g=job.shown.getContext('2d');g.clearRect(0,0,job.px,job.px);g.drawImage(bitmaps.get(job.key),0,0);earthBusy=false;paintNext();};
  if(bitmaps.has(job.key)){done();return;}
  earthBusy=true;
@@ -124,4 +126,12 @@ function paintNext(){
   requestAnimationFrame(slice);
  };
  requestAnimationFrame(slice);
+}
+
+/** The Earth painted at once (for tools that make still pictures, e.g. the lock screen background). */
+export function earthNow(px){
+ const canvas=document.createElement('canvas');canvas.width=canvas.height=px;
+ const c=canvas.getContext('2d'),image=c.createImageData(px,px),rows=earthRows(px,image.data);
+ while(!rows.next().done);
+ c.putImageData(image,0,0);return canvas;
 }

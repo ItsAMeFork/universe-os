@@ -1,9 +1,10 @@
 import {updatesView} from './updates-ui.js';
 import {call,on,applySettings,motionAllowed,toast,h,icon} from './api.js';
-import {globe,earth,paintEarths,starfield,pixelSize} from './globe.js';
+import {globe,earth,paintEarths,earthsPainted,starfield,pixelSize} from './globe.js';
 import {debugFPS,afterPaint} from './performance.js';
 import {SETTINGS} from './settings-index.js';
 import {keepTab} from './focus.js';
+import {distFor} from './space.js';
 // The 3D desktop (Axel, 10 Oct: "the desktop in 3D, every program a planet somewhere that you arrange yourself,
 // zoom in and out, also turn in 3D"). The Earth in the middle is the personal folder; folders and files from the
 // Bureaublad circle it; every program is a planet in a galaxy, grouped by kind. Wheel = zoom, drag empty space = move,
@@ -22,16 +23,16 @@ const sky=h('canvas',{class:'space-canvas','aria-hidden':'true'});
 const layer=h('div',{class:'space-layer',role:'listbox','aria-label':'Ruimte met programma\'s, mappen en bestanden'});
 const room=h('section',{class:'room glass',hidden:true,role:'dialog','aria-modal':'true'});
 let logoutOverlay=null;
+// Logout (Axel, 10 Oct): everything is pulled back into the Earth and the Earth comes close, exactly as the login
+// screen shows it; then the session ends and the login screen takes over in the same picture.
 on('logout-begin',async()=>{
  if(logoutOverlay)return;
- const planet=h('div',{class:'logout-planet'},globe(182,true,pixelSize(Math.min(innerWidth*.8,650))));
- logoutOverlay=h('div',{class:'logout-overlay',role:'status'},starfield(),planet,h('p',{},'Afmelden…'));
- document.body.append(logoutOverlay);root.inert=true;
- await afterPaint();logoutOverlay.classList.add('forming');
- await new Promise(resolve=>setTimeout(resolve,motionAllowed(settings)?1250:30));
+ logoutOverlay=h('p',{class:'logout-note',role:'status'},'Afmelden…');
+ root.append(logoutOverlay);root.inert=true;closeMenu();if(current)leave();
+ await animateWorld('out');
  call('logout.finish').catch(e=>toast(e.message));
 });
-on('logout-error',message=>{logoutOverlay?.remove();logoutOverlay=null;root.inert=false;toast('Afmelden mislukt: '+message);});
+on('logout-error',message=>{logoutOverlay?.remove();logoutOverlay=null;root.inert=false;mix=1;requestRender();toast('Afmelden mislukt: '+message);});
 document.body.append(root);
 
 async function start(){
@@ -39,15 +40,21 @@ async function start(){
  if(!config?.world?.planets?.length)throw new Error('De wereldindeling ontbreekt.');
  settings=config.settings;user=config.user||{};layout=config.layout||layout;applySettings({...settings,colors:config.world.colors});
  if(layout.space?.camera)cam={...cam,...layout.space.camera};
- await afterPaint();build();debugFPS();await afterPaint();
+ // Just logged in: everything starts inside the Earth (as the login screen left it) until the space is loaded.
+ let intro=false;try{intro=await call('intro.claim');}catch{}
+ const saved={...cam};
+ if(intro&&motionAllowed(settings)){mix=0;cam=closeView([0,0,0]);initialFocus=false;paintEarths();}
+ await afterPaint();const loaded=build();debugFPS();await afterPaint();
  call('world.ready',{milliseconds:performance.now()}).catch(()=>{});
  window.__universePageReady?.();
+ // The planets burst out of the Earth that exploded on the login screen.
+ if(intro)loaded.then(()=>earthsPainted()).then(()=>animateWorld('in',saved));
  setTimeout(paintEarths,1500);
 }
 const planetGlobe=(p,diameter)=>p.style==='earth'?earth(pixelSize(diameter)):globe(p.hue,!!p.rock,pixelSize(diameter));
 function build(){
  root.replaceChildren(h('div',{class:'nebula','aria-hidden':'true'}),sky,layer,room);
- refreshSpace();
+ return refreshSpace();
 }
 
 // ----- camera and projection -----
@@ -140,7 +147,7 @@ function renderObjects(){
 }
 function objectEl(o){
  let pic;
- if(o.kind==='earth')pic=earth(pixelSize(260));
+ if(o.kind==='earth')pic=earth(400); // sharp enough for the close view of the login/logout animation
  else if(o.kind==='app'){pic=globe(o.hue,o.hue%3===0,pixelSize(BASE));}
  else pic=null;
  const iconEl=o.kind==='earth'?null:o.icon?h('img',{class:'sp-icon',src:o.icon,alt:''}):icon(o.kind==='folder'?'folder':o.kind==='app'?'grid':'file','icon sp-icon');
@@ -155,11 +162,18 @@ function objectEl(o){
 }
 let frame=0;
 function requestRender(){if(!frame)frame=requestAnimationFrame(render);}
+// mix: 1 = everything in its place, 0 = everything pulled into the Earth (login/logout animations).
+let mix=1;
+const centre=()=>objects.find(o=>o.kind==='earth')?.pos||[0,0,0];
+function shown(o){
+ if(mix>=1||o.kind==='earth')return {pos:o.pos,size:o.size};
+ const c=centre();return {pos:o.pos.map((v,i)=>c[i]+(v-c[i])*mix),size:o.size*(.15+.85*mix)};
+}
 function render(){
  frame=0;drawSky();
  for(const o of objects){
   const el=o.el;if(!el)continue;
-  const p=project(o.pos),px=p?p.s*o.size:0;
+  const v=shown(o),p=project(v.pos),px=p?p.s*v.size:0;
   if(!p||px<3||p.x<-px||p.y<-px||p.x>innerWidth+px||p.y>innerHeight+px){el.style.display='none';continue;}
   el.style.display='';
   const k=px/BASE;
@@ -167,7 +181,10 @@ function render(){
   el.style.zIndex=String(Math.max(1,Math.round(100000-p.depth)));
   el.style.setProperty('--k',k.toFixed(4));
   el.classList.toggle('far',px<64); // labels only for planets that are big enough (crowded groups stay readable)
-  el.style.opacity=p.depth>9000?Math.max(.25,1-(p.depth-9000)/9000).toFixed(2):'';
+  const fade=p.depth>9000?Math.max(.25,1-(p.depth-9000)/9000):1;
+  // inside the Earth during the login/logout animation: invisible, they appear while flying out
+  const inside=mix<1&&o.kind!=='earth'?Math.min(1,mix*2.5):1;
+  el.style.opacity=fade*inside<1?(fade*inside).toFixed(2):'';
  }
 }
 addEventListener('resize',requestRender);
@@ -252,6 +269,27 @@ function flyTo(target,dist,turn){
 }
 function overview(){flyTo([0,0,0],DEFAULT_CAM.dist,{yaw:DEFAULT_CAM.yaw,pitch:DEFAULT_CAM.pitch});}
 function pushAlongView(o,amount){const v=unrotate(0,0,amount);o.pos=[o.pos[0]+v[0],o.pos[1]+v[1],o.pos[2]+v[2]];requestRender();savePos(o);}
+
+/** The view of the login screen: the Earth close, in the middle, as big as the login planet. */
+const closeView=c=>({yaw:DEFAULT_CAM.yaw,pitch:DEFAULT_CAM.pitch,dist:distFor(Math.min(innerWidth*.8,innerHeight*.78,650)),tx:c[0],ty:c[1],tz:c[2]});
+/** 'in': from the login view (Earth close, everything inside it) to the desktop view `target`; 'out': the reverse. */
+function animateWorld(dir,target){
+ const close=closeView(centre());
+ const end=dir==='in'?(target||{...cam}):close,start=dir==='in'?close:{...cam};
+ if(!motionAllowed(settings)){mix=dir==='in'?1:0;cam=end;requestRender();return Promise.resolve();}
+ cam={...start};mix=dir==='in'?0:1;requestRender();
+ const dur=dir==='in'?1500:1100,t0=performance.now();
+ return new Promise(resolve=>{
+  const step=t=>{
+   const k=Math.min(1,(t-t0)/dur),e=k<.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2;
+   for(const key of Object.keys(end))cam[key]=start[key]+(end[key]-start[key])*e;
+   mix=dir==='in'?Math.min(1,e*1.15):1-Math.min(1,e*1.2);
+   render();
+   if(k<1)requestAnimationFrame(step);else resolve();
+  };
+  requestAnimationFrame(step);
+ });
+}
 
 // ----- rename and remove (files on the desktop) -----
 let renaming=false;

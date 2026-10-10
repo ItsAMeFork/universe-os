@@ -50,8 +50,9 @@ Signed-By: /usr/share/keyrings/universe-os-updates.gpg
 SRC
 fi
 
-# Vergrendelscherm (swaylock --image): planeetstijl met "Vergrendeld". swaylock schaalt het per scherm.
-rsvg-convert -w 2560 -h 1440 "$ROOT/scripts/assets/vergrendeld.svg" -o "$STAGE/usr/share/universe-os/backgrounds/vergrendeld.png"
+# Vergrendelscherm (swaylock --image): de aarde in de ruimte, net als het inlogscherm (2560x1440, gemaakt met
+# scripts/assets/maak-vergrendeld.html). swaylock schaalt het per scherm.
+install -Dm644 "$ROOT/scripts/assets/vergrendeld.png" "$STAGE/usr/share/universe-os/backgrounds/vergrendeld.png"
 
 # Python-bindingen voor wlr-foreign-toplevel (vensteroverzicht), gegenereerd met de pywayland-scanner.
 PROTO="$STAGE/usr/lib/universe-os/shell/protocols"

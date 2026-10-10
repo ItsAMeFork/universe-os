@@ -196,6 +196,21 @@ class Shell:
             return False
         self.desktop_monitor.connect('changed', changed)
 
+    def claim_intro(self):
+        """True only the first time in a login session (the login animation continues on the desktop). The marker
+        lives in XDG_RUNTIME_DIR, so a shell restart does not replay it."""
+        # Per login session: the runtime dir is only emptied when all sessions of the user end (e.g. not with SSH open).
+        session = os.environ.get('XDG_SESSION_ID', 'x').replace('/', '')
+        marker = os.path.join(os.environ.get('XDG_RUNTIME_DIR', '/tmp'), 'universe-intro-shown-%s' % session)
+        try:
+            fd = os.open(marker, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        except FileExistsError:
+            return False
+        except OSError:
+            return False
+        os.close(fd)
+        return True
+
     def make_start(self):
         """Builds the (hidden) start menu surface once."""
         if self.start is None:
@@ -373,6 +388,7 @@ class Shell:
             'desktop.trash': lambda a: backend.desktop_trash(str(a.get('path') or '')),
             'desktop.launch': lambda a: backend.desktop_launch(str(a.get('path') or '')),
             'start.toggle': lambda a: self.start_menu(a.get('open')),
+            'intro.claim': lambda a: self.claim_intro(),
         }
 
     # ----- universe-ctl socket -----
