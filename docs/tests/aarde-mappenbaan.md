@@ -115,5 +115,6 @@ Gevonden en opgelost:
   gnome-calculator. Nu overal via `backend.desktop_app()` (ook Chrome-status, starten, snelkoppelingen).
 - Startmenu in de groeiende taakbalklaag werd soms niet mee vergroot → eigen laag met vaste grootte (`start.html`).
 
-Nog open: wereldpagina laadde één keer pas na 42 s (VM druk, 488 MB geheugen voor de wereld); Windows-toets na
-opnieuw aanmelden; 1024×768/4K.
+Windows-toets (na het opnieuw genereren van rc.xml + labwc --reconfigure): ✅ opent en sluit het startmenu.
+Nog open: wereldpagina laadde één keer pas na 42 s (VM druk, 488 MB geheugen voor de wereld);
+1024×768/4K.
