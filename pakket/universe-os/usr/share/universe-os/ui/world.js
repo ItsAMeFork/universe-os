@@ -1,6 +1,6 @@
 import {updatesView} from './updates-ui.js';
 import {call,on,applySettings,motionAllowed,toast,h,icon} from './api.js';
-import {globe,earth,starfield,pixelSize} from './globe.js';
+import {globe,earth,paintEarths,starfield,pixelSize} from './globe.js';
 import {debugFPS,afterPaint} from './performance.js';
 import {SETTINGS} from './settings-index.js';
 import {keepTab} from './focus.js';
@@ -38,6 +38,7 @@ async function start(){
  call('background.busy').then(setBackgroundBusy).catch(()=>{});
  call('world.ready',{milliseconds:performance.now()}).catch(()=>{});
  window.__universePageReady?.();
+ setTimeout(paintEarths,1500);
 }
 function build(){
  root.replaceChildren(Object.assign(starfield(),{className:'space-stars'}),scene,room);
@@ -86,12 +87,13 @@ const planetGlobe=(p,diameter)=>p.style==='earth'?earth(pixelSize(diameter)):glo
 
 // Folder orbit (concept 10 Oct): the personal folders circle the home world on a tilted orange orbit and pass in
 // front of and behind the planet. Every folder is a real button. It only moves with full animations, no visible
-// program windows and no open room; ~30 frames per second is plenty for this slow orbit.
+// program windows and no open room. 12 steps per second is enough for this slow orbit and keeps the CPU low
+// without a GPU (VM 10 Oct: 30 steps per second cost ~30% of a core).
 const ORBIT_SECONDS=120;
-let orbit=null,orbitToken=0,orbitAngle=0,orbitFrame=0,orbitLast=0,folderIds=0;
+let orbit=null,orbitToken=0,orbitAngle=0,orbitFrame=0,orbitLast=0,folderIds=0,orbitHold=false;
 function folderIcon(){
  const id='folder-grad-'+(++folderIds);
- return h('span',{class:'folder-icon','aria-hidden':'true',html:`<svg viewBox="0 0 64 52"><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc07a"/><stop offset="1" stop-color="#f07a2a"/></linearGradient></defs><path d="M4 8a4 4 0 0 1 4-4h16l6 6h26a4 4 0 0 1 4 4v4H4z" fill="#c95d1c"/><path d="M4 16h56v28a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z" fill="url(#${id})"/><path d="M4 16h56v3H4z" fill="#ffffff40"/></svg>`});
+ return h('span',{class:'folder-icon','aria-hidden':'true',html:`<svg viewBox="0 0 64 52"><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc07a"/><stop offset="1" stop-color="#f07a2a"/></linearGradient></defs><ellipse cx="32" cy="49" rx="27" ry="3" fill="#0008"/><path d="M4 8a4 4 0 0 1 4-4h16l6 6h26a4 4 0 0 1 4 4v4H4z" fill="#c95d1c"/><path d="M4 16h56v28a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z" fill="url(#${id})"/><path d="M4 16h56v3H4z" fill="#ffffff40"/></svg>`});
 }
 async function buildFolderOrbit(home){
  orbit=null;
@@ -103,6 +105,11 @@ async function buildFolderOrbit(home){
  const items=places.map(pl=>{
   const b=h('button',{class:'orbit-folder',type:'button','aria-label':`Map ${pl.name} openen`},folderIcon(),h('span',{class:'folder-name'},pl.name));
   b.addEventListener('click',()=>call('open.path',{path:pl.path}).catch(e=>toast(e.message)));
+  // A moving target is hard to hit: the orbit holds still while the pointer or the keyboard focus is on a folder.
+  b.addEventListener('pointerenter',()=>{orbitHold=true;});
+  b.addEventListener('pointerleave',()=>{orbitHold=false;orbitStart();});
+  b.addEventListener('focus',()=>{orbitHold=true;});
+  b.addEventListener('blur',()=>{orbitHold=false;orbitStart();});
   return b;
  });
  for(const el of [back,front,...items]){el.style.left=home.x+'%';el.style.top=home.y+'%';}
@@ -125,8 +132,8 @@ function orbitPlace(){
 function orbitStart(){if(!orbitFrame&&orbit)orbitFrame=requestAnimationFrame(orbitTick);}
 function orbitTick(time){
  orbitFrame=0;
- if(!orbit||!orbit.items[0].isConnected||current||backgroundBusy||document.hidden||!motionAllowed(settings)){orbitLast=0;return;}
- if(!orbitLast||time-orbitLast>=33){
+ if(!orbit||!orbit.items[0].isConnected||orbitHold||current||backgroundBusy||document.hidden||!motionAllowed(settings)){orbitLast=0;return;}
+ if(!orbitLast||time-orbitLast>=80){
   if(orbitLast)orbitAngle=(orbitAngle+(time-orbitLast)/1000/ORBIT_SECONDS*Math.PI*2)%(Math.PI*2);
   orbitLast=time;orbitPlace();
  }

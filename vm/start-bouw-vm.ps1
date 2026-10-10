@@ -1,6 +1,7 @@
 # Start de Universe OS bouwomgeving (Debian 13 in QEMU). Opent een venster met de console.
 # SSH vanaf Windows:  ssh -p 2222 -i D:\UniverseOS-VMs\keys\id_ed25519 bouwer@127.0.0.1
-param([int]$GeheugenMB = 6144, [int]$Cpus = 4, [switch]$ZonderVenster)
+# -ExtraSchijf D:\UniverseOS-VMs\test-vm.qcow2  koppelt de (uitgeschakelde) test-VM-schijf als /dev/vdb, om die als root te bewerken.
+param([int]$GeheugenMB = 6144, [int]$Cpus = 4, [switch]$ZonderVenster, [string]$ExtraSchijf)
 $ErrorActionPreference = 'Stop'
 $qemu = 'C:\Program Files\qemu'
 $vm = 'D:\UniverseOS-VMs'
@@ -26,6 +27,7 @@ $qargs = @(
     # Beheerkanaal (alleen lokaal): de VM besturen als SSH niet werkt (toetsen sturen, schermafbeelding).
     '-qmp', 'tcp:127.0.0.1:4444,server,nowait'
 )
+if ($ExtraSchijf) { $qargs += @('-drive', "file=$ExtraSchijf,if=virtio,discard=unmap") }
 $p = Start-Process "$qemu\qemu-system-x86_64.exe" -ArgumentList $qargs -PassThru
 Write-Host "Bouwomgeving gestart (proces $($p.Id))."
 Write-Host 'De instellingenserver voor cloud-init draait mee zolang de VM aan staat.'

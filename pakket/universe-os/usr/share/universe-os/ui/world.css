@@ -91,12 +91,12 @@ html.background-busy .planet,html.background-busy .space-stars,html.background-b
 .folder-orbit.back{z-index:2;opacity:.55}
 .folder-orbit.front{z-index:4;clip-path:inset(50% 0 0 0)}
 .orbit-folder{position:absolute;left:0;top:0;z-index:4;display:flex;flex-direction:column;align-items:center;gap:4px;
- width:auto;padding:6px 8px;border:0;border-radius:14px;background:none;color:var(--text);transition:opacity .4s,filter .4s}
+ width:auto;padding:6px 8px;border:0;border-radius:14px;background:none;color:var(--text);transition:opacity .4s}
 .orbit-folder:hover{background:#ffa5521a}
-.orbit-folder.behind{z-index:2;opacity:.7;filter:brightness(.75)}
-.orbit-folder .folder-icon{display:block;width:calc(var(--unit)*3.4);min-width:38px;filter:drop-shadow(0 6px 12px #000a) drop-shadow(0 0 10px #ffa55244)}
+.orbit-folder.behind{z-index:2;opacity:.6}
+.orbit-folder .folder-icon{display:block;width:calc(var(--unit)*3.4);min-width:38px}
 .orbit-folder .folder-icon svg{display:block;width:100%;height:auto}
-.orbit-folder .folder-name{font-size:calc(13px*var(--text-scale));white-space:nowrap;text-shadow:0 2px 8px #000,0 0 3px #000}
+.orbit-folder .folder-name{font-size:calc(13px*var(--text-scale));white-space:nowrap;text-shadow:0 1px 3px #000}
 .orbit-folder:hover .folder-icon,.orbit-folder:focus-visible .folder-icon{transform:scale(1.1)}
 .orbit-folder:focus-visible{outline-color:var(--orbit)!important;box-shadow:0 0 0 6px #ffa55222,0 0 24px #ffa55255!important}
 html.reduce-motion .folder-orbit,html.no-motion .folder-orbit{transform:none}

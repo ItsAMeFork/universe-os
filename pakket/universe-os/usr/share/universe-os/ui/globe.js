@@ -72,13 +72,13 @@ function* earthRows(px,d){
    const nz=Math.sqrt(1-r*r);
    // Rotate the surface: longitude around the vertical axis, then the axial tilt.
    const ax=dx*cl+nz*sl,az=-dx*sl+nz*cl,bx=ax*ct-dy*st,by=ax*st+dy*ct,bz=az;
-   const e=land(bx*1.7+5,by*1.7+5,bz*1.7+5,5),polar=Math.abs(by),isLand=e>.53;
+   const e=land(bx*1.7+5,by*1.7+5,bz*1.7+5,4),polar=Math.abs(by),isLand=e>.53;
    let R0,G0,B0;
    if(isLand){
-    const h=ss(.53,.72,e),dry=ss(.5,.7,land(bx*3+21,by*3,bz*3,3))*ss(.55,.2,polar);
+    const h=ss(.53,.72,e),dry=ss(.5,.7,land(bx*3+21,by*3,bz*3,2))*ss(.55,.2,polar);
     R0=46+h*70+dry*85;G0=86+h*30+dry*35;B0=38+h*20+dry*25; // forest to mountains, deserts near the equator
    }else{const sh=ss(.38,.53,e);R0=8+sh*20;G0=32+sh*60;B0=82+sh*80;}
-   const ice=ss(.8,.9,polar+(cloud(bx*7,by*7,bz*7,3)-.5)*.3+(isLand?.04:0));
+   const ice=ss(.8,.9,polar+(cloud(bx*7,by*7,bz*7,2)-.5)*.3+(isLand?.04:0));
    R0+=(228-R0)*ice;G0+=(236-G0)*ice;B0+=(246-B0)*ice;
    const lam=dx*L[0]+dy*L[1]+nz*L[2],day=ss(-.15,.3,lam);
    let Rc=R0*(.04+.96*day),Gc=G0*(.04+.96*day),Bc=B0*(.04+.96*day);
@@ -88,7 +88,7 @@ function* earthRows(px,d){
     const k=ss(.45,.65,area)*ss(.62,.8,spark)*(1-day/.6)*1.6;
     Rc+=255*k;Gc+=175*k;Bc+=80*k;
    }
-   const cv=ss(.52,.72,cloud(bx*2.6+9,by*5+9,bz*2.6+9,4))*.88,cb=34+215*day;
+   const cv=ss(.52,.72,cloud(bx*2.6+9,by*5+9,bz*2.6+9,3))*.88,cb=34+215*day;
    Rc=Rc*(1-cv)+cb*cv;Gc=Gc*(1-cv)+cb*cv;Bc=Bc*(1-cv)+(cb+10*day)*cv;
    const rim=Math.pow(1-nz,2.5)*(.25+.6*day); // atmosphere seen through the limb
    Rc=Rc*(1-rim)+90*rim;Gc=Gc*(1-rim)+160*rim;Bc=Bc*(1-rim)+255*rim;
@@ -97,21 +97,31 @@ function* earthRows(px,d){
   yield y;
  }
 }
-/** Earth canvas. The plain globe shows at once; the Earth is painted in ~10 ms slices so the start never blocks. */
+/** Earth canvas. The plain globe shows at once; the Earth is painted later (see paintEarths) in short slices that
+ * follow the display refresh, so the world never waits for it (VM 10 Oct: a setTimeout chain kept WebKit from painting
+ * and the world only appeared after 186 s). Internal size is capped at 320 px; CSS scales it up. */
+const earthQueue=[];let earthStarted=false,earthBusy=false;
 export function earth(size=320){
- const px=Math.min(720,Math.max(32,Math.ceil(size))),key=`earth:${px}`;
+ const px=Math.min(320,Math.max(32,Math.ceil(size))),key=`earth:${px}`;
  if(bitmaps.has(key))return copy(bitmaps.get(key),'space-globe earth');
  const shown=globe(208,false,px);shown.classList.add('earth');
- const canvas=document.createElement('canvas');canvas.width=canvas.height=px;
- const c=canvas.getContext('2d'),image=c.createImageData(px,px),rows=earthRows(px,image.data);
- const slice=()=>{
-  const end=performance.now()+10;
-  while(performance.now()<end)if(rows.next().done){
-   c.putImageData(image,0,0);remember(key,canvas);
-   const g=shown.getContext('2d');g.clearRect(0,0,px,px);g.drawImage(canvas,0,0);return;
-  }
-  setTimeout(slice,0);
- };
- setTimeout(slice,0);
+ earthQueue.push({px,key,shown});if(earthStarted)paintNext();
  return shown;
+}
+/** Starts painting queued Earths; call once the page is ready. */
+export function paintEarths(){earthStarted=true;paintNext();}
+function paintNext(){
+ if(earthBusy)return;
+ const job=earthQueue.shift();if(!job)return;
+ const done=()=>{const g=job.shown.getContext('2d');g.clearRect(0,0,job.px,job.px);g.drawImage(bitmaps.get(job.key),0,0);earthBusy=false;paintNext();};
+ if(bitmaps.has(job.key)){done();return;}
+ earthBusy=true;
+ const canvas=document.createElement('canvas');canvas.width=canvas.height=job.px;
+ const c=canvas.getContext('2d'),image=c.createImageData(job.px,job.px),rows=earthRows(job.px,image.data);
+ const slice=()=>{
+  const end=performance.now()+6;
+  while(performance.now()<end)if(rows.next().done){c.putImageData(image,0,0);remember(job.key,canvas);done();return;}
+  requestAnimationFrame(slice);
+ };
+ requestAnimationFrame(slice);
 }

@@ -31,7 +31,8 @@ $qargs = @(
     '-drive', "`"if=pflash,format=raw,unit=0,readonly=on,file=$code`"",
     '-drive', "if=pflash,format=raw,unit=1,file=$vars",
     '-drive', "file=$disk,if=none,id=schijf,discard=unmap", '-device', 'virtio-blk-pci,drive=schijf,bootindex=1',
-    '-nic', 'user,model=virtio-net-pci',
+    # SSH alleen vanaf deze pc (127.0.0.1:2223). In de test-VM staat ontwikkeltoegang voor `tester` (sleutel uit keys\).
+    '-nic', 'user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:2223-:22',
     # Fixed screen size (default: the Windows screen, 1920x1080) for greeter and session alike. Standard VGA with EDID does
     # not follow the window size (virtio-gpu did: the session fell back to 640x480); GTK scales the picture to the window.
     '-display', $display, '-vga', 'none', '-device', "VGA,edid=on,xres=$(($Resolutie -split 'x')[0]),yres=$(($Resolutie -split 'x')[1])",

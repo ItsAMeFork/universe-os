@@ -3,6 +3,7 @@
 //   node qmp.mjs <poort> typ "tekst"                    tekst typen (US-toetsenbord)
 //   node qmp.mjs <poort> toets ctrl-alt-f2              toetscombinatie
 //   node qmp.mjs <poort> klik <x> <y> [links|rechts]    muisklik op schermcoördinaat (usb-tablet nodig)
+//   node qmp.mjs <poort> beweeg <x> <y>                 alleen de muis verplaatsen (hover)
 //   node qmp.mjs <poort> status                         draait de VM?
 //   node qmp.mjs <poort> uit                            VM netjes uitzetten (ACPI)
 import {createConnection} from 'node:net';
@@ -55,6 +56,10 @@ else if (action === 'klik') {
   const x = Math.round(Number(rest[0]) / w * 32767), y = Math.round(Number(rest[1]) / h * 32767), btn = rest[2] === 'rechts' ? 'right' : 'left';
   const ev = (down) => ({execute: 'input-send-event', arguments: {events: [{type: 'abs', data: {axis: 'x', value: x}}, {type: 'abs', data: {axis: 'y', value: y}}, {type: 'btn', data: {down, button: btn}}]}});
   cmds.push(ev(true), {wait: 60}, ev(false));
+} else if (action === 'beweeg') {
+  const [w, h] = (process.env.SCREEN || '1280x800').split('x').map(Number);
+  const x = Math.round(Number(rest[0]) / w * 32767), y = Math.round(Number(rest[1]) / h * 32767);
+  cmds.push({execute: 'input-send-event', arguments: {events: [{type: 'abs', data: {axis: 'x', value: x}}, {type: 'abs', data: {axis: 'y', value: y}}]}});
 } else if (action === 'status') cmds.push({execute: 'query-status'});
 else if (action === 'uit') cmds.push({execute: 'system_powerdown'});
 else { console.error('Gebruik: node qmp.mjs <poort> scherm|typ|toets|klik|status|uit ...'); process.exit(1); }
