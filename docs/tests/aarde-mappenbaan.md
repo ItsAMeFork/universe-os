@@ -16,10 +16,17 @@ Ingelogd als `tester` via het inlogscherm, echte WebKit. Eerst ook getest in Chr
 | Scherm vergrendeld (na 10 min) | ✅ 0 % CPU |
 | Stilstand bij verminderde animaties | ✅ (Chromium-preview) |
 
-**Gevonden, los van deze wijziging:** met Thunar open pauzeren de wereld (zwevende planeten én baan) **niet**.
-`shell.log` toont een pywayland-fout in de vensterbewaking (`toplevels.py`): `RuntimeError: Cannot find display` in
-`c_to_arguments`. Daardoor komt `background-busy` waarschijnlijk nooit door. Vensteroverzicht via QMP-Windows-toets
-ging niet open, dus nog niet vastgesteld of het overzicht zelf ook kapot is. Apart uitzoeken.
+**Gevonden en opgelost (vensterbewaking):** met een venster open pauzeerde de wereld niet. Oorzaak in `toplevels.py`:
+de Wayland-registry was een lokale variabele en werd na `start()` opgeruimd; pywayland vindt de verbinding voor elk
+nieuw venster via die registry, dus vensters die na het starten van de shell openden gaven `RuntimeError: Cannot find
+display` en kwamen nooit in de vensterlijst (overzicht, `background-busy`). Nu bewaard als `self.registry`.
+
+| Test na de fix (shell herstart, daarna Thunar geopend) | Uitkomst |
+|---|---|
+| Wereld pauzeert met open venster | ✅ webproces 0 % CPU over 20 s, twee schermafbeeldingen identiek, venster zichtbaar (niet vergrendeld) |
+| Venster sluiten | ✅ wereld beweegt weer (77 % CPU) |
+| Nieuwe "Cannot find display" in `shell.log` | ✅ geen |
+| Vensteroverzicht (Windows-toets) | niet getest (toets via QMP kwam niet door) |
 
 **Test-VM** heeft vanaf nu ontwikkeltoegang (alleen de VM, niet in pakket/ISO): SSH op 127.0.0.1:2223 met de sleutel
 uit `D:\UniverseOS-VMs\keys`, sudo zonder wachtwoord, tty2 automatisch ingelogd, wachtwoord `tester`.

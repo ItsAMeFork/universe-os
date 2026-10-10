@@ -54,7 +54,10 @@ class Toplevels:
         except Exception as error:
             self.log('Geen Wayland-verbinding voor het vensteroverzicht: %s' % error)
             return False
-        registry = self.display.get_registry()
+        # Keep the registry alive: pywayland finds the display for every new window (new_id) through the living
+        # WlRegistry objects. As a local variable it was garbage collected after start(), so windows opened later
+        # failed with "Cannot find display" and never reached the overview or background-busy (VM 10 Oct).
+        self.registry = registry = self.display.get_registry()
         registry.dispatcher['global'] = self._global
         self.display.roundtrip()
         if not getattr(self, 'manager', None):
