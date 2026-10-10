@@ -200,12 +200,12 @@ class Shell:
         """Builds the (hidden) start menu surface once."""
         if self.start is None:
             L, E, K = GtkLayerShell.Layer, GtkLayerShell.Edge, GtkLayerShell.KeyboardMode
-            display = Gdk.Display.get_default()
-            monitor = display.get_primary_monitor() or display.get_monitor(0) if display else None
-            screen_h = monitor.get_geometry().height if monitor else 900
-            height = max(360, min(700, screen_h - DOCK_HEIGHT - 60))
-            self.start = Surface(self, 'start', 'start.html', L.TOP, [E.BOTTOM], K.EXCLUSIVE, size=(660, height), transparent=True)
+            # Anchored top and bottom: the height always follows the real screen (a fixed height from the monitor
+            # geometry was stale after a resolution change and the menu fell off a 1024x768 screen, 10 Oct).
+            # The page limits the menu itself to 700 px and puts it at the bottom.
+            self.start = Surface(self, 'start', 'start.html', L.TOP, [E.TOP, E.BOTTOM], K.EXCLUSIVE, size=(660, -1), transparent=True)
             GtkLayerShell.set_margin(self.start.window, E.BOTTOM, DOCK_HEIGHT + DOCK_MARGIN + 6)
+            GtkLayerShell.set_margin(self.start.window, E.TOP, 56)
         return True
 
     def start_menu(self, open_=None):
