@@ -4,6 +4,7 @@ Layer-shell surfaces (wlr-layer-shell, via gtk-layer-shell):
   world     background layer, one per screen: the space world with the planets
   panel     top layer: the compact control panel (always reachable, also above full-screen-ish windows)
   dock      top layer at the bottom: fixed programs and open windows; reserves its height so windows stay above it
+  start     top layer above the dock, fixed size: the start menu (start button / Windows key), built on first use
   overview  overlay layer: open programs + search (Windows key)
 Programs are normal windows managed by labwc. The shell can be restarted without closing them: programs are started
 in their own session (backend.spawn) and the window list comes back from the compositor.
@@ -80,6 +81,7 @@ class Shell:
         self.worlds = []
         self.panel = None
         self.dock = None
+        self.start = None
         self.overview = None
         self.panel_open = False
         self.logout_pending = False
@@ -129,7 +131,7 @@ class Shell:
             self.worlds.remove(world)
 
     def surfaces(self):
-        return self.worlds + [s for s in (self.panel, self.dock, self.overview) if s]
+        return self.worlds + [s for s in (self.panel, self.dock, self.start, self.overview) if s]
 
     def broadcast(self, name, data=None):
         for s in self.surfaces():
@@ -194,15 +196,33 @@ class Shell:
             return False
         self.desktop_monitor.connect('changed', changed)
 
+    def make_start(self):
+        """Builds the (hidden) start menu surface once."""
+        if self.start is None:
+            L, E, K = GtkLayerShell.Layer, GtkLayerShell.Edge, GtkLayerShell.KeyboardMode
+            display = Gdk.Display.get_default()
+            monitor = display.get_primary_monitor() or display.get_monitor(0) if display else None
+            screen_h = monitor.get_geometry().height if monitor else 900
+            height = max(360, min(700, screen_h - DOCK_HEIGHT - 60))
+            self.start = Surface(self, 'start', 'start.html', L.TOP, [E.BOTTOM], K.EXCLUSIVE, size=(660, height), transparent=True)
+            GtkLayerShell.set_margin(self.start.window, E.BOTTOM, DOCK_HEIGHT + DOCK_MARGIN + 6)
+        return True
+
     def start_menu(self, open_=None):
-        """Start menu (Windows key / start button) lives in the dock surface; it needs the keyboard while open."""
+        """Start menu: its own fixed-size surface above the dock (growing the dock surface did not reliably resize the
+        page, VM 10 Oct). open_ None toggles. It has the keyboard while visible."""
+        visible = bool(self.start and self.start.window.get_visible())
         if open_ is None:
-            self.dock.emit('start-toggle')
-            return True
-        GtkLayerShell.set_keyboard_mode(self.dock.window, GtkLayerShell.KeyboardMode.EXCLUSIVE if open_ else GtkLayerShell.KeyboardMode.ON_DEMAND)
-        if open_:
-            # No present(): on this layer surface it undid the new size (the page stayed bar-sized, 10 Oct).
-            self.dock.view.grab_focus()
+            open_ = not visible
+        if open_ and not visible:
+            self.make_start()
+            self.hide_overview()
+            self.start.window.show_all()
+            self.start.view.grab_focus()
+            self.start.emit('start-shown')
+        elif not open_ and visible:
+            self.start.window.hide()
+        self.broadcast('start-state', bool(open_))
         return True
 
     def resize_dock(self, width, height=None):
@@ -229,11 +249,11 @@ class Shell:
         for w in self.toplevels.list():
             app = None
             if w['appId']:
-                app = Gio.DesktopAppInfo.new(w['appId'] + '.desktop') or Gio.DesktopAppInfo.new(w['appId'].lower() + '.desktop')
+                app = backend.desktop_app(w['appId'] + '.desktop') or backend.desktop_app(w['appId'].lower() + '.desktop')
                 if not app:
                     hits = Gio.DesktopAppInfo.search(w['appId'])
                     if hits and hits[0]:
-                        app = Gio.DesktopAppInfo.new(hits[0][0])
+                        app = backend.desktop_app(hits[0][0])
             w['appName'] = app.get_display_name() if app else w['appId']
             w['icon'] = backend.icon_uri(app.get_icon()) if app else None
             result.append(w)
@@ -290,6 +310,8 @@ class Shell:
         def surface_hide(a):
             if a.get('name') == 'overview':
                 self.hide_overview()
+            elif a.get('name') == 'start':
+                self.start_menu(False)
             return True
 
         def surface_show(a):
@@ -432,6 +454,9 @@ class Shell:
             self.world_ready = True
             log('ruimtewereld zichtbaar na %.3f s; pagina %.0f ms' %
                 (time.monotonic() - self.started_monotonic, float(data.get('milliseconds', 0))))
+            # Load the start menu in the background, so the first press of the Windows key is instant
+            # (building it on first use took ~15 s in the VM).
+            GLib.timeout_add_seconds(5, lambda: self.make_start() and False)
         return True
 
     def power(self, action):

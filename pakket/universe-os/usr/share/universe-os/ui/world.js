@@ -92,9 +92,11 @@ on('layout',l=>{if(!l||same(l,layout))return;const iconsOnly=same({...l,icons:{}
 
 // ----- desktop icons -----
 const CELL_W=100,CELL_H=108,MARGIN=14,BOTTOM=96; // CSS pixels; BOTTOM keeps the icons above the dock
-let entries=[],cells=new Map(),selected=null,deskToken=0;
+let entries=[],cells=new Map(),selected=null,deskToken=0,renaming=false,refreshPending=false;
 const gridSize=()=>({cols:Math.max(1,Math.floor((innerWidth-MARGIN*2)/CELL_W)),rows:Math.max(1,Math.floor((innerHeight-MARGIN-BOTTOM)/CELL_H))});
 async function refreshDesktop(){
+ // While a name is typed the folder watcher must not rebuild the icons (that removed the name field, VM 10 Oct).
+ if(renaming){refreshPending=true;return;}
  const token=++deskToken;
  try{const d=await call('desktop.list');if(token!==deskToken)return;entries=d.entries;deskDir=d.dir;}catch(e){toast('Bureaublad laden mislukt: '+e.message);}
  placeIcons();
@@ -114,13 +116,18 @@ function placeIcons(){
   while(taken.has([c,r]+'')&&c<cols){r++;if(r>=rows){r=0;c++;}}
   const p=[Math.min(c,cols-1),r];taken.add(p+'');pos.set(e.key,p);
  }
- cells=pos;renderIcons();
+ cells=pos;
+ // Forget places of things that are no longer on the desktop (saved with the next change).
+ for(const k of Object.keys(layout.icons||{}))if(!pos.has(k))delete layout.icons[k];
+ renderIcons();
 }
 function renderIcons(){
- const focusKey=document.activeElement?.dataset?.key;
+ // Keep the keyboard on the same icon after a refresh (also after renaming, when the focus was in the name field).
+ const active=document.activeElement,inDesk=active?.closest?.('.desk-icon');
+ const focusKey=inDesk?.dataset.key&&!active.matches('input')?inDesk.dataset.key:(inDesk||!active||active===document.body)?selected:null;
  desk.replaceChildren(...entries.map(deskIcon));
  const again=focusKey&&desk.querySelector(`[data-key="${CSS.escape(focusKey)}"]`);
- if(again)again.focus({preventScroll:true});
+ if(again){selected=focusKey;again.classList.add('selected');again.focus({preventScroll:true});}
  else if(initialFocus&&desk.firstChild){initialFocus=false;desk.firstChild.focus({preventScroll:true});}
 }
 const cellXY=([c,r])=>[MARGIN+c*CELL_W,MARGIN+r*CELL_H];
@@ -180,6 +187,14 @@ function moveIcon(key,want){
  layout.icons=Object.fromEntries([...cells].map(([k,p])=>[k,p]));
  renderIcons();select(key);saveLayout();
 }
+/** The free cell nearest to a screen point (for new things: they appear where you right clicked, like Windows). */
+function cellAt(x,y){
+ const {cols,rows}=gridSize(),used=new Set([...cells.values()].map(p=>p+''));
+ const want=[Math.max(0,Math.min(cols-1,Math.round((x-MARGIN-CELL_W/2)/CELL_W))),Math.max(0,Math.min(rows-1,Math.round((y-MARGIN-CELL_H/2)/CELL_H)))];
+ let best=want,dist=used.has(want+'')?1e9:0;
+ if(dist)for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){if(used.has([c,r]+''))continue;const d=Math.hypot(c-want[0],r-want[1]);if(d<dist){dist=d;best=[c,r];}}
+ return best;
+}
 function arrangeIcons(){layout.icons={};placeIcons();saveLayout();}
 
 // Rename in place (F2 or the menu), like Windows: an input over the label; Enter saves, Escape cancels.
@@ -187,14 +202,14 @@ function rename(e){
  if(e.source!=='desktop')return toast('Alleen bestanden en mappen op het bureaublad kun je hier een andere naam geven.');
  const b=desk.querySelector(`[data-key="${CSS.escape(e.key)}"]`);if(!b)return;
  const input=h('input',{type:'text',class:'desk-rename','aria-label':'Nieuwe naam voor '+e.name,value:e.name});
- b.querySelector('.desk-label').replaceWith(input);input.focus();
+ b.querySelector('.desk-label').replaceWith(input);input.focus();renaming=true;
  const dot=e.kind==='file'?e.name.lastIndexOf('.'):-1;input.setSelectionRange(0,dot>0?dot:e.name.length);
  let done=false;
  const finish=async save=>{
-  if(done)return;done=true;
+  if(done)return;done=true;renaming=false;refreshPending=false;
   const name=input.value.trim();
   if(save&&name&&name!==e.name){
-   try{const res=await call('desktop.rename',{path:e.target,name});if(cells.has(e.key)){layout.icons[res.key]=cells.get(e.key);delete layout.icons[e.key];selected=res.key;saveLayout();}}
+   try{const res=await call('desktop.rename',{path:e.target,name});selected=res.key;if(cells.has(e.key)){layout.icons[res.key]=cells.get(e.key);delete layout.icons[e.key];saveLayout();}}
    catch(err){toast(err.message);}
   }
   refreshDesktop();
@@ -230,6 +245,10 @@ function openMenu(x,y,entries){
 }
 addEventListener('pointerdown',e=>{if(menu&&!menu.contains(e.target))closeMenu();},true);
 addEventListener('blur',closeMenu);
+// A click on the desktop closes the start menu, like Windows.
+let startOpen=false;
+on('start-state',open=>{startOpen=!!open;});
+addEventListener('pointerdown',()=>{if(startOpen)call('surface.hide',{name:'start'}).catch(()=>{});},true);
 
 // Programs that already have a fixed taskbar button use that button instead of a second one.
 const DOCK_BUILTIN_APPS={'thunar.desktop':'files','xfce4-terminal.desktop':'terminal','org.gnome.Software.desktop':'store'};
@@ -253,13 +272,14 @@ function iconMenu(e){
   ...(e.key==='sys:home'||e.key==='sys:trash'?[{label:'Van het bureaublad verbergen',run:()=>removeEntry(e)}]:[]),
  ];
 }
-function desktopMenu(){
+function desktopMenu(ev){
+ const at=ev?cellAt(ev.clientX,ev.clientY):null;
  const hidden=layout.hiddenIcons||[],missingDock=Object.keys(DOCK_NAMES).filter(d=>!layout.dock.includes(d));
  return [
-  {label:'Nieuwe map',run:async()=>{const res=await call('desktop.mkdir');await refreshDesktop();const e=entries.find(x=>x.key===res.key);if(e){select(e.key);rename(e);}}},
-  {label:'Programma op het bureaublad…',run:()=>addProgram()},
-  {label:'Snelkoppeling naar een map…',run:()=>addPath('folder')},
-  {label:'Snelkoppeling naar een bestand…',run:()=>addPath('file')},
+  {label:'Nieuwe map',run:async()=>{const res=await call('desktop.mkdir');if(at){layout.icons={...layout.icons,[res.key]:at};saveLayout();}await refreshDesktop();const e=entries.find(x=>x.key===res.key);if(e){select(e.key);rename(e);}}},
+  {label:'Programma op het bureaublad…',run:()=>addProgram(at)},
+  {label:'Snelkoppeling naar een map…',run:()=>addPath('folder',at)},
+  {label:'Snelkoppeling naar een bestand…',run:()=>addPath('file',at)},
   '-',
   {label:'Pictogrammen automatisch schikken',run:arrangeIcons},
   ...hidden.map(k=>({label:(k==='sys:home'?'Persoonlijke map':'Prullenbak')+' weer tonen',run:async()=>{layout.hiddenIcons=hidden.filter(x=>x!==k);await saveLayout();refreshDesktop();}})),
@@ -269,19 +289,20 @@ function desktopMenu(){
   {label:'Persoonlijke instellingen',run:()=>run('control',{page:'appearance'})},
  ];
 }
-desk.addEventListener('contextmenu',e=>{if(e.target!==desk)return;e.preventDefault();openMenu(e.clientX,e.clientY,desktopMenu());});
+desk.addEventListener('contextmenu',e=>{if(e.target!==desk)return;e.preventDefault();openMenu(e.clientX,e.clientY,desktopMenu(e));});
 desk.addEventListener('pointerdown',e=>{if(e.target===desk)select(null,false);});
 
 const newId=()=>'i'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-async function addItem(item){
- layout.items.push({id:newId(),...item});
+async function addItem(item,at){
+ const id=newId();
+ layout.items.push({id,...item});if(at)layout.icons={...layout.icons,[id]:at};
  await saveLayout();await refreshDesktop();toast(item.name+' staat nu op het bureaublad.');
 }
-async function addPath(kind){
+async function addPath(kind,at){
  const picked=await call('pick.path',{kind});
- if(picked)addItem({kind,target:picked.path,name:picked.name});
+ if(picked)addItem({kind,target:picked.path,name:picked.name},at);
 }
-async function addProgram(){
+async function addProgram(at){
  const list=await apps();
  const search=h('input',{type:'search',class:'room-search',placeholder:'Zoek een programma','aria-label':'Zoek een programma'});
  const grid=h('div',{class:'tiles'});
@@ -290,7 +311,7 @@ async function addProgram(){
   h('h2',{},'Programma op het bureaublad zetten'),search,grid,close);
  const done=()=>{box.remove();desk.inert=false;};
  const show=()=>{const q=search.value.trim().toLowerCase();grid.replaceChildren(...list.filter(a=>!q||(a.name+' '+a.keywords).toLowerCase().includes(q)).slice(0,60)
-  .map(a=>tile({name:a.name,sub:a.comment,img:a.icon,iconName:'grid',onClick:()=>{done();addItem({kind:'app',target:a.id,name:a.name});}})));};
+  .map(a=>tile({name:a.name,sub:a.comment,img:a.icon,iconName:'grid',onClick:()=>{done();addItem({kind:'app',target:a.id,name:a.name},at);}})));};
  search.addEventListener('input',show);close.addEventListener('click',done);
  box.addEventListener('keydown',e=>{keepTab(e,box);if(e.key==='Escape'){e.stopPropagation();done();}});
  show();root.append(box);desk.inert=true;search.focus();

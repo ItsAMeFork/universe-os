@@ -25,6 +25,15 @@ import chrome_status  # noqa: E402
 HELPER = '/usr/lib/universe-os/universe-admin-helper'
 
 
+def desktop_app(desktop_id):
+    """Gio.DesktopAppInfo.new raises TypeError ('constructor returned NULL') for an unknown id in this PyGObject
+    instead of returning None; every lookup goes through here so a missing program never breaks a page (10 Oct)."""
+    try:
+        return Gio.DesktopAppInfo.new(desktop_id)
+    except TypeError:
+        return None
+
+
 def spawn(args, **kw):
     """Start a program detached from the shell: it keeps running when the shell restarts."""
     if not shutil.which(args[0]) and not os.path.exists(args[0]):
@@ -96,13 +105,13 @@ def apps():
 def launch(app_id):
     if not re.fullmatch(r'[\w.+-]+\.desktop', app_id or ''):
         raise ValueError('Ongeldig programma')
-    if not Gio.DesktopAppInfo.new(app_id):
+    if not desktop_app(app_id):
         raise RuntimeError('Dit programma is niet (meer) geïnstalleerd.')
     spawn(['gtk-launch', app_id])
 
 
 def chrome():
-    return chrome_status.read(Gio.DesktopAppInfo.new('google-chrome.desktop') is not None)
+    return chrome_status.read(desktop_app('google-chrome.desktop') is not None)
 
 
 def browsers():
@@ -120,7 +129,7 @@ def browsers():
 def browser_select(app_id):
     if app_id not in {app['id'] for app in browsers()['apps']}:
         raise ValueError('Deze browser is niet beschikbaar.')
-    app = Gio.DesktopAppInfo.new(app_id)
+    app = desktop_app(app_id)
     for mime in ('x-scheme-handler/http', 'x-scheme-handler/https', 'text/html'):
         if not app.set_as_default_for_type(mime):
             raise RuntimeError('De standaardbrowser kon niet worden opgeslagen.')
@@ -422,7 +431,7 @@ def desktop_list():
                 entries.append(entry)
     for item in lay.get('items') or []:
         if item['kind'] == 'app':
-            app = Gio.DesktopAppInfo.new(item['target'])
+            app = desktop_app(item['target'])
             if not app:
                 continue
             entries.append({'key': item['id'], 'name': app.get_display_name(), 'kind': 'app', 'target': item['target'],

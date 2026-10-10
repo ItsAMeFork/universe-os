@@ -94,3 +94,26 @@ Windows+Tab = taakweergave (geldt na opnieuw aanmelden, nog niet in de VM getest
 
 Niet getest in de VM: pictogram slepen naar een rastervak, naam wijzigen (F2), naar prullenbak (Delete), Nieuwe map,
 aan/uit-menu, pictogrammen vastmaken/losmaken in Start, de Windows-toets zelf, 1024×768/4K, zoom.
+
+### Vervolg bureaublad (10 oktober, test-VM)
+
+| Test | Uitkomst |
+|---|---|
+| Pictogram slepen (Projecten) | ✅ klikt vast in vak [4,5], opgeslagen |
+| F2 → "Werk" | ✅ map hernoemd op schijf, plek behouden |
+| Hernoemen en daarna Delete | ✅ naar de prullenbak (`~/.local/share/Trash`), prullenbakpictogram wordt "vol" |
+| Rechtsklik → Nieuwe map → "Vakantie" | ✅ op de plek van de rechtsklik ([6,3]), naam meteen in te typen |
+| Startmenu: aan/uit-knop | ✅ Vergrendelen, Afmelden, Opnieuw opstarten, Afsluiten (niet uitgevoerd) |
+| Klik op het bureaublad sluit Start | ✅ |
+| Startmenu na shellstart | ✅ direct (wordt 5 s na het bureaublad op de achtergrond geladen) |
+| CPU in rust | wereld ~28 % van één kern (oud ~42 %), taakbalk/start 0 % |
+
+Gevonden en opgelost:
+- Naamveld van een nieuwe map verdween: de mapbewaking ververste het bureaublad tijdens het typen → geen verversing
+  zolang een naam wordt getypt; na hernoemen blijft het pictogram geselecteerd (Delete werkt meteen).
+- `Gio.DesktopAppInfo.new` gooit in deze PyGObject `TypeError` bij een onbekend id → vensterlijst brak bij
+  gnome-calculator. Nu overal via `backend.desktop_app()` (ook Chrome-status, starten, snelkoppelingen).
+- Startmenu in de groeiende taakbalklaag werd soms niet mee vergroot → eigen laag met vaste grootte (`start.html`).
+
+Nog open: wereldpagina laadde één keer pas na 42 s (VM druk, 488 MB geheugen voor de wereld); Windows-toets na
+opnieuw aanmelden; 1024×768/4K.

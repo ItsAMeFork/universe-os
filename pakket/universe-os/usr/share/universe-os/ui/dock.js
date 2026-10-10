@@ -1,12 +1,12 @@
 import {call,on,applySettings,toast,h,icon} from './api.js';
-// Taskbar with start menu (Axel, 10 Oct: "a menu like Windows, in the style of the concept photos").
+// Taskbar (Axel, 10 Oct: "like Windows, in the style of the concept photos"). The start menu is its own surface
+// (start.html); the start button only asks the shell to show or hide it.
 // Left the start button (Universe planet), then the user's own buttons (layout.dock) and every open window that is
 // not one of them. A dot shows that a program is open; clicking an open program brings its window forward.
 // Everything except the start button is optional: drag to reorder, right click to remove.
-// The start menu (start button or Windows key) has a search field, pinned programs, all programs, places, the user
-// and the power actions. The surface grows upwards while a menu is open; the shell gives it the keyboard then.
+// The surface grows upwards while a small popup menu is open.
 
-const DOCK_HEIGHT=64,START_W=640;
+const DOCK_HEIGHT=64;
 // match: lower-case parts of the Wayland app id that belong to this program.
 const BUILTIN={
  space:{name:'Bureaublad tonen',iconName:'display',match:[],click:()=>call('desktop.show')},
@@ -16,10 +16,7 @@ const BUILTIN={
  store:{name:'Softwarewinkel',desktop:'org.gnome.Software.desktop',iconName:'store',match:['gnome.software','gnome-software'],click:()=>call('run',{tool:'software'})},
  control:{name:'Controlecentrum',iconName:'gear',match:['universeos.controlcenter'],click:()=>call('run',{tool:'control'})},
 };
-const DEFAULT_PINS=['firefox-esr.desktop','google-chrome.desktop','thunar.desktop','org.gnome.Software.desktop','xfce4-terminal.desktop',
- 'mousepad.desktop','org.gnome.Calculator.desktop','atril.desktop','io.github.celluloid_player.Celluloid.desktop','org.gnome.SystemMonitor.desktop',
- 'universe-windows-apps.desktop','file-roller.desktop'];
-let windows=[],apps=[],browserIcon=null,user={},layout={dock:Object.keys(BUILTIN),start:null,items:[]},popup=null,start=null;
+let windows=[],apps=[],browserIcon=null,layout={dock:Object.keys(BUILTIN)},popup=null,startOpen=false;
 const bar=h('nav',{class:'dock','aria-label':'Taakbalk'});
 document.body.append(bar);
 
@@ -47,9 +44,9 @@ function button({name,img,iconName,cls='',open,active,onClick}){
  return b;
 }
 function render(){
- const startButton=h('button',{class:'item start-button'+(start?' active':''),type:'button',title:'Start','aria-label':'Start','aria-expanded':String(!!start),
+ const startButton=h('button',{class:'item start-button'+(startOpen?' active':''),type:'button',title:'Start','aria-label':'Start','aria-expanded':String(startOpen),
   html:'<svg viewBox="0 0 32 32" aria-hidden="true"><defs><radialGradient id="sb" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#ffd2a0"/><stop offset=".55" stop-color="#ff8a3d"/><stop offset="1" stop-color="#a33c10"/></radialGradient></defs><circle cx="16" cy="16" r="8.5" fill="url(#sb)"/><ellipse cx="16" cy="16" rx="14" ry="5" fill="none" stroke="#85ffe3" stroke-width="1.6" transform="rotate(-18 16 16)"/></svg>'});
- startButton.addEventListener('click',()=>toggleStart());
+ startButton.addEventListener('click',()=>call('start.toggle').catch(e=>toast(e.message)));
  const entries=layout.dock.map(entry);
  const pinned=entries.map(e=>{
   const mine=windows.filter(w=>owns(e,w));
@@ -66,11 +63,10 @@ function render(){
   ...others.map(w=>button({name:w.title||w.appName||'Venster',img:w.icon,iconName:'grid',open:true,active:w.activated,onClick:()=>call('windows.activate',{id:w.id})})));
  resize();
 }
-/** Surface size: the bar, plus room above it for the start menu or a popup. */
+/** Surface size: the bar, plus room above it for a popup. */
 function resize(){
- const over=start||popup;
- const width=Math.max(Math.ceil(bar.offsetWidth)+4,start?START_W+8:0,popup?Math.ceil(popup.offsetWidth)+8:0);
- const height=DOCK_HEIGHT+(over?Math.ceil(over.offsetHeight)+12:0);
+ const width=Math.max(Math.ceil(bar.offsetWidth)+4,popup?Math.ceil(popup.offsetWidth)+8:0);
+ const height=DOCK_HEIGHT+(popup?Math.ceil(popup.offsetHeight)+12:0);
  return call('dock.size',{width,height}).catch(()=>{});
 }
 function saveLayout(){return call('layout.set',{layout}).then(l=>{layout=l;}).catch(e=>toast('Opslaan mislukt: '+e.message));}
@@ -95,7 +91,7 @@ function reorderable(b,key){
  b.addEventListener('pointerdown',e=>{if(e.button!==0)return;x0=e.clientX;addEventListener('pointermove',moveTo);addEventListener('pointerup',end);addEventListener('pointercancel',end);});
 }
 
-// ----- popup menu (taskbar buttons and programs in the start menu) -----
+// ----- popup menu (right click on a taskbar button) -----
 function closePopup(){if(!popup)return;popup.remove();popup=null;resize();}
 function openPopup(anchor,entries,at){
  if(popup)popup.remove();
@@ -112,91 +108,15 @@ function openPopup(anchor,entries,at){
  }));
 }
 
-// ----- start menu -----
-const pins=()=>(layout.start||DEFAULT_PINS).map(id=>apps.find(a=>a.id===id)).filter(Boolean);
-function appButton(a,cls){
- const b=h('button',{class:cls,type:'button',title:a.comment||a.name},a.icon?h('img',{src:a.icon,alt:''}):icon('grid'),h('span',{},a.name));
- b.addEventListener('click',()=>{toggleStart(false);act(()=>call('apps.launch',{id:a.id}));});
- b.addEventListener('contextmenu',ev=>{ev.preventDefault();ev.stopPropagation();appMenu(a,b,[ev.clientX,ev.clientY]);});
- return b;
-}
-function appMenu(a,anchor,at){
- const pinned=(layout.start||DEFAULT_PINS).includes(a.id);
- const dockKey={'thunar.desktop':'files','xfce4-terminal.desktop':'terminal','org.gnome.Software.desktop':'store'}[a.id]||'app:'+a.id;
- const onBar=layout.dock.includes(dockKey);
- openPopup(anchor,[
-  {label:'Openen',run:()=>{toggleStart(false);return call('apps.launch',{id:a.id});}},
-  {label:pinned?'Losmaken van Start':'Vastmaken aan Start',run:()=>{const list=(layout.start||DEFAULT_PINS.filter(id=>apps.some(x=>x.id===id))).filter(id=>id!==a.id);layout={...layout,start:pinned?list:[...list,a.id]};saveLayout().then(()=>start&&showStart());}},
-  {label:onBar?'Losmaken van de taakbalk':'Aan de taakbalk vastmaken',run:()=>saveDock(onBar?layout.dock.filter(k=>k!==dockKey):[...layout.dock,dockKey])},
-  {label:'Op het bureaublad zetten',run:()=>{layout={...layout,items:[...(layout.items||[]),{id:'i'+Date.now().toString(36),kind:'app',target:a.id,name:a.name}]};saveLayout().then(()=>toast(a.name+' staat op het bureaublad.'));}},
- ],at);
-}
-function toggleStart(open=!start){
- if(!open){if(!start)return;start.remove();start=null;closePopup();render();call('start.toggle',{open:false}).catch(()=>{});return;}
- if(start)return;
- start=h('section',{class:'start-menu',role:'dialog','aria-label':'Start'});
- // Height from the screen, not from 100vh: this surface is only as high as the bar until it grows.
- start.style.setProperty('--start-max',Math.max(320,Math.min(680,(screen.height||900)-120))+'px');
- document.body.append(start);showStart();
- call('start.toggle',{open:true}).catch(()=>{});
- render();
-}
-function showStart(view='pinned'){
- if(!start)return;
- const search=h('input',{type:'search',class:'start-search',placeholder:'Zoek naar programma\'s','aria-label':'Zoek naar programma\'s'});
- const body=h('div',{class:'start-body'});
- const allBtn=h('button',{type:'button',class:'link'},view==='all'?'‹ Terug':'Alle apps ›');
- allBtn.addEventListener('click',()=>showStart(view==='all'?'pinned':'all'));
- const fill=()=>{
-  const q=search.value.trim().toLowerCase();
-  if(q){
-   const found=apps.filter(a=>(a.name+' '+a.comment+' '+a.keywords).toLowerCase().includes(q)).slice(0,24);
-   body.replaceChildren(h('h2',{},'Beste resultaten'),found.length?h('div',{class:'start-list'},...found.map(a=>appButton(a,'start-row'))):h('p',{class:'muted'},'Niets gevonden.'));
-   return;
-  }
-  if(view==='all'){
-   const groups=new Map();for(const a of apps){const L=(a.name[0]||'#').toUpperCase();if(!groups.has(L))groups.set(L,[]);groups.get(L).push(a);}
-   body.replaceChildren(h('div',{class:'start-head'},h('h2',{},'Alle apps'),allBtn),h('div',{class:'start-list all'},...[...groups].flatMap(([L,list])=>[h('div',{class:'letter'},L),...list.map(a=>appButton(a,'start-row'))])));
-   return;
-  }
-  const p=pins();
-  body.replaceChildren(h('div',{class:'start-head'},h('h2',{},'Vastgemaakt'),allBtn),
-   p.length?h('div',{class:'start-grid'},...p.map(a=>appButton(a,'start-tile'))):h('p',{class:'muted'},'Rechtsklik op een programma in Alle apps om het hier vast te maken.'),
-   h('div',{class:'start-head'},h('h2',{},'Snel naar')),
-   h('div',{class:'start-places'},...[['Documenten','documents'],['Downloads','downloads'],['Afbeeldingen','pictures'],['Muziek','music']].map(([name,id])=>{
-    const b=h('button',{type:'button',class:'start-place'},icon('folder'),h('span',{},name));
-    b.addEventListener('click',async()=>{toggleStart(false);const pl=(await call('files.places')).find(x=>x.id===id);if(pl)act(()=>call('open.path',{path:pl.path}));});return b;})));
- };
- search.addEventListener('input',fill);
- search.addEventListener('keydown',e=>{if(e.key==='Enter'){const first=body.querySelector('.start-row,.start-tile');if(first)first.click();}});
- const userBtn=h('button',{type:'button',class:'start-user'},h('span',{class:'avatar','aria-hidden':'true'},(user.fullName||user.name||'?').slice(0,1).toUpperCase()),h('span',{},user.fullName||user.name||'Account'));
- userBtn.addEventListener('click',()=>{toggleStart(false);act(()=>call('run',{tool:'control',page:'users'}));});
- const settingsBtn=h('button',{type:'button',class:'start-icon',title:'Instellingen','aria-label':'Instellingen'},icon('gear'));
- settingsBtn.addEventListener('click',()=>{toggleStart(false);act(()=>call('run',{tool:'control'}));});
- const powerBtn=h('button',{type:'button',class:'start-icon',title:'Aan/uit','aria-label':'Aan/uit'},icon('power'));
- powerBtn.addEventListener('click',()=>powerMenu(powerBtn));
- start.replaceChildren(h('div',{class:'start-glow','aria-hidden':'true'}),search,body,h('footer',{class:'start-foot'},userBtn,h('span',{class:'grow'}),settingsBtn,powerBtn));
- fill();resize();search.focus();
-}
-function powerMenu(anchor){
- const ask=(label,action)=>openPopup(anchor,[{label:`Ja, ${label.toLowerCase()} (niet-opgeslagen werk kan verloren gaan)`,run:()=>{toggleStart(false);return call('power',{action});}},{label:'Annuleren',run:()=>{}}]);
- openPopup(anchor,[
-  {label:'Vergrendelen',run:()=>{toggleStart(false);return call('power',{action:'lock'});}},
-  {label:'Afmelden',run:()=>ask('Afmelden','logout')},
-  {label:'Opnieuw opstarten',run:()=>ask('Opnieuw opstarten','reboot')},
-  {label:'Afsluiten',run:()=>ask('Afsluiten','poweroff')},
- ]);
-}
-
 addEventListener('keydown',e=>{
- if(e.key==='Escape'){if(popup){e.preventDefault();closePopup();return;}if(start){e.preventDefault();toggleStart(false);return;}}
- if(!popup&&!start&&(e.key==='ContextMenu'||(e.shiftKey&&e.key==='F10'))&&document.activeElement?.classList.contains('item')){e.preventDefault();document.activeElement.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true}));}
+ if(e.key==='Escape'&&popup){e.preventDefault();closePopup();return;}
+ if(!popup&&(e.key==='ContextMenu'||(e.shiftKey&&e.key==='F10'))&&document.activeElement?.classList.contains('item')){e.preventDefault();document.activeElement.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true}));}
 });
 addEventListener('pointerdown',e=>{
- if(popup&&!popup.contains(e.target)){closePopup();}
- else if(start&&!start.contains(e.target)&&!e.target.closest?.('.start-button'))toggleStart(false);
+ if(popup&&!popup.contains(e.target))closePopup();
+ if(startOpen&&!e.target.closest?.('.start-button'))call('surface.hide',{name:'start'}).catch(()=>{});
 },true);
-addEventListener('blur',()=>{closePopup();if(start)toggleStart(false);});
+addEventListener('blur',closePopup);
 
 async function loadApps(){
  try{apps=await call('apps.list');}catch{}
@@ -204,14 +124,14 @@ async function loadApps(){
 }
 async function init(){
  const config=await call('config.get');applySettings({...config.settings,colors:config.world.colors});
- if(config.layout)layout=config.layout;user=config.user||{};
+ if(config.layout)layout=config.layout;
  await loadApps();
  try{windows=await call('windows.list');}catch{}
  render();window.__universePageReady?.();
 }
 on('windows',list=>{windows=list||[];render();});
 on('layout',l=>{if(l){layout=l;render();}});
-on('apps-changed',()=>loadApps().then(()=>{render();if(start)showStart();}));
-on('start-toggle',()=>toggleStart());
-on('config',c=>{applySettings({...c.settings,colors:c.world.colors});user=c.user||user;});
+on('apps-changed',()=>loadApps().then(render));
+on('start-state',open=>{startOpen=!!open;render();});
+on('config',c=>applySettings({...c.settings,colors:c.world.colors}));
 init();
