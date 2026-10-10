@@ -242,15 +242,15 @@ layer.addEventListener('wheel',e=>{
  requestRender();saveCamera();
 },{passive:false});
 /** Flies the camera to look at a point (instant with reduced motion). */
-function flyTo(target,dist){
- const from={...cam},to={...cam,tx:target[0],ty:target[1],tz:target[2],dist:dist??cam.dist};
+function flyTo(target,dist,turn){
+ const from={...cam},to={...cam,tx:target[0],ty:target[1],tz:target[2],dist:dist??cam.dist,...(turn||{})};
  if(!motionAllowed(settings)){cam=to;requestRender();saveCamera();return;}
  const t0=performance.now();
  const step=t=>{const k=Math.min(1,(t-t0)/450),e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
   for(const key of Object.keys(to))cam[key]=from[key]+(to[key]-from[key])*e;requestRender();if(k<1)requestAnimationFrame(step);else saveCamera();};
  requestAnimationFrame(step);
 }
-function overview(){flyTo([0,0,0],DEFAULT_CAM.dist);setTimeout(()=>{if(motionAllowed(settings))return;cam.yaw=DEFAULT_CAM.yaw;cam.pitch=DEFAULT_CAM.pitch;},0);}
+function overview(){flyTo([0,0,0],DEFAULT_CAM.dist,{yaw:DEFAULT_CAM.yaw,pitch:DEFAULT_CAM.pitch});}
 function pushAlongView(o,amount){const v=unrotate(0,0,amount);o.pos=[o.pos[0]+v[0],o.pos[1]+v[1],o.pos[2]+v[2]];requestRender();savePos(o);}
 
 // ----- rename and remove (files on the desktop) -----
@@ -298,9 +298,11 @@ function openMenu(x,y,entries){
  }
  document.body.append(menu);
  const r=menu.getBoundingClientRect();
- menu.style.left=Math.max(8,Math.min(x,innerWidth-r.width-8))+'px';menu.style.top=Math.max(8,Math.min(y,innerHeight-r.height-8))+'px';
+ // Stay above the taskbar (BOTTOM_FREE px at the bottom of the screen).
+ menu.style.left=Math.max(8,Math.min(x,innerWidth-r.width-8))+'px';menu.style.top=Math.max(8,Math.min(y,innerHeight-BOTTOM_FREE-r.height))+'px';
  menu.querySelector('button')?.focus();
 }
+const BOTTOM_FREE=90;
 addEventListener('pointerdown',e=>{if(menu&&!menu.contains(e.target))closeMenu();},true);
 addEventListener('blur',closeMenu);
 let startOpen=false;
