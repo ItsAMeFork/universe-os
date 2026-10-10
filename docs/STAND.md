@@ -3,7 +3,7 @@
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
 ## Nieuw op 10 oktober: bureaublad zoals Windows (concept van Axel)
-Concept: foto's in `C:UsersAxel Van LienenDownloadsoto`. Wens: "een normaal bureaublad, de planeten als
+Concept: foto's in `C:\Users\Axel Van Lienen\Downloads\foto`. Wens: "een normaal bureaublad, de planeten als
 achtergrond (3D), pictogrammen en een menu zoals Windows, in de stijl van de foto's; alles optioneel".
 | Wat | Waar | Test |
 |---|---|---|
