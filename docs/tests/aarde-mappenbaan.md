@@ -140,3 +140,16 @@ match the expected pattern") → altijd een geldige kleur; overlappende labels i
 planeten van minstens 64 px in beeld (of bij hover/selectie).
 Niet getest in de VM: Nieuwe map/hernoemen in 3D, Verbergen + terugzetten, Alles opnieuw ordenen, toetsenbord
 (pijlen draaien, +/− zoomen, Home), 1024×768/4K.
+
+### Vervolg 3D-bureaublad (10 oktober, test-VM)
+
+| Test | Uitkomst |
+|---|---|
+| Pijltjes | ✅ draaien de ruimte |
+| − (numeriek toetsenblok) | ✅ zoomt uit (gewone min-toets komt via QMP niet door; niet als fout gezien) |
+| Home | ✅ overzicht; na de fix ook de draaihoek terug |
+| Verbergen (Celluloid) → "Verborgen planeten weer tonen (1)" | ✅ weg en terug op dezelfde plek, `space.hidden` leeg |
+| Alles opnieuw ordenen | ✅ `space.pos` leeg, standaardindeling |
+| Menu's onderaan het scherm | ✅ na de fix boven de taakbalk |
+| 1024×768 | ✅ bureaublad in 4 s; startmenu viel bovenaan van het scherm → laag nu aan boven- en onderkant gekoppeld, past |
+| 3840×2160 (4K) | ❌ VM liep vast (te zwaar voor de laptop). Axel: alleen Full HD testen |
