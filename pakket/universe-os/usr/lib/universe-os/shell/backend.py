@@ -54,7 +54,7 @@ def user_info():
 
 
 def full_config():
-    return {'settings': config.settings(), 'world': config.world(), 'user': user_info()}
+    return {'settings': config.settings(), 'world': config.world(), 'layout': config.layout(), 'user': user_info()}
 
 
 # ---------- programs ----------
@@ -347,3 +347,19 @@ def run_tool(tool, args):
         cmd = {'network-editor': 'nm-connection-editor'}.get(tool, tool)
         return spawn([cmd])
     raise ValueError('Onbekend hulpmiddel: %s' % tool)
+
+
+def pick_path(kind):
+    """Lets the user choose a folder or file to put in the space world (native dialog via zenity). None = cancelled."""
+    cmd = ['zenity', '--file-selection', '--title', 'Map kiezen' if kind == 'folder' else 'Bestand kiezen',
+           '--filename', os.path.expanduser('~') + '/']
+    if kind == 'folder':
+        cmd.append('--directory')
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise RuntimeError('Kiezen lukt niet: %s' % error)
+    path = result.stdout.strip()
+    if result.returncode != 0 or not path:
+        return None
+    return {'path': path, 'name': os.path.basename(path.rstrip('/')) or path}

@@ -6,9 +6,11 @@ import {SETTINGS} from './settings-index.js';
 import {keepTab} from './focus.js';
 // The space world. Every planet is a real button (mouse, Tab, arrows, Enter, digits). Landing on a planet opens its
 // room; the travel animation is optional (setting "travel") and is skipped with digits, reduced motion or "off".
+// It works like an ordinary desktop (Axel, 10 Oct): everything can be dragged anywhere, every planet can be hidden,
+// own programs/folders/files can be added, the folder orbit is optional. The user's layout lives in layout.json.
 
 const KIND={local:['local','Werkt lokaal'],online:['online','Internet nodig'],mixed:['mixed','Lokaal + online']};
-let config=null,settings={},user={},planets=[],current=null,lastFocus=null,appsCache=null;
+let config=null,settings={},user={},planets=[],current=null,lastFocus=null,appsCache=null,layout={planets:{},items:[],orbit:true,dock:[]};
 let initialFocus=true;
 let travelToken=0;
 let backgroundBusy=false;
@@ -33,7 +35,7 @@ document.body.append(root);
 async function start(){
  config=await call('config.get');
  if(!config?.world?.planets?.length)throw new Error('De wereldindeling ontbreekt.');
- settings=config.settings;user=config.user||{};applySettings({...settings,colors:config.world.colors});
+ settings=config.settings;user=config.user||{};layout=config.layout||layout;applySettings({...settings,colors:config.world.colors});
  await afterPaint();build();debugFPS();await afterPaint();
  call('background.busy').then(setBackgroundBusy).catch(()=>{});
  call('world.ready',{milliseconds:performance.now()}).catch(()=>{});
@@ -43,9 +45,9 @@ async function start(){
 function build(){
  root.replaceChildren(Object.assign(starfield(),{className:'space-stars'}),scene,room);
  scene.replaceChildren();
- const home=config.world.planets.find(p=>p.id==='home');
- if(home){const paths=h('div',{class:'space-paths'},h('i'),h('i'),h('i'));paths.style.left=home.x+'%';paths.style.top=home.y+'%';scene.append(paths);}
- planets=config.world.planets.map((p,index)=>{
+ const visible=config.world.planets.filter(p=>!layout.planets[p.id]?.hidden).map(p=>{const own=layout.planets[p.id];return own&&own.x!=null?{...p,x:own.x,y:own.y}:p;});
+ const home=visible.find(p=>p.id==='home');
+ planets=visible.map((p,index)=>{
   const [kind,kindText]=KIND[p.kind]||KIND.local;
   const button=h('button',{class:`planet ${p.id==='home'?'home':''} ${p.rock&&p.style!=='earth'?'rock':''}`,type:'button','data-id':p.id,
    'aria-label':`${p.name}: ${p.description}. ${kindText}. Sneltoets ${index+1}.`});
@@ -54,16 +56,22 @@ function build(){
   const float=h('div',{class:'float'},planetGlobe(p,diameter),p.rings?h('span',{class:'rings'}):null);
   const label=h('div',{class:'label'},h('span',{class:'name'},p.name,h('span',{class:'key'},String(index+1))),h('span',{class:`badge ${kind}`},kindText));
   button.append(h('span',{class:'halo','aria-hidden':'true'}),float,label);
-  button.addEventListener('click',()=>land(p,{travel:true}));
+  button.addEventListener('click',()=>{if(wasDragged(button))return;land(p,{travel:true});});
+  draggable(button,{move:(x,y)=>{p.x=x;p.y=y;button.style.left=x+'%';button.style.top=y+'%';if(p.id==='home')orbitFollow(x,y);},
+   drop:()=>{layout.planets[p.id]={...layout.planets[p.id],x:p.x,y:p.y};saveLayout();}});
+  withMenu(button,()=>[{label:'Openen',run:()=>land(p,{travel:false})},{label:'Planeet verbergen',run:()=>{layout.planets[p.id]={...layout.planets[p.id],hidden:true};saveLayout(true);}},
+   ...(p.id==='home'&&p.style==='earth'?[{label:layout.orbit?'Mappenbaan verbergen':'Mappenbaan tonen',run:()=>{layout.orbit=!layout.orbit;saveLayout(true);}}]:[])]);
   scene.append(button);return {p,button};
  });
- buildFolderOrbit(home);
+ for(const item of layout.items)scene.append(deskItem(item));
+ if(!appsCache&&layout.items.some(i=>i.kind==='app'))apps().then(()=>{if(!current)build();}).catch(()=>{}); // names and icons
+ if(layout.orbit)buildFolderOrbit(home);else orbit=null;
  if(user.live){
   const install=h('button',{class:'installer',type:'button','aria-label':'Universe OS installeren op deze computer'},icon('rocket'),'Universe OS installeren');
   install.addEventListener('click',()=>call('run',{tool:'installer'}).catch(e=>toast(e.message)));
   scene.append(install);
  }
- root.append(h('div',{class:'hint'},'Klik op een planeet of druk ',h('kbd',{},'1'),'–',h('kbd',{},String(planets.length)),' · ',h('kbd',{},'Windows'),' zoeken en open programma\'s · ',h('kbd',{},'Windows'),'+',h('kbd',{},'D'),' ruimtewereld · ',h('kbd',{},'Windows'),'+',h('kbd',{},'A'),' bedieningspaneel'));
+ root.append(h('div',{class:'hint'},...(planets.length?['Klik op een planeet of druk ',h('kbd',{},'1'),'–',h('kbd',{},String(planets.length)),' · ']:[]),'Sleep om te verplaatsen · rechtsklik om toe te voegen of aan te passen · ',h('kbd',{},'Windows'),' zoeken · ',h('kbd',{},'Windows'),'+',h('kbd',{},'A'),' bedieningspaneel'));
  parallax();
  if(initialFocus){initialFocus=false;planets[0]?.button.focus({preventScroll:true});}
 }
@@ -105,6 +113,7 @@ async function buildFolderOrbit(home){
  const items=places.map(pl=>{
   const b=h('button',{class:'orbit-folder',type:'button','aria-label':`Map ${pl.name} openen`},folderIcon(),h('span',{class:'folder-name'},pl.name));
   b.addEventListener('click',()=>call('open.path',{path:pl.path}).catch(e=>toast(e.message)));
+  withMenu(b,()=>[{label:'Openen',run:()=>call('open.path',{path:pl.path})},{label:'Mappenbaan verbergen',run:()=>{layout.orbit=false;saveLayout(true);}}]);
   // A moving target is hard to hit: the orbit holds still while the pointer or the keyboard focus is on a folder.
   b.addEventListener('pointerenter',()=>{orbitHold=true;});
   b.addEventListener('pointerleave',()=>{orbitHold=false;orbitStart();});
@@ -141,6 +150,129 @@ function orbitTick(time){
 }
 document.addEventListener('visibilitychange',orbitStart);
 addEventListener('resize',orbitPlace);
+
+// ----- own layout: drag, context menus, own items -----
+const pct=v=>Math.round(Math.min(98,Math.max(2,v))*100)/100;
+const sorted=v=>Array.isArray(v)?v.map(sorted):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,sorted(v[k])])):v;
+const same=(a,b)=>JSON.stringify(sorted(a))===JSON.stringify(sorted(b));
+/** Saves the layout; rebuild=true when something appears or disappears (a move is already on screen). */
+function saveLayout(rebuild=false){
+ if(rebuild&&!current)build();
+ call('layout.set',{layout}).then(clean=>{layout=clean;}).catch(e=>toast('Indeling opslaan mislukt: '+e.message));
+}
+on('layout',l=>{if(!l||same(l,layout))return;layout=l;if(!current)build();});
+
+/** Pointer drag that still lets a plain click through: it only starts after 6 px of movement. Moves are followed on
+ * the whole page: WebKitGTK does not keep mouse pointer capture (VM 10 Oct: moves went to the scene). */
+function draggable(el,{move,drop}){
+ let start=null,dragging=false;
+ const moveTo=e=>{
+  if(!start)return;
+  if(!dragging){if(Math.hypot(e.clientX-start[0],e.clientY-start[1])<6)return;dragging=true;el.classList.add('dragging');}
+  move(pct(e.clientX/innerWidth*100),pct(e.clientY/innerHeight*100));
+ };
+ const end=()=>{
+  removeEventListener('pointermove',moveTo);removeEventListener('pointerup',end);removeEventListener('pointercancel',end);
+  if(!start)return;start=null;if(!dragging)return;dragging=false;el.classList.remove('dragging');el.dataset.dragged='1';drop();
+ };
+ el.addEventListener('pointerdown',e=>{
+  if(e.button!==0)return;start=[e.clientX,e.clientY];dragging=false;delete el.dataset.dragged;
+  addEventListener('pointermove',moveTo);addEventListener('pointerup',end);addEventListener('pointercancel',end);
+ });
+ el._move=(dx,dy)=>{const x=pct(parseFloat(el.style.left)+dx),y=pct(parseFloat(el.style.top)+dy);move(x,y);drop();};
+}
+const wasDragged=el=>{if(!el.dataset.dragged)return false;delete el.dataset.dragged;return true;};
+
+let menu=null;
+function closeMenu(){menu?.remove();menu=null;}
+/** Context menu: right click, the Menu key or Shift+F10. entries: {label,run} or '-' for a line. */
+function openMenu(x,y,entries){
+ closeMenu();
+ const items=entries.filter(Boolean);if(!items.length)return;
+ menu=h('div',{class:'ctx glass',role:'menu'});
+ for(const e of items){
+  if(e==='-'){menu.append(h('hr',{'aria-hidden':'true'}));continue;}
+  const b=h('button',{type:'button',role:'menuitem'},e.label);
+  b.addEventListener('click',()=>{closeMenu();Promise.resolve().then(e.run).catch(err=>toast(err.message));});
+  menu.append(b);
+ }
+ document.body.append(menu);
+ const r=menu.getBoundingClientRect();
+ menu.style.left=Math.max(8,Math.min(x,innerWidth-r.width-8))+'px';menu.style.top=Math.max(8,Math.min(y,innerHeight-r.height-8))+'px';
+ menu.querySelector('button')?.focus();
+}
+function withMenu(el,entries){
+ el._menu=entries;
+ el.addEventListener('contextmenu',e=>{e.preventDefault();e.stopPropagation();openMenu(e.clientX,e.clientY,el._menu(e));});
+}
+addEventListener('pointerdown',e=>{if(menu&&!menu.contains(e.target))closeMenu();},true);
+addEventListener('blur',closeMenu);
+withMenu(scene,backgroundMenu); // empty space: add things, show hidden planets, reset
+
+const newId=()=>'i'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+function addItem(item,x,y){
+ layout.items.push({id:newId(),...item,x:pct(x??50+(Math.random()-.5)*40),y:pct(y??45+(Math.random()-.5)*30)});
+ saveLayout(true);toast(item.name+' staat nu in de ruimte. Sleep het waarheen je wilt.');
+}
+// Programs that already have a fixed dock button use that button instead of a second one.
+const DOCK_BUILTIN_APPS={'thunar.desktop':'files','xfce4-terminal.desktop':'terminal','org.gnome.Software.desktop':'store'};
+const dockKey=id=>DOCK_BUILTIN_APPS[id]||'app:'+id;
+const inDock=id=>layout.dock.includes(dockKey(id));
+function toggleDock(id){
+ const key=dockKey(id);
+ layout.dock=inDock(id)?layout.dock.filter(d=>d!==key):[...layout.dock,key];
+ saveLayout();
+}
+const DOCK_NAMES={space:'Ruimtewereld',files:'Bestanden',browser:'Internet',terminal:'Terminal',store:'Softwarewinkel',control:'Controlecentrum'};
+function backgroundMenu(e){
+ const x=e?.clientX??innerWidth/2,y=e?.clientY??innerHeight/2,px=pct(x/innerWidth*100),py=pct(y/innerHeight*100);
+ const hidden=config.world.planets.filter(p=>layout.planets[p.id]?.hidden);
+ const homeEarth=config.world.planets.find(p=>p.id==='home'&&p.style==='earth'&&!layout.planets.home?.hidden);
+ const missingDock=Object.keys(DOCK_NAMES).filter(d=>!layout.dock.includes(d));
+ return [
+  {label:'Programma toevoegen…',run:()=>addProgram(px,py)},
+  {label:'Map toevoegen…',run:()=>addPath('folder',px,py)},
+  {label:'Bestand toevoegen…',run:()=>addPath('file',px,py)},
+  ...(hidden.length?['-',...hidden.map(p=>({label:'Planeet tonen: '+p.name,run:()=>{const {hidden:_,...rest}=layout.planets[p.id];layout.planets[p.id]=rest;saveLayout(true);}}))]:[]),
+  ...(homeEarth?['-',{label:layout.orbit?'Mappenbaan verbergen':'Mappenbaan tonen',run:()=>{layout.orbit=!layout.orbit;saveLayout(true);}}]:[]),
+  ...(missingDock.length?['-',...missingDock.map(d=>({label:'In het dock zetten: '+DOCK_NAMES[d],run:()=>{layout.dock=[...layout.dock,d];saveLayout();}}))]:[]),
+  '-',{label:'Indeling herstellen',run:async()=>{layout=await call('layout.reset');build();toast('De standaardindeling is terug.');}},
+ ];
+}
+async function addPath(kind,x,y){
+ const picked=await call('pick.path',{kind});
+ if(picked)addItem({kind,target:picked.path,name:picked.name},x,y);
+}
+async function addProgram(x,y){
+ const list=await apps();
+ const search=h('input',{type:'search',class:'room-search',placeholder:'Zoek een programma','aria-label':'Zoek een programma'});
+ const grid=h('div',{class:'tiles'});
+ const close=h('button',{class:'room-back',type:'button'},icon('back'),'Annuleren');
+ const box=h('section',{class:'picker glass',role:'dialog','aria-modal':'true','aria-label':'Programma toevoegen'},
+  h('h2',{},'Programma toevoegen aan de ruimte'),search,grid,close);
+ const done=()=>{box.remove();scene.inert=false;};
+ const show=()=>{const q=search.value.trim().toLowerCase();grid.replaceChildren(...list.filter(a=>!q||(a.name+' '+a.keywords).toLowerCase().includes(q)).slice(0,60)
+  .map(a=>tile({name:a.name,sub:a.comment,img:a.icon,iconName:'grid',onClick:()=>{done();addItem({kind:'app',target:a.id,name:a.name},x,y);}})));};
+ search.addEventListener('input',show);close.addEventListener('click',done);
+ box.addEventListener('keydown',e=>{keepTab(e,box);if(e.key==='Escape'){e.stopPropagation();done();}});
+ show();root.append(box);scene.inert=true;search.focus();
+}
+/** An own item in space: a program, folder or file the user placed there. */
+function deskItem(item){
+ const app=item.kind==='app'?(appsCache||[]).find(a=>a.id===item.target):null;
+ const pic=item.kind==='folder'?folderIcon():item.kind==='file'?icon('file','icon desk-file'):app?.icon?h('img',{src:app.icon,alt:''}):icon('grid','icon desk-file');
+ const name=app?.name||item.name||item.target;
+ const b=h('button',{class:'desk-item',type:'button','aria-label':name+' openen. Sleep om te verplaatsen.',title:name},h('span',{class:'desk-glow','aria-hidden':'true'}),pic,h('span',{class:'desk-name'},name));
+ b.style.left=item.x+'%';b.style.top=item.y+'%';
+ const open=()=>item.kind==='app'?launch(item.target):call('open.path',{path:item.target}).catch(e=>toast(e.message));
+ b.addEventListener('click',()=>{if(wasDragged(b))return;open();});
+ draggable(b,{move:(x,y)=>{item.x=x;item.y=y;b.style.left=x+'%';b.style.top=y+'%';},drop:()=>saveLayout()});
+ withMenu(b,()=>[{label:'Openen',run:open},
+  ...(item.kind==='app'?[{label:inDock(item.target)?'Uit het dock halen':'Aan het dock vastmaken',run:()=>toggleDock(item.target)}]:[]),
+  {label:'Uit de ruimte verwijderen',run:()=>{layout.items=layout.items.filter(i=>i.id!==item.id);saveLayout(true);}}]);
+ return b;
+}
+function orbitFollow(x,y){if(orbit)for(const el of [orbit.back,orbit.front,...orbit.items]){el.style.left=x+'%';el.style.top=y+'%';}}
 
 async function land(p,{travel,chooseBrowser=false}){
  if(p.id==='chat'&&!chooseBrowser){try{const b=await call('browser.list');if(b.default){await launch(b.default);return;}}catch(e){toast('Browserkeuze ophalen mislukt: '+e.message);}}
@@ -189,7 +321,12 @@ on('apps-changed',()=>{appsCache=null;if(current&&['apps','chat','games'].includ
 function appGrid(list,empty){
  const grid=h('div',{class:'tiles'});
  if(!list.length)grid.append(h('p',{class:'empty'},empty));
- for(const a of list)grid.append(tile({name:a.name,sub:a.comment,img:a.icon,iconName:'grid',onClick:()=>launch(a.id)}));
+ for(const a of list){
+  const t=tile({name:a.name,sub:a.comment,img:a.icon,iconName:'grid',onClick:()=>launch(a.id)});
+  withMenu(t,()=>[{label:'Openen',run:()=>launch(a.id)},{label:'In de ruimte zetten',run:()=>addItem({kind:'app',target:a.id,name:a.name})},
+   {label:inDock(a.id)?'Uit het dock halen':'Aan het dock vastmaken',run:()=>toggleDock(a.id)}]);
+  grid.append(t);
+ }
  return grid;
 }
 const CATEGORIES=[['Internet','Network'],['Kantoor en tekst','Office'],['Afbeeldingen','Graphics'],['Geluid en video','AudioVideo'],['Hulpprogramma\'s','Utility'],['Ontwikkeling','Development'],['Systeem','System'],['Instellingen','Settings']];
@@ -271,6 +408,20 @@ const ROOMS={
 
 // Keyboard: digits land directly (no travel), arrows move between planets, Esc goes back to space.
 addEventListener('keydown',e=>{
+ if(menu){
+  if(e.key==='Escape'){e.preventDefault();closeMenu();return;}
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();const bs=[...menu.querySelectorAll('button')],i=bs.indexOf(document.activeElement);bs[(i+(e.key==='ArrowDown'?1:-1)+bs.length)%bs.length]?.focus();return;}
+  if(e.key==='Tab'){e.preventDefault();return;}
+ }
+ if(e.key==='ContextMenu'||(e.shiftKey&&e.key==='F10')){
+  e.preventDefault();const el=document.activeElement?.closest?.('.planet,.desk-item,.orbit-folder,.tile');
+  if(el?._menu){const r=el.getBoundingClientRect();openMenu(r.left+r.width/2,r.top+r.height/2,el._menu());}
+  else if(!current)openMenu(innerWidth/2,innerHeight/2,backgroundMenu());
+  return;
+ }
+ if(e.altKey&&!current&&document.activeElement?._move&&e.key.startsWith('Arrow')){
+  e.preventDefault();const d={ArrowLeft:[-1.5,0],ArrowRight:[1.5,0],ArrowUp:[0,-1.5],ArrowDown:[0,1.5]}[e.key];document.activeElement._move(...d);return;
+ }
  if(current)keepTab(e,room);
  if(e.key==='Escape'&&current){e.preventDefault();leave();return;}
  if(current||e.ctrlKey||e.altKey||e.metaKey)return;

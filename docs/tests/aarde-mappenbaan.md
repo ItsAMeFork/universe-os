@@ -47,3 +47,28 @@ Nieuwe shell-laag `dock` (TOP-laag onderaan, eigen ruimte via exclusive zone), p
 Niet getest: andere open programma's rechts van de scheidingslijn, Internet zonder standaardbrowser, tekstgrootte/zoom
 anders dan 100 %, 1024×768 en 4K, twee schermen (het dock staat alleen op het hoofdscherm).
 Bestaand, niet door het dock: het paneel bovenaan ligt over de titelbalk van een gemaximaliseerd venster.
+
+## Eigen indeling: alles verplaatsbaar en optioneel (10 oktober, zelfde test-VM)
+
+Wens van Axel: "alles moet net zo als een normaal bureaublad: zelf toevoegen, slepen, verplaatsen; alles optioneel".
+Per gebruiker in `~/.config/universe-os/layout.json` (gecontroleerd in `config.py`), wijzigingen gaan naar wereld en dock.
+
+| Test (echte WebKit tenzij anders vermeld) | Uitkomst |
+|---|---|
+| Planeet slepen (Gamehal naar rechtsonder) | ✅ staat er, opgeslagen (x 88,54 / y 59,26), blijft staan na shellherstart |
+| Klik zonder slepen | ✅ opent de planeet zoals altijd |
+| Rechtsklik op de lege ruimte | ✅ Programma/Map/Bestand toevoegen, Mappenbaan verbergen, Indeling herstellen |
+| Programma toevoegen | ✅ kiezer met alle programma's; item met echt pictogram op de plek van de rechtsklik, melding boven het dock |
+| Rechtsklik op dockknop → Uit het dock halen | ✅ menu boven het dock (laag groeit tijdelijk), dock krimpt en centreert, opgeslagen |
+| Planeet verbergen / terugzetten, map of bestand toevoegen, item slepen en verwijderen, dock herschikken | ✅ in Chromium-preview; in de VM nog niet allemaal apart nagelopen |
+| Controle van de opslag | ✅ onveilige naam (`../x`), relatief pad en `app:evil;rm` geweigerd, dubbele dockknop één keer, coördinaten begrensd |
+
+Gevonden en opgelost tijdens het testen:
+- Slepen werkte niet in WebKit: het begon een tekstselectie en hield de muis daarvoor vast → de wereld is niet meer
+  selecteerbaar (`user-select:none`, geen beeldsleep); bewegingen worden op de hele pagina gevolgd (pointer capture
+  houdt in WebKitGTK de muis niet vast).
+- `vm/qmp.mjs klik` drukte op de oude muispositie (bewegen en drukken in één keer) → eerst bewegen, dan drukken.
+  Nieuw: `beweeg` en `sleep`.
+
+Niet getest: toetsenbord (Menu-toets/Shift+F10, Alt+pijlen) in de VM, zoom/tekstgrootte, twee schermen, leeg dock
+(verdwijnt dan), map/bestand-kiezer (zenity) in de VM.

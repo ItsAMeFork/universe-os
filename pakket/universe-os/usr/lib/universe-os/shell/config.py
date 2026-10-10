@@ -1,5 +1,6 @@
 """Universe OS settings: system defaults (branding) + per-user settings, world layout and shortcuts."""
 import copy
+import re
 import json
 import os
 
@@ -172,3 +173,79 @@ def set_locale(lang):
     short = language.split('_')[0]
     with open(os.path.join(user_dir(), 'locale.env'), 'w', encoding='utf-8') as f:
         f.write('LANG=%s\nLANGUAGE=%s:%s\n' % (lang, language, short))
+
+
+# ----- layout: what the user placed, moved, hid or pinned (~/.config/universe-os/layout.json) -----
+# The world is an ordinary desktop: every planet can be moved or hidden, own items (programs, folders, files) can be
+# added anywhere, the folder orbit is optional and the dock is the user's own list. The page sends the whole layout;
+# everything is validated here because it comes from the web page.
+DOCK_BUILTINS = ('space', 'files', 'browser', 'terminal', 'store', 'control')
+DEFAULT_LAYOUT = {'planets': {}, 'items': [], 'orbit': True, 'dock': list(DOCK_BUILTINS)}
+_DESKTOP_ID = re.compile(r'[\w.+-]{1,200}\.desktop')
+_ITEM_ID = re.compile(r'[a-z0-9-]{1,40}')
+
+
+def _coord(value):
+    try:
+        return round(min(98.0, max(2.0, float(value))), 2)
+    except (TypeError, ValueError):
+        return None
+
+
+def _clean_layout(data):
+    data = data if isinstance(data, dict) else {}
+    planets = {}
+    for pid, p in (data.get('planets') or {}).items() if isinstance(data.get('planets'), dict) else []:
+        if not isinstance(pid, str) or not _ITEM_ID.fullmatch(pid) or not isinstance(p, dict):
+            continue
+        entry = {}
+        x, y = _coord(p.get('x')), _coord(p.get('y'))
+        if x is not None and y is not None:
+            entry.update(x=x, y=y)
+        if p.get('hidden') is True:
+            entry['hidden'] = True
+        if entry:
+            planets[pid] = entry
+    items = []
+    for it in (data.get('items') or [])[:200] if isinstance(data.get('items'), list) else []:
+        if not isinstance(it, dict) or not _ITEM_ID.fullmatch(str(it.get('id', ''))):
+            continue
+        kind, target = it.get('kind'), it.get('target')
+        if kind == 'app' and isinstance(target, str) and _DESKTOP_ID.fullmatch(target):
+            pass
+        elif kind in ('folder', 'file') and isinstance(target, str) and target.startswith('/') and len(target) < 4096 and '\0' not in target:
+            pass
+        else:
+            continue
+        x, y = _coord(it.get('x')), _coord(it.get('y'))
+        if x is None or y is None:
+            continue
+        name = str(it.get('name') or '')[:120]
+        items.append({'id': it['id'], 'kind': kind, 'target': target, 'name': name, 'x': x, 'y': y})
+    dock = []
+    for entry in (data.get('dock') or [])[:40] if isinstance(data.get('dock'), list) else list(DOCK_BUILTINS):
+        if entry in DOCK_BUILTINS or (isinstance(entry, str) and entry.startswith('app:') and _DESKTOP_ID.fullmatch(entry[4:])):
+            if entry not in dock:
+                dock.append(entry)
+    return {'planets': planets, 'items': items, 'orbit': data.get('orbit') is not False, 'dock': dock}
+
+
+def layout():
+    path = os.path.join(user_dir(), 'layout.json')
+    if not os.path.exists(path):
+        return copy.deepcopy(DEFAULT_LAYOUT)
+    return _clean_layout(read_json(path, DEFAULT_LAYOUT))
+
+
+def set_layout(data):
+    clean = _clean_layout(data)
+    write_json(os.path.join(user_dir(), 'layout.json'), clean)
+    return clean
+
+
+def reset_layout():
+    try:
+        os.remove(os.path.join(user_dir(), 'layout.json'))
+    except FileNotFoundError:
+        pass
+    return copy.deepcopy(DEFAULT_LAYOUT)

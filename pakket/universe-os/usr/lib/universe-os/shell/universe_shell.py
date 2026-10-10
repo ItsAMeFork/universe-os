@@ -76,7 +76,7 @@ class Shell:
         self.world_ready = False
         self.toplevels = Toplevels(self.windows_changed, log)
         self.bridge = Bridge(self.handlers(), threaded={'status', 'audio.outputs', 'audio.select', 'updates.status', 'power', 'volume.set', 'volume.mute',
-                                                        'notifications.clear', 'search.files', 'updates.status', 'updates.refresh', 'updates.install'}, log=log)
+                                                        'notifications.clear', 'search.files', 'updates.status', 'updates.refresh', 'updates.install', 'pick.path'}, log=log)
         self.worlds = []
         self.panel = None
         self.dock = None
@@ -171,13 +171,22 @@ class Shell:
             GtkLayerShell.set_keyboard_mode(win, GtkLayerShell.KeyboardMode.ON_DEMAND)
         return True
 
-    def resize_dock(self, width):
-        """The page reports the width of its contents (CSS pixels); the window follows, scaled with the zoom."""
+    def resize_dock(self, width, height=None):
+        """The page reports the size of its contents (CSS pixels); the window follows, scaled with the zoom.
+        height > DOCK_HEIGHT while its context menu is open (the surface grows upwards, the reserved space stays).
+        width 0 = the user removed everything from the dock: hide it and give the space back."""
         zoom = self.dock.view.get_zoom_level()
-        w, h = max(80, min(int(width * zoom), 3000)), int(DOCK_HEIGHT * zoom)
+        if width <= 0:
+            GtkLayerShell.set_exclusive_zone(self.dock.window, 0)
+            self.dock.window.hide()
+            return True
+        w = max(80, min(int(width * zoom), 3000))
+        h = int(max(DOCK_HEIGHT, min(height or DOCK_HEIGHT, 700)) * zoom)
         self.dock.window.set_size_request(w, h)
         self.dock.window.resize(w, h)
-        GtkLayerShell.set_exclusive_zone(self.dock.window, h)
+        GtkLayerShell.set_exclusive_zone(self.dock.window, int(DOCK_HEIGHT * zoom))
+        if not self.dock.window.get_visible():
+            self.dock.window.show_all()
         return True
 
     # ----- windows -----
@@ -230,6 +239,16 @@ class Shell:
                 session.reconfigure()
             config_changed()
             return True
+
+        def layout_set(a):
+            clean = config.set_layout(a.get('layout'))
+            self.broadcast('layout', clean)
+            return clean
+
+        def layout_reset(a):
+            clean = config.reset_layout()
+            self.broadcast('layout', clean)
+            return clean
 
         def search(a):
             return backend.search(a.get('q', ''))
@@ -287,7 +306,11 @@ class Shell:
             'surface.hide': surface_hide,
             'surface.show': surface_show,
             'surface.size': lambda a: self.resize_panel(bool(a.get('open'))),
-            'dock.size': lambda a: self.resize_dock(float(a.get('width') or 420)),
+            'dock.size': lambda a: self.resize_dock(float(a.get('width') or 0), float(a.get('height') or 0) or None),
+            'layout.get': lambda a: config.layout(),
+            'layout.set': layout_set,
+            'layout.reset': layout_reset,
+            'pick.path': lambda a: backend.pick_path('folder' if a.get('kind') == 'folder' else 'file'),
         }
 
     # ----- universe-ctl socket -----
