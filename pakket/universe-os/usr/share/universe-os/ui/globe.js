@@ -21,9 +21,9 @@ export function globe(seed,rock=false,size=320){
  if(bitmaps.has(key))return copy(bitmaps.get(key),'space-globe');
  const canvas=document.createElement('canvas');canvas.className='space-globe';canvas.width=canvas.height=size;canvas.setAttribute('aria-hidden','true');
  const c=canvas.getContext('2d');c.scale(size/320,size/320);
- const hue=((seed%360)+360)%360;
+ const hue=Number.isFinite(+seed)?((Math.round(+seed)%360)+360)%360:200; // never an invalid colour string
  const gradient=c.createRadialGradient(112,92,9,180,168,161);
- gradient.addColorStop(0,`hsl(${hue} 62% 75%)`);gradient.addColorStop(.42,`hsl(${hue} 49% 42%)`);gradient.addColorStop(.76,`hsl(${hue} 58% 18%)`);gradient.addColorStop(1,'#030714');
+ gradient.addColorStop(0,`hsl(${hue},62%,75%)`);gradient.addColorStop(.42,`hsl(${hue},49%,42%)`);gradient.addColorStop(.76,`hsl(${hue},58%,18%)`);gradient.addColorStop(1,'#030714');
  c.save();c.beginPath();c.arc(160,160,146,0,Math.PI*2);c.clip();c.fillStyle=gradient;c.fillRect(0,0,320,320);
  let s=(seed*7919+13)>>>0||31;const rand=()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296;};
  if(rock){for(let i=0;i<40;i++){const x=rand()*320,y=rand()*320;c.fillStyle=i%2?'#061f4544':'#c7fce72a';c.beginPath();for(let n=0;n<10;n++){const a=n/10*Math.PI*2,r=12+rand()*40;const px=x+Math.cos(a)*r,py=y+Math.sin(a)*r;n?c.lineTo(px,py):c.moveTo(px,py);}c.closePath();c.fill();}}

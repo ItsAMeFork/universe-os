@@ -182,7 +182,9 @@ def set_locale(lang):
 DOCK_BUILTINS = ('space', 'files', 'browser', 'terminal', 'store', 'control')
 # icons: desktop icon -> [column, row]; hiddenIcons: fixed icons the user removed; start: pinned programs in the start
 # menu (None = the default selection).
-DEFAULT_LAYOUT = {'planets': {}, 'items': [], 'orbit': True, 'dock': list(DOCK_BUILTINS), 'icons': {}, 'hiddenIcons': [], 'start': None}
+# space: the 3D desktop (10 Oct): pos = object -> [x, y, z], hidden = objects the user hid, camera = last view.
+DEFAULT_LAYOUT = {'planets': {}, 'items': [], 'orbit': True, 'dock': list(DOCK_BUILTINS), 'icons': {}, 'hiddenIcons': [], 'start': None,
+                  'space': {'pos': {}, 'hidden': [], 'camera': None}}
 SYSTEM_ICONS = ('sys:home', 'sys:trash')
 _DESKTOP_ID = re.compile(r'[\w.+-]{1,200}\.desktop')
 _ITEM_ID = re.compile(r'[a-z0-9-]{1,40}')
@@ -240,7 +242,35 @@ def _clean_layout(data):
             if isinstance(app, str) and _DESKTOP_ID.fullmatch(app) and app not in start:
                 start.append(app)
     return {'planets': planets, 'items': items, 'orbit': data.get('orbit') is not False, 'dock': dock,
-            'icons': icons, 'hiddenIcons': hidden, 'start': start}
+            'icons': icons, 'hiddenIcons': hidden, 'start': start, 'space': _clean_space(data.get('space'))}
+
+
+def _num(value, limit):
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or value != value:
+        return None
+    return round(max(-limit, min(limit, float(value))), 2)
+
+
+def _space_key(key):
+    return isinstance(key, str) and 0 < len(key) <= 300 and '\0' not in key
+
+
+def _clean_space(space):
+    space = space if isinstance(space, dict) else {}
+    pos = {}
+    for key, p in list(space.get('pos').items())[:800] if isinstance(space.get('pos'), dict) else []:
+        if _space_key(key) and isinstance(p, list) and len(p) == 3:
+            xyz = [_num(v, 20000) for v in p]
+            if None not in xyz:
+                pos[key] = xyz
+    hidden = [k for k in (space.get('hidden') or [])[:800] if _space_key(k)] if isinstance(space.get('hidden'), list) else []
+    camera = None
+    cam = space.get('camera')
+    if isinstance(cam, dict):
+        vals = {k: _num(cam.get(k), 50000) for k in ('yaw', 'pitch', 'dist', 'tx', 'ty', 'tz')}
+        if None not in vals.values():
+            camera = vals
+    return {'pos': pos, 'hidden': list(dict.fromkeys(hidden)), 'camera': camera}
 
 
 def layout():
