@@ -14,7 +14,7 @@
     "danger": "#ff8a9a"
   },
   "planets": [
-    {"id": "home",    "name": "Thuiswereld",     "hue": 182, "rock": true,  "x": 50, "y": 52, "size": 1.0,  "kind": "local",
+    {"id": "home",    "name": "Thuiswereld",     "hue": 182, "rock": true,  "style": "earth", "x": 50, "y": 52, "size": 1.0,  "kind": "local",
      "description": "Je account, persoonlijke bestanden en persoonlijke instellingen"},
     {"id": "apps",    "name": "Applicaties",     "hue": 262, "rock": false, "x": 21, "y": 30, "size": 0.62, "kind": "local",
      "description": "Alle geïnstalleerde programma's"},

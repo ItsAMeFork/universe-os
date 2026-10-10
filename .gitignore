@@ -23,3 +23,6 @@ __pycache__/
 
 # Lokale Claude-bestanden
 .claude/
+
+# Screenshots en logboeken van de Playwright-plugin
+.playwright-mcp/

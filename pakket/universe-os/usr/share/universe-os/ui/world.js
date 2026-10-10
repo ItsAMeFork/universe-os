@@ -1,6 +1,6 @@
 import {updatesView} from './updates-ui.js';
 import {call,on,applySettings,motionAllowed,toast,h,icon} from './api.js';
-import {globe,starfield,pixelSize} from './globe.js';
+import {globe,earth,starfield,pixelSize} from './globe.js';
 import {debugFPS,afterPaint} from './performance.js';
 import {SETTINGS} from './settings-index.js';
 import {keepTab} from './focus.js';
@@ -12,7 +12,7 @@ let config=null,settings={},user={},planets=[],current=null,lastFocus=null,appsC
 let initialFocus=true;
 let travelToken=0;
 let backgroundBusy=false;
-const setBackgroundBusy=value=>{backgroundBusy=!!value;document.documentElement.classList.toggle('background-busy',backgroundBusy);};
+const setBackgroundBusy=value=>{backgroundBusy=!!value;document.documentElement.classList.toggle('background-busy',backgroundBusy);orbitStart();};
 on('background-busy',setBackgroundBusy);
 const root=h('main',{class:'universe','aria-label':'Ruimtewereld van Universe OS'});
 const scene=h('div',{class:'scene'});
@@ -46,16 +46,17 @@ function build(){
  if(home){const paths=h('div',{class:'space-paths'},h('i'),h('i'),h('i'));paths.style.left=home.x+'%';paths.style.top=home.y+'%';scene.append(paths);}
  planets=config.world.planets.map((p,index)=>{
   const [kind,kindText]=KIND[p.kind]||KIND.local;
-  const button=h('button',{class:`planet ${p.id==='home'?'home':''} ${p.rock?'rock':''}`,type:'button','data-id':p.id,
+  const button=h('button',{class:`planet ${p.id==='home'?'home':''} ${p.rock&&p.style!=='earth'?'rock':''}`,type:'button','data-id':p.id,
    'aria-label':`${p.name}: ${p.description}. ${kindText}. Sneltoets ${index+1}.`});
   button.style.cssText=`left:${p.x}%;top:${p.y}%;--size:${p.size||.6};--hue:${p.hue};--delay:${-index*1.7}s`;
   const diameter=Math.max(96,Math.min(innerWidth/100,innerHeight*.016)*26*(p.size||.6));
-  const float=h('div',{class:'float'},globe(p.hue,!!p.rock,pixelSize(diameter)),p.rings?h('span',{class:'rings'}):null);
+  const float=h('div',{class:'float'},planetGlobe(p,diameter),p.rings?h('span',{class:'rings'}):null);
   const label=h('div',{class:'label'},h('span',{class:'name'},p.name,h('span',{class:'key'},String(index+1))),h('span',{class:`badge ${kind}`},kindText));
   button.append(h('span',{class:'halo','aria-hidden':'true'}),float,label);
   button.addEventListener('click',()=>land(p,{travel:true}));
   scene.append(button);return {p,button};
  });
+ buildFolderOrbit(home);
  if(user.live){
   const install=h('button',{class:'installer',type:'button','aria-label':'Universe OS installeren op deze computer'},icon('rocket'),'Universe OS installeren');
   install.addEventListener('click',()=>call('run',{tool:'installer'}).catch(e=>toast(e.message)));
@@ -81,6 +82,59 @@ function parallax(){
  };
 }
 
+const planetGlobe=(p,diameter)=>p.style==='earth'?earth(pixelSize(diameter)):globe(p.hue,!!p.rock,pixelSize(diameter));
+
+// Folder orbit (concept 10 Oct): the personal folders circle the home world on a tilted orange orbit and pass in
+// front of and behind the planet. Every folder is a real button. It only moves with full animations, no visible
+// program windows and no open room; ~30 frames per second is plenty for this slow orbit.
+const ORBIT_SECONDS=120;
+let orbit=null,orbitToken=0,orbitAngle=0,orbitFrame=0,orbitLast=0,folderIds=0;
+function folderIcon(){
+ const id='folder-grad-'+(++folderIds);
+ return h('span',{class:'folder-icon','aria-hidden':'true',html:`<svg viewBox="0 0 64 52"><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc07a"/><stop offset="1" stop-color="#f07a2a"/></linearGradient></defs><path d="M4 8a4 4 0 0 1 4-4h16l6 6h26a4 4 0 0 1 4 4v4H4z" fill="#c95d1c"/><path d="M4 16h56v28a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z" fill="url(#${id})"/><path d="M4 16h56v3H4z" fill="#ffffff40"/></svg>`});
+}
+async function buildFolderOrbit(home){
+ orbit=null;
+ if(!home||home.style!=='earth')return;
+ const token=++orbitToken;
+ let places=[];try{places=(await call('files.places')).filter(pl=>pl.exists&&pl.id!=='trash'&&pl.id!=='home');}catch{return;}
+ if(token!==orbitToken||!places.length)return;
+ const back=h('div',{class:'folder-orbit back','aria-hidden':'true'}),front=h('div',{class:'folder-orbit front','aria-hidden':'true'});
+ const items=places.map(pl=>{
+  const b=h('button',{class:'orbit-folder',type:'button','aria-label':`Map ${pl.name} openen`},folderIcon(),h('span',{class:'folder-name'},pl.name));
+  b.addEventListener('click',()=>call('open.path',{path:pl.path}).catch(e=>toast(e.message)));
+  return b;
+ });
+ for(const el of [back,front,...items]){el.style.left=home.x+'%';el.style.top=home.y+'%';}
+ scene.append(back,front,...items);
+ orbit={home,items,back,front};
+ orbitPlace();orbitStart();
+}
+function orbitPlace(){
+ if(!orbit)return;
+ const planet=planets.find(x=>x.p===orbit.home)?.button;if(!planet)return;
+ const D=planet.offsetWidth,rx=D*.98,ry=D*.3,tilt=-10*Math.PI/180,ct=Math.cos(tilt),st=Math.sin(tilt);
+ for(const ring of [orbit.back,orbit.front]){ring.style.width=2*rx+'px';ring.style.height=2*ry+'px';}
+ orbit.items.forEach((b,i)=>{
+  const a=orbitAngle+i/orbit.items.length*Math.PI*2,ex=Math.cos(a)*rx,ey=Math.sin(a)*ry,depth=Math.sin(a);
+  const x=ex*ct-ey*st,y=ex*st+ey*ct;
+  b.style.transform=`translate(calc(-50% + ${x.toFixed(1)}px + var(--px)),calc(-50% + ${y.toFixed(1)}px + var(--py))) scale(${(.86+.14*depth).toFixed(3)})`;
+  b.classList.toggle('behind',depth<0);
+ });
+}
+function orbitStart(){if(!orbitFrame&&orbit)orbitFrame=requestAnimationFrame(orbitTick);}
+function orbitTick(time){
+ orbitFrame=0;
+ if(!orbit||!orbit.items[0].isConnected||current||backgroundBusy||document.hidden||!motionAllowed(settings)){orbitLast=0;return;}
+ if(!orbitLast||time-orbitLast>=33){
+  if(orbitLast)orbitAngle=(orbitAngle+(time-orbitLast)/1000/ORBIT_SECONDS*Math.PI*2)%(Math.PI*2);
+  orbitLast=time;orbitPlace();
+ }
+ orbitFrame=requestAnimationFrame(orbitTick);
+}
+document.addEventListener('visibilitychange',orbitStart);
+addEventListener('resize',orbitPlace);
+
 async function land(p,{travel,chooseBrowser=false}){
  if(p.id==='chat'&&!chooseBrowser){try{const b=await call('browser.list');if(b.default){await launch(b.default);return;}}catch(e){toast('Browserkeuze ophalen mislukt: '+e.message);}}
  if(current)return;current=p;lastFocus=document.activeElement;scene.inert=true;
@@ -99,13 +153,14 @@ function leave(){
  if(!current)return;travelToken++;current=null;room.hidden=true;room.replaceChildren();scene.inert=false;
  scene.style.visibility='';scene.classList.remove('travelling');scene.style.transform='';
  (lastFocus&&lastFocus.isConnected?lastFocus:planets[0]?.button)?.focus({preventScroll:true});
+ orbitStart();
 }
 
 function openRoom(p){
  room.style.setProperty('--hue',p.hue);room.setAttribute('aria-label',p.name);
  const [kind,kindText]=KIND[p.kind]||KIND.local;
  const back=h('button',{class:'room-back',type:'button'},icon('back'),'Terug naar de ruimte');back.addEventListener('click',leave);
- const side=h('aside',{class:'room-side'},back,globe(p.hue,!!p.rock,pixelSize(Math.min(220,innerWidth*.2))),h('h1',{},p.name),h('span',{class:`badge ${kind}`},kindText),h('p',{},p.description));
+ const side=h('aside',{class:'room-side'},back,planetGlobe(p,Math.min(220,innerWidth*.2)),h('h1',{},p.name),h('span',{class:`badge ${kind}`},kindText),h('p',{},p.description));
  const main=h('div',{class:'room-main'});
  room.replaceChildren(side,main);room.hidden=false;
  Promise.resolve().then(()=>(ROOMS[p.id]||(m=>m.append(h('p',{class:'empty'},'Deze planeet heeft nog geen inhoud.'))))(main))
