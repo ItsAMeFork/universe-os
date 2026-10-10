@@ -1,8 +1,25 @@
-# Stand van Universe OS (9 oktober 2026, Claude spoor A)
+# Stand van Universe OS (10 oktober 2026, Claude spoor A)
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
-## Klaar en getest
+## Nieuw op 10 oktober: bureaublad zoals Windows (concept van Axel)
+Concept: foto's in `C:UsersAxel Van LienenDownloadsoto`. Wens: "een normaal bureaublad, de planeten als
+achtergrond (3D), pictogrammen en een menu zoals Windows, in de stijl van de foto's; alles optioneel".
+| Wat | Waar | Test |
+|---|---|---|
+| Ruimte als 3D-achtergrond (aarde met oranje baan, planeten op diepte, nevel), niet aanklikbaar | `ui/world.js`, `ui/globe.js` | VM |
+| Bureaubladpictogrammen: Persoonlijke map, Prullenbak, `~/Bureaublad`, snelkoppelingen; slepen in raster, F2, Delete, Nieuwe map, rechtsklikmenu's | `ui/world.js`, `backend.desktop_*` | VM |
+| Taakbalk (eigen lijst, verslepen, open vensters) | `ui/dock.*`, laag `dock` | VM |
+| Startmenu (zoeken, vastgemaakt, alle apps, aan/uit), Windows-toets; Windows+Tab = taakweergave | `ui/start.*`, laag `start`, `shortcuts.json` | VM |
+| Indeling per gebruiker | `~/.config/universe-os/layout.json` (`config.layout`) | VM |
+| Fix vensterbewaking (registry bewaren) en veilige `desktop_app()` | `toplevels.py`, `backend.py` | VM |
+Testverslag: `docs/tests/aarde-mappenbaan.md`. Pakket 0.2.6 uit commit 837c3f4 gebouwd en in de test-VM geïnstalleerd
+(versienummer niet verhoogd; publiceren alleen als Axel het zegt).
+Test-VM: ontwikkeltoegang (SSH 127.0.0.1:2223, sudo zonder wachtwoord), gebruiker `tester` / wachtwoord `tester`.
+Nog open: wereldpagina soms traag in de VM (één keer 42 s), 1024×768/4K, twee schermen, ruimtestation/sterrenstelsel uit
+het concept (eventueel als achtergrond of onderdelen van het startmenu).
+
+## Klaar en getest (tot 9 oktober)
 | Wat | Versie | Test |
 |---|---|---|
 | Zwart scherm 0.2.0 (één `)` te veel in world.js) | 0.2.1 | VM |
