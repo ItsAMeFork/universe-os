@@ -1,8 +1,9 @@
 """Universe shell: the space world as the main interface, on top of the labwc compositor.
 
-Three layer-shell surfaces (wlr-layer-shell, via gtk-layer-shell):
+Layer-shell surfaces (wlr-layer-shell, via gtk-layer-shell):
   world     background layer, one per screen: the space world with the planets
   panel     top layer: the compact control panel (always reachable, also above full-screen-ish windows)
+  dock      top layer at the bottom: fixed programs and open windows; reserves its height so windows stay above it
   overview  overlay layer: open programs + search (Windows key)
 Programs are normal windows managed by labwc. The shell can be restarted without closing them: programs are started
 in their own session (backend.spawn) and the window list comes back from the compositor.
@@ -29,6 +30,8 @@ from webview import Bridge, emit, make_view  # noqa: E402
 SOCKET = os.path.join(os.environ.get('XDG_RUNTIME_DIR', '/tmp'), 'universe-shell.sock')
 PANEL_CLOSED = (430, 44)
 PANEL_OPEN = (400, 700)
+DOCK_HEIGHT = 64  # CSS pixels of .dock in dock.html
+DOCK_MARGIN = 8
 
 
 def log(text):
@@ -76,6 +79,7 @@ class Shell:
                                                         'notifications.clear', 'search.files', 'updates.status', 'updates.refresh', 'updates.install'}, log=log)
         self.worlds = []
         self.panel = None
+        self.dock = None
         self.overview = None
         self.panel_open = False
         self.logout_pending = False
@@ -91,6 +95,10 @@ class Shell:
         L, E, K = GtkLayerShell.Layer, GtkLayerShell.Edge, GtkLayerShell.KeyboardMode
         self.panel = Surface(self, 'panel', 'panel.html', L.TOP, [E.TOP], K.ON_DEMAND, size=PANEL_CLOSED, transparent=True)
         self.panel.window.show_all()
+        self.dock = Surface(self, 'dock', 'dock.html', L.TOP, [E.BOTTOM], K.ON_DEMAND, size=(420, DOCK_HEIGHT), transparent=True)
+        GtkLayerShell.set_margin(self.dock.window, E.BOTTOM, DOCK_MARGIN)
+        self.dock.window.show_all()
+        self.resize_dock(420)
         # Search/overview is constructed on first use, not during login.
 
     def add_world(self, monitor):
@@ -117,7 +125,7 @@ class Shell:
             self.worlds.remove(world)
 
     def surfaces(self):
-        return self.worlds + [s for s in (self.panel, self.overview) if s]
+        return self.worlds + [s for s in (self.panel, self.dock, self.overview) if s]
 
     def broadcast(self, name, data=None):
         for s in self.surfaces():
@@ -163,6 +171,15 @@ class Shell:
             GtkLayerShell.set_keyboard_mode(win, GtkLayerShell.KeyboardMode.ON_DEMAND)
         return True
 
+    def resize_dock(self, width):
+        """The page reports the width of its contents (CSS pixels); the window follows, scaled with the zoom."""
+        zoom = self.dock.view.get_zoom_level()
+        w, h = max(80, min(int(width * zoom), 3000)), int(DOCK_HEIGHT * zoom)
+        self.dock.window.set_size_request(w, h)
+        self.dock.window.resize(w, h)
+        GtkLayerShell.set_exclusive_zone(self.dock.window, h)
+        return True
+
     # ----- windows -----
     def window_list(self):
         result = []
@@ -187,6 +204,8 @@ class Shell:
             self.release_initial_focus()
         if self.overview and self.overview.window.get_visible():
             self.overview.emit('windows', self.window_list())
+        if self.dock:
+            self.dock.emit('windows', self.window_list())
         return False
 
     def desktop_toggle(self):
@@ -268,6 +287,7 @@ class Shell:
             'surface.hide': surface_hide,
             'surface.show': surface_show,
             'surface.size': lambda a: self.resize_panel(bool(a.get('open'))),
+            'dock.size': lambda a: self.resize_dock(float(a.get('width') or 420)),
         }
 
     # ----- universe-ctl socket -----

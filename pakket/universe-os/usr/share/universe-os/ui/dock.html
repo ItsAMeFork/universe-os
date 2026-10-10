@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<title>Dock</title>
+<link rel="stylesheet" href="common.css">
+<style>
+/* Dock (concept 10 Oct): a glass shelf at the bottom with fixed programs and open windows. Orange marks what is open
+   (files/orbits colour), teal stays the focus colour of the system. No CSS filters or blur: cheap without a GPU. */
+html,body{background:transparent;overflow:hidden}
+.dock{position:absolute;left:50%;translate:-50% 0;width:max-content;bottom:0;height:64px;display:flex;align-items:center;justify-content:center;gap:6px;padding:0 14px;
+ border-radius:22px 22px 14px 14px;background:linear-gradient(#e8eeff2e,#c8d4f014 60%,#0b102199);border:1px solid #e8eeff40;border-bottom-color:#e8eeff18;
+ box-shadow:0 10px 30px #000a,inset 0 1px 0 #ffffff40}
+.dock .sep{width:1px;height:34px;background:#e8eeff33;margin:0 4px}
+.item{position:relative;width:52px;height:52px;padding:0;display:grid;place-items:center;border:0;border-radius:14px;background:none}
+.item:hover{background:#ffffff1c}
+.item img{width:38px;height:38px;object-fit:contain;transition:transform .15s}
+.item .icon{width:30px;height:30px;color:var(--text)}
+.item:hover img,.item:hover .icon{transform:translateY(-2px)}
+.item.home .icon{width:34px;height:34px;color:#ffa552}
+.item .dot{position:absolute;bottom:2px;left:50%;translate:-50% 0;width:6px;height:6px;border-radius:50%;background:#ffa552;display:none}
+.item.open .dot{display:block}
+.item.active .dot{width:16px;border-radius:3px}
+</style>
+</head>
+<body>
+<script src="load-guard.js" data-page="dock"></script>
+<script type="module" src="dock.js"></script>
+</body>
+</html>

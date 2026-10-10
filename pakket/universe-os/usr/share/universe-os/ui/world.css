@@ -27,9 +27,9 @@ html,body{background:var(--space);overflow:hidden}
 .planet.home .name{font-size:calc(19px*var(--text-scale));letter-spacing:1px}
 .planet .key{font-size:.7em;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:0 6px;margin-left:6px;font-weight:400}
 
-.installer{position:absolute;left:50%;bottom:48px;translate:-50% 0;max-width:calc(100vw - 28px);display:flex;align-items:center;gap:10px;padding:12px 18px;border-radius:24px;z-index:4;font-weight:600;color:var(--accent-strong);background:#94efd318;border-color:#85ffe355}
+.installer{position:absolute;left:50%;bottom:118px;translate:-50% 0;max-width:calc(100vw - 28px);display:flex;align-items:center;gap:10px;padding:12px 18px;border-radius:24px;z-index:4;font-weight:600;color:var(--accent-strong);background:#94efd318;border-color:#85ffe355}
 .installer .icon{width:26px;height:26px}
-.hint{position:absolute;left:50%;bottom:16px;translate:-50% 0;font-size:.78em;color:var(--muted);letter-spacing:.4px;white-space:nowrap;text-shadow:0 1px 6px #000;z-index:2}
+.hint{position:absolute;left:50%;bottom:84px;translate:-50% 0;font-size:.78em;color:var(--muted);letter-spacing:.4px;white-space:nowrap;text-shadow:0 1px 6px #000;z-index:2}
 .hint kbd{font-family:inherit;border:1px solid var(--line);border-radius:5px;padding:0 5px;color:var(--text)}
 
 /* A planet room: what you find when you land on a planet. */

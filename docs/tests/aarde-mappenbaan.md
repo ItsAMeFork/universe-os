@@ -31,3 +31,19 @@ display` en kwamen nooit in de vensterlijst (overzicht, `background-busy`). Nu b
 **Test-VM** heeft vanaf nu ontwikkeltoegang (alleen de VM, niet in pakket/ISO): SSH op 127.0.0.1:2223 met de sleutel
 uit `D:\UniverseOS-VMs\keys`, sudo zonder wachtwoord, tty2 automatisch ingelogd, wachtwoord `tester`.
 Niet getest: echte pc van Axel, 4K, nieuwe ISO.
+
+## Dock (10 oktober, zelfde test-VM)
+
+Nieuwe shell-laag `dock` (TOP-laag onderaan, eigen ruimte via exclusive zone), pagina `ui/dock.html` + `ui/dock.js`.
+
+| Test | Uitkomst |
+|---|---|
+| Na shellstart | ✅ dock op maat (6 knoppen) met echte pictogrammen: Ruimtewereld, Bestanden, Chrome (standaardbrowser), Terminal, Softwarewinkel, Controlecentrum; hint-tekst van de wereld staat erboven |
+| Klik Bestanden | ✅ Thunar opent, oranje balkje onder Bestanden (actief), tooltip "Bestanden" |
+| Klik Ruimtewereld | ✅ alle vensters geminimaliseerd, wereld zichtbaar, stip onder Bestanden blijft (open) |
+| Klik Bestanden opnieuw | ✅ zelfde venster terug (geen tweede Thunar) |
+| Venster maximaliseren | ✅ venster stopt boven het dock |
+
+Niet getest: andere open programma's rechts van de scheidingslijn, Internet zonder standaardbrowser, tekstgrootte/zoom
+anders dan 100 %, 1024×768 en 4K, twee schermen (het dock staat alleen op het hoofdscherm).
+Bestaand, niet door het dock: het paneel bovenaan ligt over de titelbalk van een gemaximaliseerd venster.

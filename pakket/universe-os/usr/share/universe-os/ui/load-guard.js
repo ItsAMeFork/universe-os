@@ -9,7 +9,7 @@
   try{window.webkit.messageHandlers.universe.postMessage(JSON.stringify({id:-1,cmd:'ui.error',args:{page,message:String(message).slice(0,1500)}}));}catch{}
  };
  const show=()=>{
-  if(notice)return;
+  if(notice||page==='dock')return; // the dock is a thin strip: only the log entry, no full notice
   notice=document.createElement('section');notice.setAttribute('role','alert');notice.tabIndex=-1;
   notice.style.cssText='position:fixed;inset:8px;z-index:2147483647;background:#0b1021;color:#e2e6fa;border:2px solid #85ffe3;border-radius:12px;padding:16px;overflow:auto;font:16px sans-serif';
   const title=document.createElement('h1');title.textContent=page==='panel'?'Het bedieningspaneel kon niet laden':'De ruimtewereld kon niet laden';
