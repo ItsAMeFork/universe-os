@@ -11,19 +11,19 @@ html,body{margin:0;width:1920px;height:1080px;overflow:hidden;background:#050815
  radial-gradient(ellipse 60% 22% at 40% 70%,#7a5cff1f,transparent 70%),radial-gradient(ellipse 45% 30% at 18% 28%,#3d6bff17,transparent 70%)}
 #sky,#sky canvas{position:absolute;inset:0;width:1920px;height:1080px}
 #glow{position:absolute;left:510px;top:90px;width:900px;height:900px;background:radial-gradient(circle,#6fb4ff1c,transparent 62%)}
-#earth{position:absolute;left:665px;top:245px;width:590px;height:590px}
+#earth{position:absolute;left:635px;top:215px;width:650px;height:650px} /* = eindbeeld van de vergrendelanimatie (world.js closeView) */
 #earth canvas{width:100%;height:100%}
 h1,p{position:absolute;left:0;right:0;text-align:center;margin:0}
-h1{top:150px;font-size:58px;font-weight:600;color:#85ffe3;letter-spacing:2px}
-p.a{top:858px;font-size:26px;color:#e2e6fa}p.b{top:905px;font-size:21px;color:#869cae}
+h1{top:118px;font-size:58px;font-weight:600;color:#85ffe3;letter-spacing:2px}
+p.a{top:880px;font-size:26px;color:#e2e6fa}p.b{top:925px;font-size:21px;color:#869cae}
 </style></head><body>
 <div id="nebula"></div><div id="sky"></div><div id="glow"></div><div id="earth"></div>
 <h1>Vergrendeld</h1><p class="a">Typ je wachtwoord en druk op Enter.</p><p class="b">Je programma's en open vensters blijven gewoon staan.</p>
 <script type="module">
 import {earthNow} from '../../pakket/universe-os/usr/share/universe-os/ui/globe.js';
-import {DEFAULT_CAM,distFor,drawSky,farPlanets} from '../../pakket/universe-os/usr/share/universe-os/ui/space.js';
-const cam={...DEFAULT_CAM,dist:distFor(590)};
-document.getElementById('sky').append(drawSky(document.createElement('canvas'),cam,1920,1080,4/3),...farPlanets(cam,1920,1080));
+import {DEFAULT_CAM,distFor,drawSky} from '../../pakket/universe-os/usr/share/universe-os/ui/space.js';
+const cam={...DEFAULT_CAM,dist:distFor(650)};
+document.getElementById('sky').append(drawSky(document.createElement('canvas'),cam,1920,1080,4/3));
 document.getElementById('earth').append(earthNow(800));
 document.body.dataset.ready='1';
 </script></body></html>

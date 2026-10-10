@@ -101,17 +101,27 @@ function* earthRows(px,d){
  * follow the display refresh, so the world never waits for it (VM 10 Oct: a setTimeout chain kept WebKit from painting
  * and the world only appeared after 186 s). Internal size is capped at 480 px (the desktop Earth is large); CSS scales it up. */
 const earthQueue=[];let earthStarted=false,earthBusy=false;
+// The Earth is shipped as a ready picture (earth.png, 720 px, made with earthNow): it is on screen at once, also in the
+// login animation (painting it pixel by pixel took seconds in the VM). Painting stays as the fallback.
+const EARTH_PNG=new Image();let earthPng=null;
+const earthPngReady=new Promise(resolve=>{EARTH_PNG.onload=()=>{earthPng=EARTH_PNG;resolve(true);};EARTH_PNG.onerror=()=>resolve(false);});
+EARTH_PNG.src=new URL('earth.png',import.meta.url).href;
 export function earth(size=320,max=480){
- const px=Math.min(max,Math.max(32,Math.ceil(size))),key=`earth:${px}`;
+ const px=Math.min(Math.max(max,720),Math.max(32,Math.ceil(size))),key=`earth:${px}`;
  if(bitmaps.has(key))return copy(bitmaps.get(key),'space-globe earth');
+ const fromPng=()=>{const cv=document.createElement('canvas');cv.width=cv.height=px;cv.getContext('2d').drawImage(earthPng,0,0,px,px);remember(key,cv);return cv;};
+ if(earthPng)return copy(fromPng(),'space-globe earth');
  const shown=globe(208,false,px);shown.classList.add('earth');
- earthQueue.push({px,key,shown});if(earthStarted)paintNext();
+ earthPngReady.then(ok=>{
+  if(ok){const g=shown.getContext('2d');g.clearRect(0,0,px,px);g.drawImage(bitmaps.has(key)?bitmaps.get(key):fromPng(),0,0);}
+  else{earthQueue.push({px,key,shown});if(earthStarted)paintNext();}
+ });
  return shown;
 }
 /** Starts painting queued Earths; call once the page is ready. Resolves when all queued Earths are painted. */
 let earthWaiters=[];
 export function paintEarths(){earthStarted=true;paintNext();return earthsPainted();}
-export function earthsPainted(){return !earthBusy&&!earthQueue.length?Promise.resolve():new Promise(r=>earthWaiters.push(r));}
+export function earthsPainted(){return earthPngReady.then(ok=>ok||(!earthBusy&&!earthQueue.length)?undefined:new Promise(r=>earthWaiters.push(r)));}
 function paintNext(){
  if(earthBusy)return;
  const job=earthQueue.shift();if(!job){const w=earthWaiters;earthWaiters=[];w.forEach(r=>r());return;}

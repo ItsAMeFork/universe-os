@@ -95,7 +95,13 @@ function drawSky(){
   c.fillStyle=`rgba(208,224,255,${b})`;c.beginPath();c.arc(px,py,big?1.5:.7,0,7);c.fill();
  }
  // Orbits around the Earth (folders) and the galaxy ring of the programs, as real 3D circles.
- ring(c,420,'rgba(255,165,82,.55)',1.5);ring(c,1350,'rgba(133,255,227,.10)',1);ring(c,1900,'rgba(133,255,227,.06)',1);
+ const ringAlpha=Math.min(1,mix*1.4);
+ if(ringAlpha>0){c.globalAlpha=ringAlpha;ring(c,420,'rgba(255,165,82,.55)',1.5);ring(c,1350,'rgba(133,255,227,.10)',1);ring(c,1900,'rgba(133,255,227,.06)',1);c.globalAlpha=1;}
+ if(mix<1&&mix>0)drawTrails(c);
+ if(glow>0){const e=objects.find(o=>o.kind==='earth'),p=e&&project(e.pos);
+  if(p){const r=p.s*e.size*earthScale*.5;const g=c.createRadialGradient(p.x,p.y,r*.6,p.x,p.y,r*(1.6+glow*1.4));
+   g.addColorStop(0,`rgba(255,200,140,${.55*glow})`);g.addColorStop(.5,`rgba(120,180,255,${.25*glow})`);g.addColorStop(1,'rgba(80,120,255,0)');
+   c.fillStyle=g;c.fillRect(0,0,w,hgt);}}
 }
 function ring(c,r,color,width){
  c.strokeStyle=color;c.lineWidth=width;c.beginPath();let pen=false;
@@ -165,10 +171,17 @@ function requestRender(){if(!frame)frame=requestAnimationFrame(render);}
 // mix: 1 = everything in its place, 0 = everything pulled into the Earth (login/logout animations).
 let mix=1;
 const centre=()=>objects.find(o=>o.kind==='earth')?.pos||[0,0,0];
-function shown(o){
- if(mix>=1||o.kind==='earth')return {pos:o.pos,size:o.size};
- const c=centre();return {pos:o.pos.map((v,i)=>c[i]+(v-c[i])*mix),size:o.size*(.15+.85*mix)};
+// earthScale: the Earth grows out of a point of light after login. glow: how bright the Earth burns (0..1).
+let earthScale=1,glow=0,flash=0;
+function shownAt(o,m){
+ if(o.kind==='earth')return {pos:o.pos,size:o.size*earthScale};
+ if(m>=1)return {pos:o.pos,size:o.size};
+ // spiral: everything turns around the Earth while it moves in or out
+ const c=centre(),turn=(1-m)*(2.2+(hash(o.key)%100)/40),ct=Math.cos(turn),st=Math.sin(turn);
+ const dx=(o.pos[0]-c[0])*m,dz=(o.pos[2]-c[2])*m;
+ return {pos:[c[0]+dx*ct-dz*st,c[1]+(o.pos[1]-c[1])*m,c[2]+dx*st+dz*ct],size:o.size*(.12+.88*m)};
 }
+const shown=o=>shownAt(o,mix);
 function render(){
  frame=0;drawSky();
  for(const o of objects){
@@ -272,24 +285,63 @@ function pushAlongView(o,amount){const v=unrotate(0,0,amount);o.pos=[o.pos[0]+v[
 
 /** The view of the login screen: the Earth close, in the middle, as big as the login planet. */
 const closeView=c=>({yaw:DEFAULT_CAM.yaw,pitch:DEFAULT_CAM.pitch,dist:distFor(Math.min(innerWidth*.8,innerHeight*.78,650)),tx:c[0],ty:c[1],tz:c[2]});
-/** 'in': from the login view (Earth close, everything inside it) to the desktop view `target`; 'out': the reverse. */
+/** Light trails behind the planets while they fly in or out (from where they were a moment ago). */
+let trailDir=1;
+function drawTrails(c){
+ const back=Math.max(0,Math.min(1,mix-trailDir*.14));
+ c.lineCap='round';
+ for(const o of objects){
+  if(o.kind==='earth')continue;
+  const a=project(shownAt(o,mix).pos),b=project(shownAt(o,back).pos);if(!a||!b)continue;
+  const g=c.createLinearGradient(b.x,b.y,a.x,a.y),col=o.kind==='app'?`hsla(${o.hue},90%,75%,`:'rgba(255,190,120,';
+  g.addColorStop(0,col+'0)');g.addColorStop(1,col+(.75*Math.sin(Math.PI*mix))+')');
+  c.strokeStyle=g;c.lineWidth=Math.max(1.5,a.s*o.size*.12);c.beginPath();c.moveTo(b.x,b.y);c.lineTo(a.x,a.y);c.stroke();
+ }
+}
+const flashEl=h('div',{class:'world-flash','aria-hidden':'true'});
+function setFlash(v){flash=v;flashEl.style.opacity=v.toFixed(3);if(v>0&&!flashEl.isConnected)root.append(flashEl);if(v<=0)flashEl.remove();}
+const easeInOut=k=>k<.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2;
+/** 'in': after login/unlock: a point of light becomes the Earth, then everything flies out on spiral paths with light
+ *  trails while the camera pulls back and turns into the desktop view `target`. 'out': for logout/lock: everything
+ *  spirals into the Earth, which burns brighter, the camera turns in to the login view and ends in a soft flash. */
 function animateWorld(dir,target){
  const close=closeView(centre());
  const end=dir==='in'?(target||{...cam}):close,start=dir==='in'?close:{...cam};
- if(!motionAllowed(settings)){mix=dir==='in'?1:0;cam=end;requestRender();return Promise.resolve();}
- cam={...start};mix=dir==='in'?0:1;requestRender();
- const dur=dir==='in'?1500:1100,t0=performance.now();
+ // turn the shortest way round
+ while(end.yaw-start.yaw>Math.PI)end.yaw-=2*Math.PI;while(start.yaw-end.yaw>Math.PI)end.yaw+=2*Math.PI;
+ if(!motionAllowed(settings)){mix=dir==='in'?1:0;earthScale=1;glow=0;cam=end;requestRender();return Promise.resolve();}
+ trailDir=dir==='in'?1:-1;
+ cam={...start};mix=dir==='in'?0:1;earthScale=dir==='in'?0:1;requestRender();
+ const dur=dir==='in'?2300:1900,t0=performance.now();
  return new Promise(resolve=>{
   const step=t=>{
-   const k=Math.min(1,(t-t0)/dur),e=k<.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2;
-   for(const key of Object.keys(end))cam[key]=start[key]+(end[key]-start[key])*e;
-   mix=dir==='in'?Math.min(1,e*1.15):1-Math.min(1,e*1.2);
+   const k=Math.max(0,Math.min(1,(t-t0)/dur)); // the first frame time can lie just before t0
+   if(dir==='in'){
+    // 0-0.25: the Earth grows out of light (overshoots a little); 0.15-1: everything flies out, camera pulls back
+    const a=Math.min(1,k/.25);earthScale=a<1?Math.sin(a*Math.PI/2)*1.08:1+.08*Math.max(0,1-(k-.25)/.15);
+    glow=k<.35?1-k/.35*.4:Math.max(0,.6-(k-.35)/.4);setFlash(k<.12?.85*(1-k/.12):0);
+    const m=Math.max(0,Math.min(1,(k-.15)/.85)),e=easeInOut(m);
+    mix=e;for(const key of Object.keys(end))cam[key]=start[key]+(end[key]-start[key])*e;
+    cam.yaw+=.7*Math.sin(Math.PI*e); // a swirl that ends exactly in the target view
+   }else{
+    const e=easeInOut(k);
+    mix=1-Math.min(1,e*1.1);glow=Math.sin(Math.min(1,k*1.1)*Math.PI)*.9; // brightest while everything falls in, calm at the end
+    for(const key of Object.keys(end))cam[key]=start[key]+(end[key]-start[key])*e;
+    cam.yaw-=.7*Math.sin(Math.PI*e);
+    setFlash(k>.72?Math.sin((k-.72)/.28*Math.PI)*.55:0); // peaks and is gone at the end: the last picture = lock/login screen
+   }
    render();
-   if(k<1)requestAnimationFrame(step);else resolve();
+   if(k<1)requestAnimationFrame(step);
+   else{glow=0;earthScale=1;setFlash(0);render();resolve();}
   };
   requestAnimationFrame(step);
  });
 }
+// Lock / unlock (universe-lock): the desktop goes into the Earth before the lock screen (which shows the same Earth),
+// and comes out again when it is unlocked.
+let locked=false;
+on('lock-begin',async()=>{if(locked)return;locked=true;closeMenu();if(current)leave();root.inert=true;await animateWorld('out');call('lock.ready').catch(()=>{});});
+on('unlock',async()=>{if(!locked)return;locked=false;const saved=layout.space?.camera?{...DEFAULT_CAM,...layout.space.camera}:{...DEFAULT_CAM};setFlash(0);await animateWorld('in',saved);root.inert=false;call('unlock.done').catch(()=>{});});
 
 // ----- rename and remove (files on the desktop) -----
 let renaming=false;

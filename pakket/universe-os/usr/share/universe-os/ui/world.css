@@ -201,3 +201,4 @@ svg.sp-icon{color:var(--accent)}
 .sp-obj:focus-visible .sp-planet,.sp-small:focus-visible::before{box-shadow:0 0 0 4px var(--accent)}
 .sp-rename{position:absolute;left:50%;top:100%;transform-origin:50% 0;transform:translateX(-50%) scale(calc(1 / var(--k,1)));width:220px;font-size:13px;padding:3px 6px;text-align:center}
 .logout-note{position:absolute;left:50%;bottom:12%;translate:-50% 0;z-index:20;margin:0;color:var(--accent);font-size:1.1em;text-shadow:0 1px 6px #000}
+.world-flash{position:absolute;inset:0;z-index:30;pointer-events:none;background:radial-gradient(circle at 50% 50%,#eaf4ff 0%,#9fd0ff 35%,#050815 85%);opacity:0}

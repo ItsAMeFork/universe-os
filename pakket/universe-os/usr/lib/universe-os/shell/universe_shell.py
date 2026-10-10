@@ -11,6 +11,7 @@ in their own session (backend.spawn) and the window list comes back from the com
 Commands from keyboard shortcuts arrive on a Unix socket (universe-ctl).
 """
 import os
+import subprocess
 import sys
 import threading
 import time
@@ -195,6 +196,41 @@ class Shell:
                 w.emit('desktop-changed')
             return False
         self.desktop_monitor.connect('changed', changed)
+
+    def lock_begin(self):
+        """universe-lock: the desktop is pulled into the Earth before swaylock shows the same Earth; afterwards it comes
+        out again. The world is raised above the windows for the animation; the shell watches swaylock itself, so the
+        world always goes back below the windows (also when swaylock does not start). Returns 'anim' or 'direct'."""
+        if not self.worlds or self.logout_pending or getattr(self, 'lock_watch', 0):
+            return 'direct'
+        if config.settings().get('animations') != 'full':
+            return 'direct'
+        for world in self.worlds:
+            GtkLayerShell.set_layer(world.window, GtkLayerShell.Layer.OVERLAY)
+            world.emit('lock-begin')
+        self.lock_seen = False
+        self.lock_started = time.monotonic()
+        self.lock_watch = GLib.timeout_add(700, self.watch_lock)
+        return 'anim'
+
+    def watch_lock(self):
+        running = subprocess.run(['pgrep', '-u', str(os.getuid()), '-x', 'swaylock'], stdout=subprocess.DEVNULL).returncode == 0
+        if running:
+            self.lock_seen = True
+            return True
+        if not self.lock_seen and time.monotonic() - self.lock_started < 12:
+            return True
+        self.lock_watch = 0
+        for world in self.worlds:
+            world.emit('unlock')
+        GLib.timeout_add(4000, self.unlock_done)  # fallback if the page does not answer
+        return False
+
+    def unlock_done(self):
+        if not getattr(self, 'lock_watch', 0):
+            for world in self.worlds:
+                GtkLayerShell.set_layer(world.window, GtkLayerShell.Layer.BACKGROUND)
+        return False
 
     def claim_intro(self):
         """True only the first time in a login session (the login animation continues on the desktop). The marker
@@ -389,6 +425,8 @@ class Shell:
             'desktop.launch': lambda a: backend.desktop_launch(str(a.get('path') or '')),
             'start.toggle': lambda a: self.start_menu(a.get('open')),
             'intro.claim': lambda a: self.claim_intro(),
+            'lock.ready': lambda a: True,
+            'unlock.done': lambda a: self.unlock_done(),
         }
 
     # ----- universe-ctl socket -----
@@ -424,6 +462,8 @@ class Shell:
                 self.toggle_overview()
             elif cmd == 'start':
                 self.start_menu()
+            elif cmd == 'lock':
+                return 'ok ' + self.lock_begin()
             elif cmd == 'desktop':
                 return 'ok ' + self.desktop_toggle()
             elif cmd == 'panel':
