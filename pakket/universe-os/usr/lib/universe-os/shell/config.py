@@ -180,7 +180,10 @@ def set_locale(lang):
 # added anywhere, the folder orbit is optional and the dock is the user's own list. The page sends the whole layout;
 # everything is validated here because it comes from the web page.
 DOCK_BUILTINS = ('space', 'files', 'browser', 'terminal', 'store', 'control')
-DEFAULT_LAYOUT = {'planets': {}, 'items': [], 'orbit': True, 'dock': list(DOCK_BUILTINS)}
+# icons: desktop icon -> [column, row]; hiddenIcons: fixed icons the user removed; start: pinned programs in the start
+# menu (None = the default selection).
+DEFAULT_LAYOUT = {'planets': {}, 'items': [], 'orbit': True, 'dock': list(DOCK_BUILTINS), 'icons': {}, 'hiddenIcons': [], 'start': None}
+SYSTEM_ICONS = ('sys:home', 'sys:trash')
 _DESKTOP_ID = re.compile(r'[\w.+-]{1,200}\.desktop')
 _ITEM_ID = re.compile(r'[a-z0-9-]{1,40}')
 
@@ -217,17 +220,27 @@ def _clean_layout(data):
             pass
         else:
             continue
-        x, y = _coord(it.get('x')), _coord(it.get('y'))
-        if x is None or y is None:
-            continue
         name = str(it.get('name') or '')[:120]
-        items.append({'id': it['id'], 'kind': kind, 'target': target, 'name': name, 'x': x, 'y': y})
+        items.append({'id': it['id'], 'kind': kind, 'target': target, 'name': name})
     dock = []
     for entry in (data.get('dock') or [])[:40] if isinstance(data.get('dock'), list) else list(DOCK_BUILTINS):
         if entry in DOCK_BUILTINS or (isinstance(entry, str) and entry.startswith('app:') and _DESKTOP_ID.fullmatch(entry[4:])):
             if entry not in dock:
                 dock.append(entry)
-    return {'planets': planets, 'items': items, 'orbit': data.get('orbit') is not False, 'dock': dock}
+    icons = {}
+    for key, pos in list(data.get('icons').items())[:600] if isinstance(data.get('icons'), dict) else []:
+        if (isinstance(key, str) and 0 < len(key) <= 300 and '\0' not in key and isinstance(pos, list) and len(pos) == 2
+                and all(isinstance(v, int) and 0 <= v <= 200 for v in pos)):
+            icons[key] = pos
+    hidden = [k for k in SYSTEM_ICONS if k in (data.get('hiddenIcons') or [])] if isinstance(data.get('hiddenIcons'), list) else []
+    start = None
+    if isinstance(data.get('start'), list):
+        start = []
+        for app in data['start'][:60]:
+            if isinstance(app, str) and _DESKTOP_ID.fullmatch(app) and app not in start:
+                start.append(app)
+    return {'planets': planets, 'items': items, 'orbit': data.get('orbit') is not False, 'dock': dock,
+            'icons': icons, 'hiddenIcons': hidden, 'start': start}
 
 
 def layout():

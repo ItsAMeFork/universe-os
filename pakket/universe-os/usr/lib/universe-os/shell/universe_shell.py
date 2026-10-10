@@ -99,6 +99,10 @@ class Shell:
         GtkLayerShell.set_margin(self.dock.window, E.BOTTOM, DOCK_MARGIN)
         self.dock.window.show_all()
         self.resize_dock(420)
+        try:
+            self.watch_desktop()
+        except Exception as error:  # pragma: no cover - only logged
+            log('Bureaubladmap niet te volgen: %s' % error)
         # Search/overview is constructed on first use, not during login.
 
     def add_world(self, monitor):
@@ -169,6 +173,36 @@ class Shell:
             win.set_size_request(*PANEL_CLOSED)
             win.resize(*PANEL_CLOSED)
             GtkLayerShell.set_keyboard_mode(win, GtkLayerShell.KeyboardMode.ON_DEMAND)
+        return True
+
+    def watch_desktop(self):
+        """Tells the world when files appear on or disappear from the Bureaublad folder (like a desktop refresh)."""
+        folder = backend.desktop_dir()
+        os.makedirs(folder, exist_ok=True)
+        self.desktop_monitor = Gio.File.new_for_path(folder).monitor_directory(Gio.FileMonitorFlags.WATCH_MOVES, None)
+        self.desktop_timer = 0
+
+        def changed(*args):
+            if self.desktop_timer:
+                GLib.source_remove(self.desktop_timer)
+            self.desktop_timer = GLib.timeout_add(300, fire)
+
+        def fire():
+            self.desktop_timer = 0
+            for w in self.worlds:
+                w.emit('desktop-changed')
+            return False
+        self.desktop_monitor.connect('changed', changed)
+
+    def start_menu(self, open_=None):
+        """Start menu (Windows key / start button) lives in the dock surface; it needs the keyboard while open."""
+        if open_ is None:
+            self.dock.emit('start-toggle')
+            return True
+        GtkLayerShell.set_keyboard_mode(self.dock.window, GtkLayerShell.KeyboardMode.EXCLUSIVE if open_ else GtkLayerShell.KeyboardMode.ON_DEMAND)
+        if open_:
+            # No present(): on this layer surface it undid the new size (the page stayed bar-sized, 10 Oct).
+            self.dock.view.grab_focus()
         return True
 
     def resize_dock(self, width, height=None):
@@ -311,6 +345,12 @@ class Shell:
             'layout.set': layout_set,
             'layout.reset': layout_reset,
             'pick.path': lambda a: backend.pick_path('folder' if a.get('kind') == 'folder' else 'file'),
+            'desktop.list': lambda a: backend.desktop_list(),
+            'desktop.mkdir': lambda a: backend.desktop_mkdir(),
+            'desktop.rename': lambda a: backend.desktop_rename(str(a.get('path') or ''), a.get('name')),
+            'desktop.trash': lambda a: backend.desktop_trash(str(a.get('path') or '')),
+            'desktop.launch': lambda a: backend.desktop_launch(str(a.get('path') or '')),
+            'start.toggle': lambda a: self.start_menu(a.get('open')),
         }
 
     # ----- universe-ctl socket -----
@@ -344,6 +384,8 @@ class Shell:
                 return 'ok %d' % (time.time() - self.started)
             if cmd == 'overview':
                 self.toggle_overview()
+            elif cmd == 'start':
+                self.start_menu()
             elif cmd == 'desktop':
                 return 'ok ' + self.desktop_toggle()
             elif cmd == 'panel':

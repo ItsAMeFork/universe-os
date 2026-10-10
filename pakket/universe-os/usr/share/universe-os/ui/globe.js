@@ -99,10 +99,10 @@ function* earthRows(px,d){
 }
 /** Earth canvas. The plain globe shows at once; the Earth is painted later (see paintEarths) in short slices that
  * follow the display refresh, so the world never waits for it (VM 10 Oct: a setTimeout chain kept WebKit from painting
- * and the world only appeared after 186 s). Internal size is capped at 320 px; CSS scales it up. */
+ * and the world only appeared after 186 s). Internal size is capped at 480 px (the desktop Earth is large); CSS scales it up. */
 const earthQueue=[];let earthStarted=false,earthBusy=false;
 export function earth(size=320){
- const px=Math.min(320,Math.max(32,Math.ceil(size))),key=`earth:${px}`;
+ const px=Math.min(480,Math.max(32,Math.ceil(size))),key=`earth:${px}`;
  if(bitmaps.has(key))return copy(bitmaps.get(key),'space-globe earth');
  const shown=globe(208,false,px);shown.classList.add('earth');
  earthQueue.push({px,key,shown});if(earthStarted)paintNext();

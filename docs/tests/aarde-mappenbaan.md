@@ -72,3 +72,25 @@ Gevonden en opgelost tijdens het testen:
 
 Niet getest: toetsenbord (Menu-toets/Shift+F10, Alt+pijlen) in de VM, zoom/tekstgrootte, twee schermen, leeg dock
 (verdwijnt dan), map/bestand-kiezer (zenity) in de VM.
+
+## Bureaublad zoals Windows met de ruimte als achtergrond (10 oktober, zelfde test-VM, echte WebKit)
+
+Wens van Axel: "de ruimte net als een normaal bureaublad, de planeten als achtergrond (soort 3D), normale
+bureaubladpictogrammen en een menu zoals Windows, in de stijl van de foto's".
+
+| Test | Uitkomst |
+|---|---|
+| Achtergrond | ✅ aarde (480 px intern) met oranje baan, planeten op verschillende diepten, nevel; niet aanklikbaar |
+| Pictogrammen | ✅ raster linksboven met echte themapictogrammen: Persoonlijke map, Prullenbak, inhoud van `~/Bureaublad` (Notities.txt, Projecten), eigen snelkoppeling (Software) |
+| Dubbelklik op Notities.txt | ✅ opent in Mousepad |
+| Rechtsklik op het bureaublad | ✅ Nieuwe map, Programma op het bureaublad, Snelkoppeling naar map/bestand, Pictogrammen schikken, Op de taakbalk zetten, Bureaubladmap openen, Persoonlijke instellingen |
+| Startmenu (`universe-ctl start`, = Windows-toets) | ✅ zoekveld, Vastgemaakt (10 echte programma's), Alle apps, Snel naar, account, Instellingen, aan/uit |
+| Zoeken "reken" + Enter | ✅ Rekenmachine start; open venster verschijnt rechts in de taakbalk |
+| Controle van de opslag | ✅ foute posities, onbekende verborgen pictogrammen, `rm -rf` in Start en dubbele items geweigerd |
+
+Gevonden en opgelost: startmenu onzichtbaar (`100vh` = hoogte van de smalle laag → hoogte uit `screen.height`);
+`present()` op de laag maakte het groeien ongedaan (weggehaald). Sneltoetsen: Windows = startmenu,
+Windows+Tab = taakweergave (geldt na opnieuw aanmelden, nog niet in de VM getest).
+
+Niet getest in de VM: pictogram slepen naar een rastervak, naam wijzigen (F2), naar prullenbak (Delete), Nieuwe map,
+aan/uit-menu, pictogrammen vastmaken/losmaken in Start, de Windows-toets zelf, 1024×768/4K, zoom.

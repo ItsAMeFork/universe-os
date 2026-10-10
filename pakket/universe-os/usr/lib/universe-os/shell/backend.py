@@ -363,3 +363,127 @@ def pick_path(kind):
     if result.returncode != 0 or not path:
         return None
     return {'path': path, 'name': os.path.basename(path.rstrip('/')) or path}
+
+
+# ---------- desktop (like Windows: the Bureaublad folder plus fixed icons and shortcuts) ----------
+def desktop_dir():
+    GLib.reload_user_special_dirs_cache()
+    return GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DESKTOP) or os.path.join(os.path.expanduser('~'), 'Bureaublad')
+
+
+def _themed(*names):
+    return icon_uri(Gio.ThemedIcon.new_from_names(list(names)))
+
+
+def _file_entry(path, key, source):
+    gfile = Gio.File.new_for_path(path)
+    try:
+        info = gfile.query_info('standard::icon,standard::display-name,standard::type', Gio.FileQueryInfoFlags.NONE, None)
+    except GLib.Error:
+        return None
+    folder = info.get_file_type() == Gio.FileType.DIRECTORY
+    entry = {'key': key, 'name': info.get_display_name(), 'kind': 'folder' if folder else 'file', 'target': path,
+             'icon': icon_uri(info.get_icon()), 'source': source}
+    if not folder and path.endswith('.desktop'):
+        app = Gio.DesktopAppInfo.new_from_filename(path)
+        if app:
+            entry.update(kind='launcher', name=app.get_display_name(), icon=icon_uri(app.get_icon()))
+    return entry
+
+
+def _trash_full():
+    try:
+        info = Gio.File.new_for_uri('trash:///').query_info('trash::item-count', Gio.FileQueryInfoFlags.NONE, None)
+        return info.get_attribute_uint32('trash::item-count') > 0
+    except GLib.Error:
+        return False
+
+
+def desktop_list():
+    """Everything on the desktop: fixed icons, the files in the Bureaublad folder and the user's shortcuts."""
+    lay = config.layout()
+    hidden = set(lay.get('hiddenIcons') or [])
+    home = os.path.expanduser('~')
+    entries = []
+    if is_live():
+        entries.append({'key': 'sys:install', 'name': 'Universe OS installeren', 'kind': 'install', 'target': '', 'icon': _themed('system-software-install', 'system-installer'), 'source': 'system'})
+    if 'sys:home' not in hidden:
+        entries.append({'key': 'sys:home', 'name': 'Persoonlijke map', 'kind': 'folder', 'target': home, 'icon': _themed('user-home', 'folder'), 'source': 'system'})
+    if 'sys:trash' not in hidden:
+        entries.append({'key': 'sys:trash', 'name': 'Prullenbak', 'kind': 'folder', 'target': 'trash:///',
+                        'icon': _themed('user-trash-full' if _trash_full() else 'user-trash', 'user-trash'), 'source': 'system'})
+    folder = desktop_dir()
+    if os.path.isdir(folder):
+        for name in sorted(os.listdir(folder), key=str.lower)[:300]:
+            if name.startswith('.'):
+                continue
+            entry = _file_entry(os.path.join(folder, name), 'f:' + name, 'desktop')
+            if entry:
+                entries.append(entry)
+    for item in lay.get('items') or []:
+        if item['kind'] == 'app':
+            app = Gio.DesktopAppInfo.new(item['target'])
+            if not app:
+                continue
+            entries.append({'key': item['id'], 'name': app.get_display_name(), 'kind': 'app', 'target': item['target'],
+                            'icon': icon_uri(app.get_icon()), 'source': 'shortcut'})
+        elif os.path.exists(item['target']):
+            entry = _file_entry(item['target'], item['id'], 'shortcut')
+            if entry:
+                entries.append(entry)
+    return {'dir': folder, 'entries': entries}
+
+
+def _in_desktop(path):
+    folder = os.path.realpath(desktop_dir())
+    real = os.path.realpath(os.path.dirname(path.rstrip('/')))
+    if real != folder:
+        raise PermissionError('Dit kan alleen voor bestanden op het bureaublad.')
+    return path
+
+
+def _valid_name(name):
+    name = (name or '').strip()
+    if not name or name in ('.', '..') or '/' in name or '\0' in name or len(name.encode()) > 255:
+        raise ValueError('Deze naam kan niet: geen / gebruiken en niet leeg laten.')
+    return name
+
+
+def desktop_mkdir():
+    folder = desktop_dir()
+    os.makedirs(folder, exist_ok=True)
+    name, n = 'Nieuwe map', 1
+    while os.path.exists(os.path.join(folder, name)):
+        n += 1
+        name = 'Nieuwe map (%d)' % n
+    os.mkdir(os.path.join(folder, name))
+    return {'key': 'f:' + name, 'path': os.path.join(folder, name)}
+
+
+def desktop_rename(path, name):
+    path = _in_desktop(path)
+    name = _valid_name(name)
+    target = os.path.join(os.path.dirname(path), name)
+    if os.path.exists(target):
+        raise FileExistsError('Er staat al iets met de naam "%s" op het bureaublad.' % name)
+    os.rename(path, target)
+    return {'key': 'f:' + name}
+
+
+def desktop_trash(path):
+    Gio.File.new_for_path(_in_desktop(path)).trash(None)
+    return True
+
+
+def desktop_launch(path):
+    """Starts a .desktop launcher that lies on the desktop (like a shortcut on the Windows desktop)."""
+    path = _in_desktop(path)
+    if not os.access(path, os.X_OK):
+        # Like GNOME: a launcher only runs when the user marked it as trusted (executable), so a downloaded file
+        # cannot start a program by itself.
+        raise PermissionError('Deze snelkoppeling is niet vertrouwd. Maak haar uitvoerbaar in Bestanden (Eigenschappen > Rechten).')
+    app = Gio.DesktopAppInfo.new_from_filename(path)
+    if not app:
+        raise RuntimeError('Deze snelkoppeling werkt niet.')
+    app.launch([], None)
+    return True

@@ -1,6 +1,7 @@
 [
-  {"id": "overview", "name": "Zoeken en programmaoverzicht", "key": "Super_L", "onRelease": true, "command": "universe-ctl overview"},
-  {"id": "desktop", "name": "Ruimtewereld tonen (nogmaals: vensters terug)", "key": "W-d", "command": "universe-ctl desktop"},
+  {"id": "start", "name": "Startmenu", "key": "Super_L", "onRelease": true, "command": "universe-ctl start"},
+  {"id": "overview", "name": "Open programma's en zoeken (taakweergave)", "key": "W-Tab", "command": "universe-ctl overview"},
+  {"id": "desktop", "name": "Bureaublad tonen (nogmaals: vensters terug)", "key": "W-d", "command": "universe-ctl desktop"},
   {"id": "panel", "name": "Bedieningspaneel", "key": "W-a", "command": "universe-ctl panel"},
   {"id": "files", "name": "Bestandsbeheer", "key": "W-e", "command": "universe-ctl run files"},
   {"id": "lock", "name": "Scherm vergrendelen", "key": "W-l", "command": "universe-lock", "allowWhenLocked": false},
