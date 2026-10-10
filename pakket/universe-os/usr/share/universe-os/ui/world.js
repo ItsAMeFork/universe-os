@@ -166,7 +166,7 @@ function render(){
   el.style.transform=`translate(${(p.x-BASE/2).toFixed(1)}px,${(p.y-BASE/2).toFixed(1)}px) scale(${k.toFixed(4)})`;
   el.style.zIndex=String(Math.max(1,Math.round(100000-p.depth)));
   el.style.setProperty('--k',k.toFixed(4));
-  el.classList.toggle('far',px<26);
+  el.classList.toggle('far',px<64); // labels only for planets that are big enough (crowded groups stay readable)
   el.style.opacity=p.depth>9000?Math.max(.25,1-(p.depth-9000)/9000).toFixed(2):'';
  }
 }

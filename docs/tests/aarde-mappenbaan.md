@@ -118,3 +118,25 @@ Gevonden en opgelost:
 Windows-toets (na het opnieuw genereren van rc.xml + labwc --reconfigure): ✅ opent en sluit het startmenu.
 Nog open: wereldpagina laadde één keer pas na 42 s (VM druk, 488 MB geheugen voor de wereld);
 1024×768/4K.
+
+## 3D-bureaublad: elk programma een planeet (10 oktober, test-VM, echte WebKit)
+
+Wens van Axel: "het bureaublad in 3D, alle apps als planeet die je zelf indeelt, in- en uitzoomen, ook draaien".
+Keuzes: ook mappen/bestanden zijn objecten in de ruimte; draaien in 3D.
+
+| Test | Uitkomst |
+|---|---|
+| Ruimte | ✅ aarde = Persoonlijke map, mappen/bestanden/Prullenbak/snelkoppelingen in de oranje baan, alle programma's als planeten (eigen pictogram) in groepen per soort |
+| Muiswiel | ✅ zoomt in/uit richting de muis |
+| Rechts slepen | ✅ draait de ruimte in 3D (sterren draaien mee) |
+| Object slepen (Notities.txt) | ✅ verplaatst in 3D, positie opgeslagen in `layout.json` (`space.pos`) |
+| Dubbelklik | ✅ opent Notities.txt in Mousepad |
+| Rechtsklik op planeet | ✅ Openen, Aan de taakbalk vastmaken, Inzoomen, Dichterbij halen, Verder weg zetten, Verbergen |
+| Camera na herladen | ✅ dezelfde stand |
+| CPU in rust | ✅ **0 %** van één kern (oude achtergrond met zwevende planeten: 60–70 %) |
+
+Gevonden en opgelost: `globe()` maakte een ongeldige kleurtekst bij een seed die geen getal was ("The string did not
+match the expected pattern") → altijd een geldige kleur; overlappende labels in drukke groepen → label alleen bij
+planeten van minstens 64 px in beeld (of bij hover/selectie).
+Niet getest in de VM: Nieuwe map/hernoemen in 3D, Verbergen + terugzetten, Alles opnieuw ordenen, toetsenbord
+(pijlen draaien, +/− zoomen, Home), 1024×768/4K.

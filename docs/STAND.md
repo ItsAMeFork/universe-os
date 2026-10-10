@@ -7,7 +7,7 @@ Concept: foto's in `C:\Users\Axel Van Lienen\Downloads\foto`. Wens: "een normaal
 achtergrond (3D), pictogrammen en een menu zoals Windows, in de stijl van de foto's; alles optioneel".
 | Wat | Waar | Test |
 |---|---|---|
-| Ruimte als 3D-achtergrond (aarde met oranje baan, planeten op diepte, nevel), niet aanklikbaar | `ui/world.js`, `ui/globe.js` | VM |
+| **3D-bureaublad** (later die avond, vervangt achtergrond + pictogrammenraster): elk programma een planeet, aarde = Persoonlijke map, mappen/bestanden in een baan; wiel = zoom, slepen = schuiven, rechts slepen = draaien, object slepen = verplaatsen; 0 % CPU in rust | `ui/world.js`, `layout.json` (space) | VM |
 | Bureaubladpictogrammen: Persoonlijke map, Prullenbak, `~/Bureaublad`, snelkoppelingen; slepen in raster, F2, Delete, Nieuwe map, rechtsklikmenu's | `ui/world.js`, `backend.desktop_*` | VM |
 | Taakbalk (eigen lijst, verslepen, open vensters) | `ui/dock.*`, laag `dock` | VM |
 | Startmenu (zoeken, vastgemaakt, alle apps, aan/uit), Windows-toets; Windows+Tab = taakweergave | `ui/start.*`, laag `start`, `shortcuts.json` | VM |
