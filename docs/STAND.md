@@ -2,6 +2,18 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
+## Later op 10 oktober: inloggen, afmelden en vergrendelen met animaties (t/m 78b70dd)
+| Wat | Waar | Test |
+|---|---|---|
+| Inlog- en vergrendelscherm: de aarde in de ruimte (zelfde camera als het 3D-bureaublad) | `ui/login.*`, `ui/space.js`, `scripts/assets/vergrendeld.png` (gemaakt met `maak-vergrendeld.html`) | VM (vergrendelplaatje, inlogscherm) |
+| Aarde als kant-en-klaar plaatje | `ui/earth.png` (720 px, earthNow) | VM |
+| Inlogscherm: planeet vormt zich; bij inloggen opladen + ontploffen | `ui/explode.js` | preview; **Axel test in de VM** |
+| Bureaublad: na inloggen/ontgrendelen spiralen planeten uit de aarde; afmelden/vergrendelen het omgekeerde | `ui/world.js` (animateWorld, intro.claim) | preview; **Axel test in de VM** |
+| Vergrendelen met animatie: `universe-lock` -> `universe-ctl lock`, shell bewaakt swaylock en speelt uitloop; slaapstand `--direct` | `bin/universe-lock`, `universe-idle`, `universe_shell.py` | nog niet in VM gezien |
+Axel vond de eerste versie van de animaties "niet goed genoeg"; deze versie is veel rijker, zijn oordeel volgt nog.
+Open: zwart moment tussen ontploffing en bureaublad (sessiestart), animaties op echte pc bekijken, pakket opnieuw bouwen
+(VM heeft losse bestanden over pakket 0.2.6 heen), alleen Full HD testen (4K liet de VM vastlopen).
+
 ## Nieuw op 10 oktober: bureaublad zoals Windows (concept van Axel)
 Concept: foto's in `C:\Users\Axel Van Lienen\Downloads\foto`. Wens: "een normaal bureaublad, de planeten als
 achtergrond (3D), pictogrammen en een menu zoals Windows, in de stijl van de foto's; alles optioneel".
