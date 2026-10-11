@@ -1,6 +1,6 @@
 """Claude in Universe OS: the Claude panel (a real terminal running the unmodified Claude Code) and the buddy.
 
-The buddy is the body of Claude Code: it never talks to Claude itself. Claude Code reports every step through its
+The buddy (a floating slime with eyes) is the body of Claude Code: it never talks to Claude itself. Claude Code reports every step through its
 hooks (universe-claude-hook -> universe-ctl claude-event), and the buddy plays the matching animation and walks to
 where the action is. Both only exist when Claude Code is installed (docs/CLAUDE-IN-UNIVERSE.md).
 
@@ -302,7 +302,7 @@ class ClaudeUI:
 
 
 class Buddy:
-    """The placeholder character: a small planet with eyes and an orange ring. States: idle, listen, think, work,
+    """The placeholder character: a floating blob of slime with eyes that deforms as it moves. States: idle, listen, think, work,
     attention, happy. Walks between home (above the dock, right), the dock, the middle of the world and the panel."""
 
     def __init__(self, ui):
@@ -345,6 +345,8 @@ class Buddy:
         self.move_from = self.pos
         self.move_t0 = 0
         self.facing = -1
+        self.last_pos = self.pos
+        self.deform, self.deform_v = [0.0, 0.0], [0.0, 0.0]  # slime stretch (screen x, y) and its speed
         self.busy = False  # a program is in front: stand still
         self.blink = 0.0
         self.anim = 0
@@ -549,11 +551,14 @@ class Buddy:
 
     def tick(self):
         now = time.monotonic()
+        dt = now - self.last_frame
         # Slow computer: two frames much later than planned -> stop animating, jump to the end (like the login).
-        self.slow_frames = self.slow_frames + 1 if now - self.last_frame > 0.25 else 0
+        self.slow_frames = self.slow_frames + 1 if dt > 0.25 else 0
         self.last_frame = now
         if self.slow_frames >= 2:
             self.pos = self.target
+            self.last_pos = self.pos
+            self.deform, self.deform_v = [0.0, 0.0], [0.0, 0.0]
             self.apply_pos()
             self.anim = 0
             self.area.queue_draw()
@@ -566,8 +571,9 @@ class Buddy:
             if t >= 1.0:
                 self.pos = self.target
             self.apply_pos()
+        self.jiggle(dt)
         self.area.queue_draw()
-        if self.moving() or self.animated_state() or self.blink > 0:
+        if self.moving() or self.animated_state() or self.blink > 0 or self.jiggling():
             if self.blink > 0:
                 self.blink = max(0.0, self.blink - 0.2)
             return True
@@ -601,146 +607,206 @@ class Buddy:
         return True
 
     # ----- drawing -----
-    def pose(self, t, state, walking):
-        """Disney's animation principles, cheaply: anticipation (crouch before a jump), squash and stretch (flat on
-        landing, long in the air), follow-through (bounces that die out), a lean into the walking direction and a slow
-        breath at rest. Returns (height above the ground, scale x, scale y, rotation)."""
-        hop, sx, sy, lean = 0.0, 1.0, 1.0, 0.0
+    # ----- the slime: physics -----
+    def jiggle(self, dt):
+        """Spring-damped deformation that follows the speed of the buddy: it stretches along the movement, the back
+        lags behind, and when it stops the jelly overshoots and wobbles out (follow-through)."""
+        dx = -(self.pos[0] - self.last_pos[0])  # right margin grows = moves left on screen
+        dy = -(self.pos[1] - self.last_pos[1])  # bottom margin grows = moves up
+        self.last_pos = self.pos
+        dt = max(0.016, min(dt, 0.1))
+        target = (max(-1.0, min(1.0, dx / dt / 900)), max(-1.0, min(1.0, dy / dt / 900)))
+        for i in (0, 1):
+            acc = (target[i] - self.deform[i]) * 90 - self.deform_v[i] * 9
+            self.deform_v[i] += acc * dt
+            self.deform[i] += self.deform_v[i] * dt
+
+    def jiggling(self):
+        return abs(self.deform[0]) + abs(self.deform[1]) + abs(self.deform_v[0]) + abs(self.deform_v[1]) > 0.02
+
+    def pose(self, t, state):
+        """(float height, squash x, squash y, wobble) per state. It always floats; it never touches the ground."""
+        now = time.monotonic()
+        lift = 6 * math.sin(now * 1.8)  # hovering
+        sx = sy = 1.0
+        wobble = 0.035
         if state == 'happy':
-            if t < 0.16:  # anticipation: crouch
-                k = math.sin(t / 0.16 * math.pi / 2)
-                sx, sy = 1 + 0.16 * k, 1 - 0.2 * k
+            if t < 0.18:  # anticipation: sinks and flattens
+                k = math.sin(t / 0.18 * math.pi / 2)
+                lift -= 8 * k
+                sx, sy = 1 + 0.2 * k, 1 - 0.22 * k
             elif t < 1.6:
-                u = t - 0.16
-                period = 0.42
-                n, phase = int(u / period), (u % period) / period
-                height = 22 * (0.55 ** n)  # every bounce lower: follow-through
-                hop = height * math.sin(phase * math.pi)
-                v = math.cos(phase * math.pi)  # +1 going up, -1 coming down
-                if phase < 0.12 or phase > 0.88:  # touching the ground: squash
-                    f = 1 - min(phase, 1 - phase) / 0.12
-                    sx, sy = 1 + 0.14 * f * (height / 22), 1 - 0.16 * f * (height / 22)
-                else:  # in the air: stretch with the speed
-                    sx, sy = 1 - 0.06 * abs(v) * (height / 22), 1 + 0.1 * abs(v) * (height / 22)
+                u = t - 0.18
+                n, phase = int(u / 0.45), (u % 0.45) / 0.45
+                height = 26 * (0.5 ** n)
+                lift += height * math.sin(phase * math.pi)
+                v = abs(math.cos(phase * math.pi)) * height / 26
+                sx, sy = 1 - 0.12 * v, 1 + 0.2 * v
+                if phase > 0.85 or phase < 0.1:  # at the low point: splat
+                    f = max(0.0, 1 - min(phase, 1 - phase) / 0.15)
+                    sx, sy = 1 + 0.18 * f * height / 26, 1 - 0.18 * f * height / 26
+            wobble = 0.07
         elif state == 'attention':
-            hop = abs(math.sin(t * 7)) * 7
-            lean = math.sin(t * 7) * 0.08
-            sy = 1 + 0.05 * abs(math.cos(t * 7))
-        elif walking:
-            step = time.monotonic() * 11
-            hop = abs(math.sin(step)) * 6
-            ground = 1 - abs(math.sin(step))
-            sx, sy = 1 + 0.07 * ground, 1 - 0.07 * ground
-            lean = -0.14 * self.facing  # lean into the direction of travel
+            lift += abs(math.sin(t * 7)) * 8
+            sx, sy = 1 - 0.05 * math.sin(t * 14), 1 + 0.05 * math.sin(t * 14)
+            wobble = 0.06
         elif state == 'listen':
-            lean = 0.06 * math.sin(t * 1.5)  # head tilt while listening
-            sy = 1 + 0.02 * math.sin(t * 3)
+            sy = 1.04 + 0.02 * math.sin(t * 3)
         elif state in ('think', 'work'):
-            sy = 1 + 0.03 * math.sin(t * (6 if state == 'work' else 2.5))
-            lean = 0.05 * math.sin(t * 1.2)
-        else:  # idle: breathing
-            b = math.sin(time.monotonic() * 2.1)
-            sx, sy = 1 - 0.015 * b, 1 + 0.025 * b
-        return hop, sx, sy, lean
+            wobble = 0.06 if state == 'work' else 0.045
+        else:  # idle: breathing slime
+            b = math.sin(now * 2.1)
+            sx, sy = 1 + 0.02 * b, 1 - 0.025 * b
+        return lift, sx, sy, wobble
+
+    # ----- the slime: drawing -----
+    def blob_points(self, cx, cy, r, sx, sy, wobble, now):
+        """Outline of the slime: a circle whose radius wobbles like jelly, squashed per state and stretched along the
+        deformation (the leading side round, the trailing side pulled out like a drop)."""
+        ddx, ddy = self.deform
+        mag = min(0.55, math.hypot(ddx, ddy))
+        ang = math.atan2(-ddy, ddx)  # screen y grows downwards
+        points = []
+        n = 18
+        for i in range(n):
+            a = 2 * math.pi * i / n
+            k = 1 + wobble * math.sin(3 * a + now * 2.3) + wobble * 0.7 * math.sin(5 * a - now * 3.1) \
+                + wobble * 0.4 * math.sin(2 * a + now * 1.3)
+            along = math.cos(a - ang)
+            k *= 1 + mag * (0.35 * along * along - 0.15)  # longer along the movement, thinner across
+            if along < 0:
+                k *= 1 + mag * 0.45 * -along  # the back trails behind
+            x = math.cos(a) * r * k * sx
+            y = math.sin(a) * r * k * sy
+            if y > 0:
+                y *= 1 + 0.12 * (1 - abs(math.cos(a)))  # heavier at the bottom, like a drop of slime
+            points.append((cx + x, cy + y))
+        return points
+
+    def smooth_path(self, cr, pts):
+        """Closed Catmull-Rom curve through the points (soft, no corners)."""
+        n = len(pts)
+        cr.move_to(*pts[0])
+        for i in range(n):
+            p0, p1, p2, p3 = pts[i - 1], pts[i], pts[(i + 1) % n], pts[(i + 2) % n]
+            cr.curve_to(p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6,
+                        p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6, p2[0], p2[1])
+        cr.close_path()
 
     def draw(self, widget, cr):
         cr.set_operator(cairo.OPERATOR_CLEAR)
         cr.paint()
         cr.set_operator(cairo.OPERATOR_OVER)
         w, h = BUDDY
-        t = time.monotonic() - self.state_since
+        now = time.monotonic()
+        t = now - self.state_since
         state = self.state
-        walking = self.moving()
-        hop, sx, sy, lean = self.pose(t, state, walking)
-        cx, cy, r = w / 2, h - 52 - hop, 34
-        ground = h - 18
+        lift, sx, sy, wobble = self.pose(t, state)
+        r = 32
+        cx = w / 2 - self.deform[0] * 6
+        cy = h - 62 - lift + self.deform[1] * 6
 
-        # shadow: smaller and lighter the higher the buddy is
+        # soft shadow far below: it floats
         cr.save()
-        cr.translate(cx, h - 12)
-        cr.scale(1, 0.28)
-        cr.arc(0, 0, r * (0.95 - hop / 70) * sx, 0, 2 * math.pi)
+        cr.translate(w / 2, h - 10)
+        cr.scale(1, 0.25)
+        cr.arc(0, 0, r * max(0.4, 0.8 - lift / 160), 0, 2 * math.pi)
         cr.restore()
-        cr.set_source_rgba(0, 0, 0, 0.35 - hop / 120)
+        cr.set_source_rgba(0, 0, 0, max(0.08, 0.28 - lift / 140))
         cr.fill()
 
-        # squash, stretch and lean around the point where the body touches the ground
-        cr.save()
-        cr.translate(cx, ground - hop)
-        cr.rotate(lean)
-        cr.scale(sx, sy)
-        cr.translate(-cx, -(ground - hop))
-
-        # glow while listening / working
+        # glow while listening / working / asking
         if state in ('listen', 'work', 'attention'):
             pulse = 0.5 + 0.5 * math.sin(t * (8 if state == 'work' else 4))
             color = ORANGE if state == 'attention' else TEAL
-            cr.arc(cx, cy, r + 8 + pulse * 4, 0, 2 * math.pi)
-            cr.set_source_rgba(*color, 0.12 + 0.12 * pulse)
+            g = cairo.RadialGradient(cx, cy, r * 0.6, cx, cy, r + 16)
+            g.add_color_stop_rgba(0, *color, 0.25 + 0.15 * pulse)
+            g.add_color_stop_rgba(1, *color, 0)
+            cr.arc(cx, cy, r + 16, 0, 2 * math.pi)
+            cr.set_source(g)
             cr.fill()
 
-        # ring behind the body
-        spin = t * (6 if state == 'work' else 0.8)
-        self.ring(cr, cx, cy, r, spin, back=True)
-
-        # body: a small teal planet
-        g = cairo.RadialGradient(cx - r * 0.35, cy - r * 0.4, r * 0.1, cx, cy, r)
-        g.add_color_stop_rgb(0, 0.75, 1.0, 0.95)
-        g.add_color_stop_rgb(0.55, 0.20, 0.72, 0.70)
-        g.add_color_stop_rgb(1, 0.05, 0.22, 0.32)
-        cr.arc(cx, cy, r, 0, 2 * math.pi)
+        # body: translucent glossy slime
+        self.smooth_path(cr, self.blob_points(cx, cy, r, sx, sy, wobble, now))
+        g = cairo.RadialGradient(cx - r * 0.3, cy - r * 0.45, r * 0.15, cx, cy + r * 0.2, r * 1.3)
+        g.add_color_stop_rgba(0, 0.80, 1.0, 0.94, 0.95)
+        g.add_color_stop_rgba(0.45, 0.30, 0.88, 0.76, 0.88)
+        g.add_color_stop_rgba(1, 0.05, 0.42, 0.42, 0.92)
         cr.set_source(g)
+        cr.fill_preserve()
+        cr.set_line_width(1.5)
+        cr.set_source_rgba(0.7, 1.0, 0.92, 0.5)
+        cr.stroke()
+        # two little air bubbles rising inside the slime
+        for bx, by, br, speed in ((-0.35, 0.35, 4.0, 0.7), (0.4, 0.15, 2.6, 1.1)):
+            yy = cy + r * by - ((now * speed * 9) % (r * 0.9))
+            cr.arc(cx + r * bx * sx, yy, br, 0, 2 * math.pi)
+            cr.set_source_rgba(1, 1, 1, 0.25)
+            cr.fill()
+        # gloss highlight
+        cr.save()
+        cr.translate(cx - r * 0.38 * sx, cy - r * 0.5 * sy)
+        cr.rotate(-0.5)
+        cr.scale(1, 0.55)
+        cr.arc(0, 0, r * 0.28, 0, 2 * math.pi)
+        cr.restore()
+        cr.set_source_rgba(1, 1, 1, 0.55)
         cr.fill()
 
-        # eyes
-        look = 4 * -self.facing if walking else 0
-        eye_y = cy - 4
-        for ex in (cx - 11 + look, cx + 11 + look):
+        # eyes: they look where it goes and deform with the body
+        look_x = max(-5.0, min(5.0, self.deform[0] * 14))
+        look_y = max(-4.0, min(4.0, -self.deform[1] * 10))
+        eye_y = cy - 4 * sy
+        open_ = 1.0 - self.blink if self.blink > 0 else 1.0
+        size = {'listen': 9, 'attention': 9.5, 'work': 6.5}.get(state, 8)
+        for side in (-1, 1):
+            ex = cx + side * 12 * sx + look_x * 0.5
             if state == 'happy':
                 cr.set_line_width(3)
-                cr.set_source_rgb(0.04, 0.08, 0.16)
+                cr.set_source_rgb(0.03, 0.12, 0.14)
                 cr.arc(ex, eye_y + 3, 6, math.pi * 1.1, math.pi * 1.9)
                 cr.stroke()
                 continue
-            open_ = 1.0 - self.blink if self.blink > 0 else 1.0
-            size = 8 if state in ('listen', 'attention') else 7
-            if state == 'work':
-                size = 6
             cr.save()
             cr.translate(ex, eye_y)
-            cr.scale(1, max(0.12, open_))
+            cr.scale(sx, max(0.1, open_) * sy * (1.12 if state == 'attention' else 1))
             cr.arc(0, 0, size, 0, 2 * math.pi)
             cr.restore()
             cr.set_source_rgb(1, 1, 1)
             cr.fill()
             if open_ > 0.3:
-                px = ex + (1.5 if state == 'think' else look * 0.4)
-                py = eye_y - (3 if state == 'think' else 0)
-                cr.arc(px, py, size * 0.5, 0, 2 * math.pi)
-                cr.set_source_rgb(0.04, 0.08, 0.16)
+                px = ex + (2 if state == 'think' else look_x * 0.6)
+                py = eye_y + (-3.5 if state == 'think' else look_y * 0.6)
+                cr.arc(px, py, size * 0.52, 0, 2 * math.pi)
+                cr.set_source_rgb(0.03, 0.10, 0.14)
+                cr.fill()
+                cr.arc(px - size * 0.18, py - size * 0.2, size * 0.16, 0, 2 * math.pi)
+                cr.set_source_rgb(1, 1, 1)
                 cr.fill()
 
         # mouth
-        cr.set_line_width(2.5)
-        cr.set_source_rgb(0.04, 0.08, 0.16)
+        cr.set_line_width(2.4)
+        cr.set_source_rgb(0.03, 0.12, 0.14)
+        my = cy + 11 * sy
         if state in ('happy', 'listen'):
-            cr.arc(cx, cy + 9, 7, 0.15 * math.pi, 0.85 * math.pi)
+            cr.arc(cx + look_x * 0.4, my - 2, 6, 0.15 * math.pi, 0.85 * math.pi)
+            cr.stroke()
         elif state == 'attention':
-            cr.arc(cx, cy + 13, 4, 0, 2 * math.pi)
+            cr.arc(cx, my + 1, 3.5, 0, 2 * math.pi)
+            cr.fill()
+        elif state == 'work':
+            cr.move_to(cx - 4, my + 1)
+            cr.curve_to(cx - 1, my - 2, cx + 1, my + 4, cx + 4, my + 1)
+            cr.stroke()
         else:
-            cr.move_to(cx - 5, cy + 13)
-            cr.line_to(cx + 5, cy + 13)
-        cr.stroke()
+            cr.arc(cx + look_x * 0.4, my - 3, 4, 0.25 * math.pi, 0.75 * math.pi)
+            cr.stroke()
 
-        # ring in front
-        self.ring(cr, cx, cy, r, spin, back=False)
-        cr.restore()
-
-        # thinking: three dots circling above the head
+        # thinking: three little slime drops circling above the head
         if state in ('think', 'work'):
             for i in range(3):
                 a = t * 3 + i * 2 * math.pi / 3
-                cr.arc(cx + math.cos(a) * 18, cy - r - 16 + math.sin(a) * 5, 3.5, 0, 2 * math.pi)
+                cr.arc(cx + math.cos(a) * 18, cy - r - 14 + math.sin(a) * 5, 3.5, 0, 2 * math.pi)
                 cr.set_source_rgba(*TEAL, 0.5 + 0.5 * (math.sin(a) + 1) / 2)
                 cr.fill()
         # attention: an orange exclamation mark
@@ -750,35 +816,13 @@ class Buddy:
             cr.fill()
             cr.arc(cx + r + 1, cy - r - 1, 3.5, 0, 2 * math.pi)
             cr.fill()
-        # happy: sparkles
-        if state == 'happy' and t < 1.6:
-            for i in range(5):
-                a = i * 2 * math.pi / 5 + t
-                d = r + 10 + t * 18
-                cr.arc(cx + math.cos(a) * d, cy + math.sin(a) * d * 0.7, 2.5 * (1 - t / 1.6), 0, 2 * math.pi)
-                cr.set_source_rgba(*ORANGE, 1 - t / 1.6)
+        # happy: little slime drops fly off
+        if state == 'happy' and 0.18 < t < 1.6:
+            k = (t - 0.18) / 1.42
+            for i in range(6):
+                a = i * 2 * math.pi / 6 + 0.3
+                d = r + 6 + k * 30
+                cr.arc(cx + math.cos(a) * d, cy + math.sin(a) * d * 0.8 + k * k * 20, 3 * (1 - k), 0, 2 * math.pi)
+                cr.set_source_rgba(0.45, 0.95, 0.82, 1 - k)
                 cr.fill()
         return False
-
-    def ring(self, cr, cx, cy, r, spin, back):
-        """Orange ring around the planet, drawn in two halves so the body sits inside it."""
-        cr.save()
-        cr.translate(cx, cy)
-        cr.rotate(-0.35)
-        cr.scale(1, 0.28)
-        cr.set_line_width(5)
-        start, end = (math.pi, 2 * math.pi) if back else (0, math.pi)
-        cr.arc(0, 0, r + 12, start, end)
-        cr.restore()
-        cr.set_source_rgba(*ORANGE, 0.55 if back else 0.95)
-        cr.stroke()
-        # a little moon on the ring shows the spin
-        a = spin % (2 * math.pi)
-        if (math.sin(a) >= 0) != back:
-            x = math.cos(a) * (r + 12)
-            y = math.sin(a) * (r + 12) * 0.28
-            rx = x * math.cos(-0.35) - y * math.sin(-0.35)
-            ry = x * math.sin(-0.35) + y * math.cos(-0.35)
-            cr.arc(cx + rx, cy + ry, 4, 0, 2 * math.pi)
-            cr.set_source_rgb(1, 0.85, 0.6)
-            cr.fill()

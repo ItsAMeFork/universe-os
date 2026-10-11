@@ -6,7 +6,7 @@ Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laats
 | Wat | Waar | Test |
 |---|---|---|
 | Claude-paneel (Windows+C of klik op personage): echte terminal met de ongewijzigde Claude Code, Haiku, `--continue` | `shell/claude_ui.py`, `bin/universe-claude` | VM met nep-`claude` (`~/.local/bin/claude` van tester) |
-| Tijdelijk personage (planeetje met ring, Cairo, geen WebKit): denken, werken, toestemming, blij; loopt naar taakbalk/wereld/paneel | `shell/claude_ui.py` (Buddy), instelling `buddy` | VM: alle seintjes via de hook gezien |
+| Personage: zwevend slijm met ogen dat vervormt bij bewegen (Cairo, veer-demping, geen WebKit): denken, werken, toestemming, blij; loopt naar taakbalk/wereld/paneel | `shell/claude_ui.py` (Buddy), instelling `buddy` | VM: alle seintjes via de hook gezien |
 | OS-hulpmiddelen + tweede brein (SQLite FTS5) als MCP-server | `lib/universe-os/claude/universe_mcp.py`, `brein.py` | VM: JSON-RPC, alle soorten aanroepen |
 | Hooks -> `universe-ctl claude-event`; `universe-ctl call` met vaste toegestane lijst | `claude/universe-claude-hook`, `universe_shell.py` (CLAUDE_CALLS) | VM |
 Later die middag: personage denkt vooruit (tekstballon: download, USB, batterij, gewoontes; `shell/buddy_hints.py`),
