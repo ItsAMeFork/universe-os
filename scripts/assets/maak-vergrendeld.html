@@ -16,12 +16,16 @@ html,body{margin:0;width:1920px;height:1080px;overflow:hidden;background:#050815
 h1,p{position:absolute;left:0;right:0;text-align:center;margin:0}
 h1{top:118px;font-size:58px;font-weight:600;color:#85ffe3;letter-spacing:2px}
 p.a{top:880px;font-size:26px;color:#e2e6fa}p.b{top:925px;font-size:21px;color:#869cae}
+/* ?overgang maakt scripts/assets/overgang.png: het laatste beeld van het inlogscherm na de ontploffing (alleen de
+   gedimde sterren, login.css #stars.fade). De sessie toont het meteen (swaybg) tot het 3D-bureaublad er is. */
+.overgang #nebula,.overgang #glow,.overgang #earth,.overgang h1,.overgang p{display:none}.overgang #sky{opacity:.35}
 </style></head><body>
 <div id="nebula"></div><div id="sky"></div><div id="glow"></div><div id="earth"></div>
 <h1>Vergrendeld</h1><p class="a">Typ je wachtwoord en druk op Enter.</p><p class="b">Je programma's en open vensters blijven gewoon staan.</p>
 <script type="module">
 import {earthNow} from '../../pakket/universe-os/usr/share/universe-os/ui/globe.js';
 import {DEFAULT_CAM,distFor,drawSky} from '../../pakket/universe-os/usr/share/universe-os/ui/space.js';
+if(location.search.includes('overgang'))document.body.classList.add('overgang');
 const cam={...DEFAULT_CAM,dist:distFor(650)};
 document.getElementById('sky').append(drawSky(document.createElement('canvas'),cam,1920,1080,4/3));
 document.getElementById('earth').append(earthNow(800));

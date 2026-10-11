@@ -1,6 +1,6 @@
 import {updatesView} from './updates-ui.js';
 import {call,on,applySettings,motionAllowed,toast,h,icon} from './api.js';
-import {globe,earth,paintEarths,earthsPainted,starfield,pixelSize} from './globe.js';
+import {alpha,globe,earth,paintEarths,earthsPainted,starfield,pixelSize} from './globe.js';
 import {debugFPS,afterPaint} from './performance.js';
 import {SETTINGS} from './settings-index.js';
 import {keepTab} from './focus.js';
@@ -88,11 +88,12 @@ function drawSky(){
  const dpr=Math.min(devicePixelRatio||1,2),w=innerWidth,hgt=innerHeight;
  if(sky.width!==Math.round(w*dpr)||sky.height!==Math.round(hgt*dpr)){sky.width=Math.round(w*dpr);sky.height=Math.round(hgt*dpr);}
  const c=sky.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,hgt);
+ document.body.style.backgroundImage='none'; // the login picture of world.html, shown until the first real sky
  const cy=Math.cos(cam.yaw),sy=Math.sin(cam.yaw),cp=Math.cos(cam.pitch),sp=Math.sin(cam.pitch);
  for(const [x,y,z,b,big] of STARS){ // stars are far away: they only turn with the camera
   const x1=x*cy-z*sy,z1=x*sy+z*cy,y2=y*cp-z1*sp,z2=y*sp+z1*cp;if(z2<=.05)continue;
   const px=w/2+x1/z2*FOV,py=hgt/2+y2/z2*FOV;if(px<0||py<0||px>w||py>hgt)continue;
-  c.fillStyle=`rgba(208,224,255,${b})`;c.beginPath();c.arc(px,py,big?1.5:.7,0,7);c.fill();
+  c.fillStyle=`rgba(208,224,255,${alpha(b)})`;c.beginPath();c.arc(px,py,big?1.5:.7,0,7);c.fill();
  }
  // Orbits around the Earth (folders) and the galaxy ring of the programs, as real 3D circles.
  const ringAlpha=Math.min(1,mix*1.4);
@@ -100,7 +101,7 @@ function drawSky(){
  if(mix<1&&mix>0)drawTrails(c);
  if(glow>0){const e=objects.find(o=>o.kind==='earth'),p=e&&project(e.pos);
   if(p){const r=p.s*e.size*earthScale*.5;const g=c.createRadialGradient(p.x,p.y,r*.6,p.x,p.y,r*(1.6+glow*1.4));
-   g.addColorStop(0,`rgba(255,200,140,${.55*glow})`);g.addColorStop(.5,`rgba(120,180,255,${.25*glow})`);g.addColorStop(1,'rgba(80,120,255,0)');
+   g.addColorStop(0,`rgba(255,200,140,${alpha(.55*glow)})`);g.addColorStop(.5,`rgba(120,180,255,${alpha(.25*glow)})`);g.addColorStop(1,'rgba(80,120,255,0)');
    c.fillStyle=g;c.fillRect(0,0,w,hgt);}}
 }
 function ring(c,r,color,width){
@@ -293,8 +294,8 @@ function drawTrails(c){
  for(const o of objects){
   if(o.kind==='earth')continue;
   const a=project(shownAt(o,mix).pos),b=project(shownAt(o,back).pos);if(!a||!b)continue;
-  const g=c.createLinearGradient(b.x,b.y,a.x,a.y),col=o.kind==='app'?`hsla(${o.hue},90%,75%,`:'rgba(255,190,120,';
-  g.addColorStop(0,col+'0)');g.addColorStop(1,col+(.75*Math.sin(Math.PI*mix))+')');
+  const g=c.createLinearGradient(b.x,b.y,a.x,a.y),col=o.kind==='app'?`hsla(${o.hue??165},90%,75%,`:'rgba(255,190,120,';
+  g.addColorStop(0,col+'0)');g.addColorStop(1,col+alpha(.75*Math.sin(Math.PI*mix))+')');
   c.strokeStyle=g;c.lineWidth=Math.max(1.5,a.s*o.size*.12);c.beginPath();c.moveTo(b.x,b.y);c.lineTo(a.x,a.y);c.stroke();
  }
 }
@@ -312,10 +313,12 @@ function animateWorld(dir,target){
  if(!motionAllowed(settings)){mix=dir==='in'?1:0;earthScale=1;glow=0;cam=end;requestRender();return Promise.resolve();}
  trailDir=dir==='in'?1:-1;
  cam={...start};mix=dir==='in'?0:1;earthScale=dir==='in'?0:1;requestRender();
- const dur=dir==='in'?2300:1900,t0=performance.now();
+ const dur=dir==='in'?2300:1900,t0=performance.now();let last=t0,slowFrames=0;
  return new Promise(resolve=>{
   const step=t=>{
-   const k=Math.max(0,Math.min(1,(t-t0)/dur)); // the first frame time can lie just before t0
+   // Without a GPU a frame can take seconds: after two frames over 250 ms jump to the last picture (as explode.js).
+   if(t-last>250)slowFrames++;last=t;
+   const k=slowFrames>=2?1:Math.max(0,Math.min(1,(t-t0)/dur)); // the first frame time can lie just before t0
    if(dir==='in'){
     // 0-0.25: the Earth grows out of light (overshoots a little); 0.15-1: everything flies out, camera pulls back
     const a=Math.min(1,k/.25);earthScale=a<1?Math.sin(a*Math.PI/2)*1.08:1+.08*Math.max(0,1-(k-.25)/.15);

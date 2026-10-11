@@ -26,7 +26,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import backend  # noqa: E402
 import config  # noqa: E402
 import session  # noqa: E402
-from toplevels import Toplevels  # noqa: E402
 from webview import Bridge, emit, make_view  # noqa: E402
 
 SOCKET = os.path.join(os.environ.get('XDG_RUNTIME_DIR', '/tmp'), 'universe-shell.sock')
@@ -76,7 +75,7 @@ class Shell:
         self.started = time.time()
         self.started_monotonic = time.monotonic()
         self.world_ready = False
-        self.toplevels = Toplevels(self.windows_changed, log)
+        self.toplevels = None  # run(): imported after the world window exists (pywayland, asyncio, ssl: seconds on a cold disk)
         self.bridge = Bridge(self.handlers(), threaded={'status', 'audio.outputs', 'audio.select', 'updates.status', 'power', 'volume.set', 'volume.mute',
                                                         'notifications.clear', 'search.files', 'updates.status', 'updates.refresh', 'updates.install', 'pick.path'}, log=log)
         self.worlds = []
@@ -95,6 +94,18 @@ class Shell:
             self.add_world(display.get_monitor(i))
         display.connect('monitor-added', lambda d, m: self.add_world(m))
         display.connect('monitor-removed', self.remove_world)
+        # Panel and dock follow once the world is visible (ready()): every page starts its own WebKit process, and
+        # three at once made the world wait for the CPU after login. The timeout covers a world that never reports.
+        GLib.timeout_add_seconds(15, lambda: self.build_bars() and False)
+        try:
+            self.watch_desktop()
+        except Exception as error:  # pragma: no cover - only logged
+            log('Bureaubladmap niet te volgen: %s' % error)
+        # Search/overview is constructed on first use, not during login.
+
+    def build_bars(self):
+        if self.panel:
+            return False
         L, E, K = GtkLayerShell.Layer, GtkLayerShell.Edge, GtkLayerShell.KeyboardMode
         self.panel = Surface(self, 'panel', 'panel.html', L.TOP, [E.TOP], K.ON_DEMAND, size=PANEL_CLOSED, transparent=True)
         self.panel.window.show_all()
@@ -102,11 +113,7 @@ class Shell:
         GtkLayerShell.set_margin(self.dock.window, E.BOTTOM, DOCK_MARGIN)
         self.dock.window.show_all()
         self.resize_dock(420)
-        try:
-            self.watch_desktop()
-        except Exception as error:  # pragma: no cover - only logged
-            log('Bureaubladmap niet te volgen: %s' % error)
-        # Search/overview is constructed on first use, not during login.
+        return False
 
     def add_world(self, monitor):
         L, E, K = GtkLayerShell.Layer, GtkLayerShell.Edge, GtkLayerShell.KeyboardMode
@@ -466,7 +473,7 @@ class Shell:
                 return 'ok ' + self.lock_begin()
             elif cmd == 'desktop':
                 return 'ok ' + self.desktop_toggle()
-            elif cmd == 'panel':
+            elif cmd == 'panel' and self.panel:
                 self.panel.emit('panel-toggle')
             elif cmd == 'world' and len(parts) > 1:
                 self.handlers()['world.open']({'id': parts[1]})
@@ -510,6 +517,7 @@ class Shell:
             self.world_ready = True
             log('ruimtewereld zichtbaar na %.3f s; pagina %.0f ms' %
                 (time.monotonic() - self.started_monotonic, float(data.get('milliseconds', 0))))
+            GLib.idle_add(self.build_bars)
             # Load the start menu in the background, so the first press of the Windows key is instant
             # (building it on first use took ~15 s in the VM).
             GLib.timeout_add_seconds(5, lambda: self.make_start() and False)
@@ -557,6 +565,9 @@ class Shell:
             log('De compositor ondersteunt wlr-layer-shell niet; de Universe-shell kan niet starten.')
             return 2
         self.build()
+        # The world page now loads in its own WebKit process while Python imports the window list.
+        from toplevels import Toplevels
+        self.toplevels = Toplevels(self.windows_changed, log)
         self.app_monitor = Gio.AppInfoMonitor.get()
         self.apps_changed_timer = None
         self.app_monitor.connect('changed', self.schedule_apps_changed)

@@ -13,6 +13,8 @@ Type=oneshot
 ExecStart=/usr/lib/universe-os/universe-updates-run
 Restart=on-failure
 RestartSec=20min
-Nice=10
+# Only spare processor time: at login it took 49 s CPU in the test VM while the desktop was starting (11 Oct).
+Nice=19
+CPUSchedulingPolicy=idle
 IOSchedulingClass=idle
 TimeoutStartSec=3h

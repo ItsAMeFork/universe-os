@@ -1,4 +1,4 @@
-import {earth,globe,pixelSize} from './globe.js';
+import {alpha,earth,globe,pixelSize} from './globe.js';
 // The space scene of the login and lock screen (Axel, 10 Oct: "the planet like the Earth, but in the universe itself").
 // The same camera, stars and orbits as the 3D desktop (world.js), seen close to the Earth: after login the desktop
 // starts in exactly this view and pulls back, so the two screens flow into each other.
@@ -22,7 +22,7 @@ export function drawSky(canvas,cam,w=innerWidth,h=innerHeight,dpr=Math.min(devic
  for(const [x,y,z,b,big] of STARS){
   const x1=x*cy-z*sy,z1=x*sy+z*cy,y2=y*cp-z1*sp,z2=y*sp+z1*cp;if(z2<=.05)continue;
   const px=w/2+x1/z2*FOV,py=h/2+y2/z2*FOV;if(px<0||py<0||px>w||py>h)continue;
-  c.fillStyle=`rgba(208,224,255,${b})`;c.beginPath();c.arc(px,py,big?1.5:.7,0,7);c.fill();
+  c.fillStyle=`rgba(208,224,255,${alpha(b)})`;c.beginPath();c.arc(px,py,big?1.5:.7,0,7);c.fill();
  }
  c.strokeStyle='rgba(255,165,82,.55)';c.lineWidth=1.5;c.beginPath();let pen=false;
  for(let i=0;i<=120;i++){const a=i/120*Math.PI*2,p=project(cam,[Math.cos(a)*420,0,Math.sin(a)*420],w,h);if(!p){pen=false;continue;}pen?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y);pen=true;}

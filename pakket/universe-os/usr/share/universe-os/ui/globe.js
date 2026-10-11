@@ -1,5 +1,8 @@
 // Planet globes, drawn like Space Chat's 2D universe (src/universe.js, globe()): a lit radial gradient,
 // gas bands or rocky blotches, a soft terminator shadow and a thin coloured rim. Works without a GPU.
+/** Opacity for a CSS colour string: clamped and fixed-point. A tiny number like 1e-7 becomes "1e-7", which is not
+ * valid CSS, so addColorStop throws (it stopped the planet animation at its last frame). */
+export const alpha=v=>Math.max(0,Math.min(1,v)).toFixed(3);
 const bitmaps=new Map();
 function remember(key,canvas){
  let pixels=canvas.width*canvas.height;
@@ -16,6 +19,7 @@ function copy(canvas,className=''){
 }
 export const pixelSize=css=>Math.max(32,Math.min(1280,Math.ceil(css*Math.min(devicePixelRatio||1,2))));
 export function globe(seed,rock=false,size=320){
+ if(!Number.isFinite(seed))seed=165; // desktop shortcuts have no hue; "hsla(undefined…)" makes addColorStop throw
  size=Math.max(32,Math.min(1280,Math.ceil(size)));
  const key=`globe:${seed}:${rock}:${size}`;
  if(bitmaps.has(key))return copy(bitmaps.get(key),'space-globe');
@@ -38,7 +42,7 @@ export function starfield(w=1600,h=1000,count=520){
  const key=`stars:${w}:${h}:${count}`;
  if(bitmaps.has(key))return copy(bitmaps.get(key));
  const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;const c=canvas.getContext('2d');let s=7;
- for(let i=0;i<count;i++){s=(s*16807)%2147483647;const x=s%w;s=(s*16807)%2147483647;const y=s%h;c.fillStyle=`rgba(208,224,255,${.12+(i%8)/12})`;c.beginPath();c.arc(x,y,i%19===0?1.5:.65,0,7);c.fill();}
+ for(let i=0;i<count;i++){s=(s*16807)%2147483647;const x=s%w;s=(s*16807)%2147483647;const y=s%h;c.fillStyle=`rgba(208,224,255,${alpha(.12+(i%8)/12)})`;c.beginPath();c.arc(x,y,i%19===0?1.5:.65,0,7);c.fill();}
  remember(key,canvas);return copy(canvas);
 }
 
