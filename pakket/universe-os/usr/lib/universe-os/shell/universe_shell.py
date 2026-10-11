@@ -706,7 +706,19 @@ class Shell:
         self.apps_changed_timer = GLib.timeout_add(300, send)
 
 
+def process_age():
+    """Seconds since this process started (for the startup log: how much of a slow login is Python and GTK)."""
+    try:
+        with open('/proc/self/stat') as f:
+            start = int(f.read().rsplit(')', 1)[1].split()[19]) / os.sysconf('SC_CLK_TCK')
+        with open('/proc/uptime') as f:
+            return float(f.read().split()[0]) - start
+    except (OSError, ValueError, IndexError):
+        return 0.0
+
+
 def main():
+    log('modules geladen na %.1f s' % process_age())
     Gtk.init(sys.argv)
     return Shell().run()
 

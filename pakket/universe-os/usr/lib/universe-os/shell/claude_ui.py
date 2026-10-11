@@ -245,8 +245,8 @@ class ClaudeUI:
                 self.slide(-PANEL_WIDTH, 12)
         self.panel.present()
         self.term.grab_focus()
-        # Typing goes to the panel now; afterwards a click elsewhere may take the keyboard again.
-        GLib.timeout_add(400, lambda: self.panel and GtkLayerShell.set_keyboard_mode(self.panel, K.ON_DEMAND) and False)
+        # The keyboard stays with the panel while it is open (like the start menu). Switching to on-demand after a
+        # moment lost the keyboard in labwc: typing in the terminal did not work (Axel, 11 Oct).
         if self.buddy:
             self.buddy.event('panel', {})
         return True
@@ -348,6 +348,10 @@ class Buddy:
         self.last_pos = self.pos
         self.deform, self.deform_v = [0.0, 0.0], [0.0, 0.0]  # slime stretch (screen x, y) and its speed
         self.busy = False  # a program is in front: stand still
+        self.wiggle_until = 0.0
+        self.clock = 0.0  # animation time: only runs while frames are drawn, so a still slime does not jump
+        self.clock_at = time.monotonic()
+        self.breath_until = 0.0
         self.blink = 0.0
         self.anim = 0
         self.slow_frames = 0
@@ -537,7 +541,12 @@ class Buddy:
     def animated_state(self):
         if self.state == 'happy' and time.monotonic() - self.state_since > 1.6:
             self.state = 'idle'
-        return self.state not in ('idle',)
+        t = time.monotonic() - self.state_since
+        if self.state == 'listen':
+            return t < 2.5  # then it holds still while you type (the panel can stay open for a long time)
+        if self.state == 'attention':
+            return t < 6
+        return self.state != 'idle' or time.monotonic() < self.wiggle_until
 
     def run(self):
         if self.ui.animations() == 'off':
@@ -572,6 +581,7 @@ class Buddy:
                 self.pos = self.target
             self.apply_pos()
         self.jiggle(dt)
+        self.advance()
         self.area.queue_draw()
         if self.moving() or self.animated_state() or self.blink > 0 or self.jiggling():
             if self.blink > 0:
@@ -582,12 +592,25 @@ class Buddy:
         return False
 
     def breathe(self):
-        """At rest only a slow breath (10 frames a second), and nothing at all while a program is in front."""
+        """After it came to rest a few seconds of slow breathing, then the slime stands still. Every frame of a layer
+        surface costs the compositor (without a GPU: labwc + kernel ~50 % CPU in the VM at 10 fps), so at rest only a
+        blink or a short wiggle now and then (schedule_blink)."""
         if self.anim or self.busy or self.ui.animations() != 'full':
             return
+        self.breath_until = time.monotonic() + 4
         self.anim = GLib.timeout_add(100, self.breath_tick)
 
+    def advance(self):
+        now = time.monotonic()
+        self.clock += min(now - self.clock_at, 0.1)
+        self.clock_at = now
+
     def breath_tick(self):
+        self.advance()
+        if time.monotonic() > self.breath_until and self.state == 'idle' and not self.moving() and self.blink <= 0:
+            self.anim = 0
+            self.area.queue_draw()
+            return False
         if self.state != 'idle' or self.moving() or self.busy or self.blink > 0:
             self.anim = 0
             if not self.busy or self.state != 'idle':
@@ -597,9 +620,14 @@ class Buddy:
         return True
 
     def schedule_blink(self):
-        if not self.busy and self.ui.animations() != 'off' and random.random() < 0.8:
-            self.blink = 1.0
-            self.run()
+        if not self.busy and self.ui.animations() != 'off':
+            r = random.random()
+            if r < 0.25 and self.ui.animations() == 'full':
+                self.wiggle_until = time.monotonic() + 1.2  # a short jelly wiggle
+                self.run()
+            elif r < 0.85:
+                self.blink = 1.0
+                self.run()
         return True
 
     def clicked(self, widget, event):
@@ -626,7 +654,7 @@ class Buddy:
 
     def pose(self, t, state):
         """(float height, squash x, squash y, wobble) per state. It always floats; it never touches the ground."""
-        now = time.monotonic()
+        now = self.clock
         lift = 6 * math.sin(now * 1.8)  # hovering
         sx = sy = 1.0
         wobble = 0.035
@@ -654,9 +682,14 @@ class Buddy:
             sy = 1.04 + 0.02 * math.sin(t * 3)
         elif state in ('think', 'work'):
             wobble = 0.06 if state == 'work' else 0.045
-        else:  # idle: breathing slime
+        else:  # idle: breathing slime (it stands still between the short breaths and wiggles)
             b = math.sin(now * 2.1)
             sx, sy = 1 + 0.02 * b, 1 - 0.025 * b
+            left = self.wiggle_until - time.monotonic()
+            if left > 0:
+                k = math.sin(left / 1.2 * math.pi)
+                wobble = 0.035 + 0.06 * k
+                sx, sy = sx + 0.05 * k * math.sin(now * 16), sy - 0.05 * k * math.sin(now * 16)
         return lift, sx, sy, wobble
 
     # ----- the slime: drawing -----
@@ -698,8 +731,8 @@ class Buddy:
         cr.paint()
         cr.set_operator(cairo.OPERATOR_OVER)
         w, h = BUDDY
-        now = time.monotonic()
-        t = now - self.state_since
+        now = self.clock  # wobble, hover and bubbles follow the animation clock
+        t = time.monotonic() - self.state_since
         state = self.state
         lift, sx, sy, wobble = self.pose(t, state)
         r = 32
