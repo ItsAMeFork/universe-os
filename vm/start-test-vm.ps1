@@ -3,7 +3,8 @@
 #   vm\start-test-vm.ps1                                                                (opstarten zonder ISO)
 # Beheerkanaal QMP op 127.0.0.1:4445:  node vm\qmp.mjs 4445 status|scherm|typ|toets
 param([string]$Iso, [switch]$Nieuw, [int]$GeheugenMB = 4096, [int]$Cpus = 2, [switch]$SecureBoot, [switch]$ZonderVenster,
-      [ValidateSet('gtk', 'sdl')][string]$Venster = 'gtk', [string]$Resolutie = '1920x1080', [switch]$VolledigScherm)
+      [ValidateSet('gtk', 'sdl')][string]$Venster = 'gtk', [string]$Resolutie = '1920x1080', [switch]$VolledigScherm,
+      [string]$Processor = 'qemu64,+ssse3,+sse4.1,+sse4.2,+popcnt,+bmi1,+bmi2,+movbe,+aes,+pclmulqdq')
 $ErrorActionPreference = 'Stop'
 $qemu = 'C:\Program Files\qemu'
 $vm = 'D:\UniverseOS-VMs'
@@ -27,6 +28,10 @@ $display = if ($ZonderVenster) { 'none' } elseif ($Venster -eq 'gtk') { 'gtk,zoo
 $qargs = @(
     '-name', '"Universe OS test"',
     '-accel', 'whpx', '-machine', $machine, '-smp', "$Cpus", '-m', "$GeheugenMB",
+    # Without -cpu QEMU gives an old 'QEMU Virtual CPU 2.5' with only the oldest instructions: the Claude Code installer
+    # hung for 15 minutes (11 Oct). 'max' and 'host' crash the UEFI firmware under WHPX, and WHPX does not pass on AVX;
+    # with the flags below Claude Code runs.
+    '-cpu', $Processor,
     # Quoted: Start-Process joins arguments with spaces, and the firmware lives under "C:\Program Files".
     '-drive', "`"if=pflash,format=raw,unit=0,readonly=on,file=$code`"",
     '-drive', "if=pflash,format=raw,unit=1,file=$vars",
