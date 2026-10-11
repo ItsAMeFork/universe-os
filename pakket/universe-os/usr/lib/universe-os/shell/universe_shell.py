@@ -29,6 +29,12 @@ import session  # noqa: E402
 from webview import Bridge, emit, make_view  # noqa: E402
 
 SOCKET = os.path.join(os.environ.get('XDG_RUNTIME_DIR', '/tmp'), 'universe-shell.sock')
+# Page handlers that Claude Code may use through `universe-ctl call` (the universe-mcp tools). Logging out, power,
+# installing and updates are deliberately missing.
+CLAUDE_CALLS = {'status', 'apps.list', 'apps.launch', 'windows.list', 'windows.activate', 'windows.close', 'windows.minimize',
+                'desktop.show', 'world.open', 'open.path', 'search', 'search.files', 'volume.set', 'volume.mute',
+                'notifications.clear', 'run', 'desktop.list', 'desktop.mkdir', 'browser.list', 'config.get', 'config.set',
+                'start.toggle', 'layout.get'}
 PANEL_CLOSED = (430, 44)
 PANEL_OPEN = (400, 700)
 DOCK_HEIGHT = 64  # CSS pixels of .dock in dock.html
@@ -86,6 +92,7 @@ class Shell:
         self.panel_open = False
         self.logout_pending = False
         self.logout_timer = None
+        self.claude = None  # claude_ui.ClaudeUI (panel + buddy), made in run()
 
     # ----- surfaces -----
     def build(self):
@@ -113,6 +120,8 @@ class Shell:
         GtkLayerShell.set_margin(self.dock.window, E.BOTTOM, DOCK_MARGIN)
         self.dock.window.show_all()
         self.resize_dock(420)
+        if self.claude:
+            GLib.timeout_add_seconds(3, self.claude.update_buddy)  # the buddy comes last, after panel and dock
         return False
 
     def add_world(self, monitor):
@@ -321,6 +330,8 @@ class Shell:
         windows = self.toplevels.list()
         for world in self.worlds:
             world.emit('background-busy', any(not w.get('minimized') for w in windows))
+        if self.claude and self.claude.buddy:
+            self.claude.buddy.set_busy(any(not w.get('minimized') for w in windows))
         if windows:
             self.release_initial_focus()
         if self.overview and self.overview.window.get_visible():
@@ -344,6 +355,8 @@ class Shell:
             for s in self.surfaces():
                 s.view.set_zoom_level(data['settings']['uiScale'] / 100)
             self.broadcast('config', data)
+            if self.claude:
+                self.claude.update_buddy()
 
         def set_config(a):
             config.set_setting(a['key'], a['value'])
@@ -434,6 +447,8 @@ class Shell:
             'intro.claim': lambda a: self.claim_intro(),
             'lock.ready': lambda a: True,
             'unlock.done': lambda a: self.unlock_done(),
+            'claude.available': lambda a: bool(self.claude and self.claude.available()),
+            'claude.toggle': lambda a: bool(self.claude) and self.claude.toggle(a.get('open')),
         }
 
     # ----- universe-ctl socket -----
@@ -452,10 +467,47 @@ class Shell:
     def incoming(self, service, connection, source):
         stream = Gio.DataInputStream.new(connection.get_input_stream())
         line, _ = stream.read_line_utf8(None)
-        answer = self.command((line or '').strip())
-        connection.get_output_stream().write_all((answer + '\n').encode(), None)
-        connection.close(None)
+        line = (line or '').strip()
+
+        def answer(text):
+            try:
+                connection.get_output_stream().write_all((text + '\n').encode(), None)
+                connection.close(None)
+            except Exception as error:  # the caller gave up (timeout)
+                log('antwoord niet verstuurd: %s' % error)
+            return False
+        if line.startswith('call '):
+            self.call(line, answer)
+        else:
+            answer(self.command(line))
         return True
+
+    def call(self, line, answer):
+        """universe-ctl call <handler> [json]: a page handler for the Claude tools (universe-mcp). Slow handlers run
+        in a thread, like for the pages; the answer is 'ok <json>' or 'fout: <message>'."""
+        import json
+        parts = line.split(maxsplit=2)
+        name = parts[1] if len(parts) > 1 else ''
+        if name not in CLAUDE_CALLS:
+            return answer('fout: niet toegestaan: %s' % name)
+        try:
+            args = json.loads(parts[2]) if len(parts) > 2 else {}
+            if not isinstance(args, dict):
+                raise ValueError('argumenten moeten een object zijn')
+        except ValueError as error:
+            return answer('fout: %s' % error)
+        fn = self.handlers()[name]
+
+        def work():
+            try:
+                text = 'ok ' + json.dumps(fn(args), ensure_ascii=False, default=str)
+            except Exception as error:
+                text = 'fout: %s' % (str(error) or error.__class__.__name__)
+            return text
+        if name in self.bridge.threaded:
+            threading.Thread(target=lambda: answer(work()), daemon=True).start()
+        else:
+            answer(work())
 
     def command(self, line):
         parts = line.split(maxsplit=2)
@@ -487,6 +539,20 @@ class Shell:
                 for s in self.surfaces():
                     s.view.set_zoom_level(data['settings']['uiScale'] / 100)
                 self.broadcast('config', data)
+            elif cmd == 'claude':
+                if not (self.claude and self.claude.available()):
+                    return 'fout: Claude Code is niet geïnstalleerd'
+                self.claude.toggle()
+            elif cmd == 'claude-event' and len(parts) > 1:
+                import json
+                data = {}
+                if len(parts) > 2:
+                    try:
+                        data = json.loads(parts[2])
+                    except ValueError:
+                        pass
+                if self.claude:
+                    self.claude.event(parts[1], data if isinstance(data, dict) else {})
             elif cmd == 'apps-changed':
                 self.broadcast('apps-changed')
             elif cmd == 'reload':
@@ -568,6 +634,11 @@ class Shell:
         # The world page now loads in its own WebKit process while Python imports the window list.
         from toplevels import Toplevels
         self.toplevels = Toplevels(self.windows_changed, log)
+        try:
+            from claude_ui import ClaudeUI  # cheap: panel and buddy are only built when needed
+            self.claude = ClaudeUI(self, log)
+        except Exception as error:  # pragma: no cover - only logged; the desktop works without Claude
+            log('Claude-onderdelen niet geladen: %s' % error)
         self.app_monitor = Gio.AppInfoMonitor.get()
         self.apps_changed_timer = None
         self.app_monitor.connect('changed', self.schedule_apps_changed)

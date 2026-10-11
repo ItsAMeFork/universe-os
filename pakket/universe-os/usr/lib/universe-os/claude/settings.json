@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": ["mcp__universe__overzicht", "mcp__universe__status", "mcp__universe__apps_lijst", "mcp__universe__vensters",
+              "mcp__universe__zoeken", "mcp__universe__schermafbeelding", "mcp__universe__bureaublad_bestanden",
+              "mcp__universe__brein_zoeken"]
+  },
+  "hooks": {
+    "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "/usr/lib/universe-os/claude/universe-claude-hook", "timeout": 3}]}],
+    "PreToolUse": [{"matcher": "*", "hooks": [{"type": "command", "command": "/usr/lib/universe-os/claude/universe-claude-hook", "timeout": 3}]}],
+    "PostToolUse": [{"matcher": "*", "hooks": [{"type": "command", "command": "/usr/lib/universe-os/claude/universe-claude-hook", "timeout": 3}]}],
+    "Notification": [{"hooks": [{"type": "command", "command": "/usr/lib/universe-os/claude/universe-claude-hook", "timeout": 3}]}],
+    "Stop": [{"hooks": [{"type": "command", "command": "/usr/lib/universe-os/claude/universe-claude-hook", "timeout": 3}]}]
+  }
+}

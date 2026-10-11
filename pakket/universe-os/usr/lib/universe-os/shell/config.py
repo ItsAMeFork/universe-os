@@ -46,13 +46,14 @@ SETTING_KEYS = {
     'tapToClick': (True, False),
     'pointerSpeed': [x / 10 for x in range(-10, 11)],
     'displayScales': None,  # dict output -> scale, validated separately
+    'buddy': (True, False),  # Claude-personage op het bureaublad (alleen als Claude Code er is)
 }
 
 
 def settings():
     base = branding().get('defaults', {})
     merged = {'animations': 'full', 'travel': True, 'uiScale': 100, 'textScale': 100, 'lockMinutes': 10,
-              'screenOffMinutes': 15, 'naturalScroll': False, 'tapToClick': True, 'pointerSpeed': 0.0, 'displayScales': {}}
+              'screenOffMinutes': 15, 'naturalScroll': False, 'tapToClick': True, 'pointerSpeed': 0.0, 'displayScales': {}, 'buddy': True}
     merged.update(base)
     merged.update(read_json(os.path.join(user_dir(), 'settings.json'), {}))
     return merged

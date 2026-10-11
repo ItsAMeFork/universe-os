@@ -2,6 +2,6 @@
 # Remove the bytecode that postinst made (compileall), so dpkg can remove or replace the shell folder cleanly.
 set -e
 if [ "$1" = "remove" ] || [ "$1" = "upgrade" ] || [ "$1" = "deconfigure" ]; then
-    find /usr/lib/universe-os/shell -name '__pycache__' -type d -prune -exec rm -rf {} + 2>/dev/null || true
+    find /usr/lib/universe-os/shell /usr/lib/universe-os/claude -name '__pycache__' -type d -prune -exec rm -rf {} + 2>/dev/null || true
 fi
 exit 0

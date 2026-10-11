@@ -1,0 +1,1 @@
+{"mcpServers": {"universe": {"type": "stdio", "command": "/usr/bin/python3", "args": ["/usr/lib/universe-os/claude/universe_mcp.py"]}}}

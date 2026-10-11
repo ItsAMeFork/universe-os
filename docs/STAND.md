@@ -2,6 +2,16 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
+## 11 oktober: Claude in Universe OS, fase 1 (ontwerp: `docs/CLAUDE-IN-UNIVERSE.md`)
+| Wat | Waar | Test |
+|---|---|---|
+| Claude-paneel (Windows+C of klik op personage): echte terminal met de ongewijzigde Claude Code, Haiku, `--continue` | `shell/claude_ui.py`, `bin/universe-claude` | VM met nep-`claude` (`~/.local/bin/claude` van tester) |
+| Tijdelijk personage (planeetje met ring, Cairo, geen WebKit): denken, werken, toestemming, blij; loopt naar taakbalk/wereld/paneel | `shell/claude_ui.py` (Buddy), instelling `buddy` | VM: alle seintjes via de hook gezien |
+| OS-hulpmiddelen + tweede brein (SQLite FTS5) als MCP-server | `lib/universe-os/claude/universe_mcp.py`, `brein.py` | VM: JSON-RPC, alle soorten aanroepen |
+| Hooks -> `universe-ctl claude-event`; `universe-ctl call` met vaste toegestane lijst | `claude/universe-claude-hook`, `universe_shell.py` (CLAUDE_CALLS) | VM |
+Nog niet getest: met de echte Claude Code (moet in de VM geïnstalleerd en ingelogd worden), typen in het paneel,
+installatieknop in het Controlecentrum (nog niet gebouwd). Pakket niet opnieuw gebouwd: VM heeft losse bestanden.
+
 ## Later op 10 oktober: inloggen, afmelden en vergrendelen met animaties (t/m 78b70dd)
 | Wat | Waar | Test |
 |---|---|---|

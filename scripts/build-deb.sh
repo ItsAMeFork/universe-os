@@ -74,7 +74,8 @@ while read -r f; do [ -f "$STAGE$f" ] || { echo "conffile $f bestaat niet in het
 # Rechten: alles van root, programma's uitvoerbaar, de rest leesbaar.
 find "$STAGE" -type d -exec chmod 0755 {} +
 find "$STAGE" -type f -exec chmod 0644 {} +
-for f in "$STAGE"/usr/bin/* "$STAGE"/usr/lib/universe-os/universe-* "$STAGE"/DEBIAN/postinst "$STAGE"/DEBIAN/postrm \
+for f in "$STAGE"/usr/bin/* "$STAGE"/usr/lib/universe-os/universe-* "$STAGE"/usr/lib/universe-os/claude/universe-* \
+         "$STAGE"/usr/lib/universe-os/claude/universe_mcp.py "$STAGE"/DEBIAN/postinst "$STAGE"/DEBIAN/postrm \
          "$STAGE"/DEBIAN/preinst "$STAGE"/DEBIAN/prerm; do
     [ -f "$f" ] && chmod 0755 "$f"
 done
@@ -84,8 +85,10 @@ SIZE=$(du -sk --exclude=DEBIAN "$STAGE" | cut -f1)
 sed -i "/^Version:/a Installed-Size: $SIZE" "$STAGE/DEBIAN/control"
 
 # Syntaxcontrole vóór het inpakken: kapotte Python of shellscripts komen niet in het pakket.
-python3 -m py_compile "$STAGE"/usr/lib/universe-os/shell/*.py
-for f in "$STAGE"/usr/bin/* "$STAGE"/usr/lib/universe-os/universe-*; do
+python3 -m py_compile "$STAGE"/usr/lib/universe-os/shell/*.py "$STAGE"/usr/lib/universe-os/claude/*.py
+python3 -m json.tool "$STAGE"/usr/lib/universe-os/claude/settings.json >/dev/null
+python3 -m json.tool "$STAGE"/usr/lib/universe-os/claude/mcp.json >/dev/null
+for f in "$STAGE"/usr/bin/* "$STAGE"/usr/lib/universe-os/universe-* "$STAGE"/usr/lib/universe-os/claude/universe-*; do
     case "$(head -c 40 "$f")" in
         '#!/bin/sh'*) sh -n "$f" ;;
         '#!/usr/bin/python3'*) python3 -m py_compile "$f" ;;

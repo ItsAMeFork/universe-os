@@ -54,7 +54,7 @@ if [ "$1" = "configure" ]; then
 
     # Bytecode for the shell, greeter and session: users cannot write __pycache__ here, so without this every login
     # compiled all modules again (part of the black screen after login). prerm removes it again.
-    python3 -m compileall -q /usr/lib/universe-os/shell >/dev/null 2>&1 || true
+    python3 -m compileall -q /usr/lib/universe-os/shell /usr/lib/universe-os/claude >/dev/null 2>&1 || true
 fi
 
 exit 0
