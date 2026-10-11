@@ -14,6 +14,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import brein  # noqa: E402
+import recoll_index  # noqa: E402
 
 SOCKET = os.path.join(os.environ.get('XDG_RUNTIME_DIR', '/tmp'), 'universe-shell.sock')
 PROTOCOL = '2025-06-18'
@@ -23,6 +24,10 @@ TOOLS_FOR_RUN = ('files', 'terminal', 'monitor', 'software', 'control', 'pavucon
 
 
 class ToolError(Exception):
+    pass
+
+
+class MethodNotFound(Exception):
     pass
 
 
@@ -175,6 +180,17 @@ def t_notify(a):
     return 'Melding getoond'
 
 
+def t_find_files(a):
+    found = recoll_index.search(a.get('zoek') or '', a.get('max') or 20)
+    if found is None:  # no Recoll: the quick name search of the shell
+        return {'bron': 'bestandsnamen', 'resultaten': shell('search.files', {'q': str(a.get('zoek') or '')})}
+    return {'bron': 'recoll (inhoud van bestanden)', 'resultaten': found}
+
+
+def t_timeline(a):
+    return brein.timeline(a.get('dagen') or 7, a.get('soort'), a.get('max') or 100)
+
+
 def t_desktop_files(a):
     return shell('desktop.list')
 
@@ -224,6 +240,11 @@ TOOLS = {
     'schermafbeelding': ('Look at the screen: returns a half-size image of what the user sees now.', S({}), t_screenshot, True),
     'melding': ('Show a desktop notification.', S({'titel': STR, 'tekst': STR}, ['titel']), t_notify, False),
     'bureaublad_bestanden': ('Files and shortcuts on the desktop (Bureaublad folder).', S({}), t_desktop_files, True),
+    'bestanden_doorzoeken': ('Second brain: full-text search INSIDE the documents of the user (PDF, office, text) with Recoll; '
+                             'query syntax like a web search. Returns paths with a short excerpt.',
+                             S({'zoek': STR, 'max': {'type': 'integer'}}, ['zoek']), t_find_files, True),
+    'tijdlijn': ('Second brain: what the user opened recently (programs and files), newest first.',
+                 S({'dagen': {'type': 'integer'}, 'soort': {'type': 'string', 'enum': ['app', 'file']}, 'max': {'type': 'integer'}}), t_timeline, True),
     'brein_onthouden': ('Second brain (local, private): remember something for later conversations. soort: voorkeur '
                         '(how the user likes things), feit (about the user or computer) or notitie.',
                         S({'tekst': STR, 'soort': {'type': 'string', 'enum': list(brein.KINDS)}, 'labels': STR}, ['tekst']), t_remember, False),
@@ -258,9 +279,9 @@ def handle(msg):
             return {'content': [{'type': 'text', 'text': 'Onbekend hulpmiddel'}], 'isError': True}
         try:
             return {'content': content(tool[2](params.get('arguments') or {}))}
-        except (ToolError, ValueError, TypeError) as error:
-            return {'content': [{'type': 'text', 'text': str(error)}], 'isError': True}
-    raise LookupError(method)
+        except Exception as error:  # every failure is a tool result Claude can read, not a protocol error
+            return {'content': [{'type': 'text', 'text': str(error) or error.__class__.__name__}], 'isError': True}
+    raise MethodNotFound(method)
 
 
 def main():
@@ -276,7 +297,7 @@ def main():
             continue  # notifications (initialized, cancelled) need no answer
         try:
             reply = {'jsonrpc': '2.0', 'id': msg['id'], 'result': handle(msg)}
-        except LookupError:
+        except MethodNotFound:
             reply = {'jsonrpc': '2.0', 'id': msg['id'], 'error': {'code': -32601, 'message': 'Method not found'}}
         except Exception as error:  # never crash: Claude Code would lose all tools
             reply = {'jsonrpc': '2.0', 'id': msg['id'], 'error': {'code': -32603, 'message': str(error)}}

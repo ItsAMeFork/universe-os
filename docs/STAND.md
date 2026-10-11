@@ -9,6 +9,10 @@ Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laats
 | Tijdelijk personage (planeetje met ring, Cairo, geen WebKit): denken, werken, toestemming, blij; loopt naar taakbalk/wereld/paneel | `shell/claude_ui.py` (Buddy), instelling `buddy` | VM: alle seintjes via de hook gezien |
 | OS-hulpmiddelen + tweede brein (SQLite FTS5) als MCP-server | `lib/universe-os/claude/universe_mcp.py`, `brein.py` | VM: JSON-RPC, alle soorten aanroepen |
 | Hooks -> `universe-ctl claude-event`; `universe-ctl call` met vaste toegestane lijst | `claude/universe-claude-hook`, `universe_shell.py` (CLAUDE_CALLS) | VM |
+Later die middag: personage denkt vooruit (tekstballon: download, USB, batterij, gewoontes; `shell/buddy_hints.py`),
+Disney-bewegingen (indrukken/uitrekken, aanloop, naslingeren, ademen), Recoll als bestandsindex (`claude/recoll_index.py`,
+recoll in VM geïnstalleerd), tijdlijn, Controlecentrum-pagina Claude (agent), 2 reviewfouten hersteld. VM: ballon en sprong
+gezien, recoll vond "pindakaas". Shell in rust met ademend personage: ~1,7 % CPU in de VM.
 Nog niet getest: met de echte Claude Code (moet in de VM geïnstalleerd en ingelogd worden), typen in het paneel,
 installatieknop in het Controlecentrum (nog niet gebouwd). Pakket niet opnieuw gebouwd: VM heeft losse bestanden.
 

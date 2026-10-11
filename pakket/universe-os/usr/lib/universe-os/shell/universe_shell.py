@@ -35,6 +35,7 @@ CLAUDE_CALLS = {'status', 'apps.list', 'apps.launch', 'windows.list', 'windows.a
                 'desktop.show', 'world.open', 'open.path', 'search', 'search.files', 'volume.set', 'volume.mute',
                 'notifications.clear', 'run', 'desktop.list', 'desktop.mkdir', 'browser.list', 'config.get', 'config.set',
                 'start.toggle', 'layout.get'}
+CLAUDE_RUN = {'files', 'terminal', 'monitor', 'software', 'control', 'pavucontrol', 'wdisplays', 'blueman-manager', 'network-editor'}
 PANEL_CLOSED = (430, 44)
 PANEL_OPEN = (400, 700)
 DOCK_HEIGHT = 64  # CSS pixels of .dock in dock.html
@@ -390,6 +391,19 @@ class Shell:
                 self.show_overview()
             return True
 
+        def launch(a):
+            result = backend.launch(a.get('id'))
+            app = backend.desktop_app(a.get('id'))
+            from buddy_hints import log_event  # timeline of the second brain (habits for the buddy)
+            log_event('app', a.get('id'), app.get_display_name() if app else '')
+            return result
+
+        def open_path(a):
+            result = backend.open_path(a.get('path', ''))
+            from buddy_hints import log_event
+            log_event('file', a.get('path', ''), os.path.basename(str(a.get('path', ''))))
+            return result
+
         def world_open(a):
             self.toplevels.show_desktop()
             for w in self.worlds:
@@ -404,12 +418,12 @@ class Shell:
             'config.set': set_config,
             'apps.list': lambda a: backend.apps(),
             'apps.desktop': lambda a: backend.desktop_apps(),
-            'apps.launch': lambda a: backend.launch(a.get('id')),
+            'apps.launch': launch,
             'browser.list': lambda a: backend.browsers(),
             'browser.select': lambda a: backend.browser_select(a.get('id')),
             'chrome.status': lambda a: backend.chrome(),
             'files.places': lambda a: backend.places(),
-            'open.path': lambda a: backend.open_path(a.get('path', '')),
+            'open.path': open_path,
             'search': search,
             'search.files': lambda a: backend.search_files((a.get('q') or '').strip()),
             'status': lambda a: backend.status(),
@@ -496,6 +510,8 @@ class Shell:
                 raise ValueError('argumenten moeten een object zijn')
         except ValueError as error:
             return answer('fout: %s' % error)
+        if name == 'run' and args.get('tool') not in CLAUDE_RUN:  # not the .deb installer or the system installer
+            return answer('fout: niet toegestaan: run %s' % args.get('tool'))
         fn = self.handlers()[name]
 
         def work():
@@ -504,7 +520,7 @@ class Shell:
             except Exception as error:
                 text = 'fout: %s' % (str(error) or error.__class__.__name__)
             return text
-        if name in self.bridge.threaded:
+        if name in self.bridge.threaded or name == 'search':  # search also scans files (up to 0.8 s)
             threading.Thread(target=lambda: answer(work()), daemon=True).start()
         else:
             answer(work())
@@ -539,6 +555,8 @@ class Shell:
                 for s in self.surfaces():
                     s.view.set_zoom_level(data['settings']['uiScale'] / 100)
                 self.broadcast('config', data)
+                if self.claude:
+                    self.claude.update_buddy()  # buddy switched on/off in the Control Center
             elif cmd == 'claude':
                 if not (self.claude and self.claude.available()):
                     return 'fout: Claude Code is niet geïnstalleerd'

@@ -22,6 +22,7 @@ from gi.repository import Gdk, GLib, Gtk, GtkLayerShell  # noqa: E402
 PANEL_WIDTH = 620
 KEEP_ALIVE = 600  # seconds Claude Code keeps running after the panel is closed
 BUDDY = (132, 150)  # surface size
+BUBBLE_WIDTH = 330  # surface width while the speech bubble shows
 TEAL = (0.52, 1.0, 0.89)
 ORANGE = (1.0, 0.62, 0.26)
 
@@ -34,6 +35,9 @@ CSS = b"""
               padding: 4px 10px; box-shadow: none; text-shadow: none; }
 .claude-btn:hover { background: rgba(255, 158, 66, 0.22); }
 .claude-term { padding: 4px 10px 12px 14px; }
+.buddy-hint { padding: 14px 16px 24px 16px; }
+.buddy-text { color: #e8fffa; font-size: 14px; }
+.buddy-main { background: rgba(255, 158, 66, 0.85); color: #1a0e02; font-weight: 700; }
 """
 
 
@@ -75,10 +79,35 @@ class ClaudeUI:
         want = bool(config.settings().get('buddy', True)) and self.available()
         if want and not self.buddy:
             self.buddy = Buddy(self)
+            if not getattr(self, 'hints', None):
+                try:
+                    from buddy_hints import Hints
+                    self.hints = Hints(self, self.log)
+                except Exception as error:  # pragma: no cover - only logged
+                    self.log('Suggesties van het personage niet gestart: %s' % error)
         elif not want and self.buddy:
             self.buddy.destroy()
             self.buddy = None
         return False
+
+    def ask(self, question):
+        """Puts a ready-made question in the Claude panel. The user sends it with Enter: the buddy itself never sends
+        anything to Claude. A freshly started Claude Code needs a few seconds before it reads input."""
+        fresh = self.term is None
+        if not self.open():
+            return False
+        text = question.replace('\n', ' ')
+
+        def type_it():
+            if self.term:
+                data = text.encode()
+                try:
+                    self.term.feed_child(data)
+                except TypeError:  # older bindings want a list of ints
+                    self.term.feed_child(list(data))
+            return False
+        GLib.timeout_add(5000 if fresh else 300, type_it)
+        return True
 
     def event(self, kind, data=None):
         if kind == 'permission' and self.panel and not self.panel.get_visible():
@@ -297,9 +326,18 @@ class Buddy:
         area.connect('draw', self.draw)
         area.add_events(Gdk.EventMask.BUTTON_PRESS_MASK)
         area.connect('button-press-event', self.clicked)
-        win.add(area)
-        win.set_tooltip_text('Claude (Windows+C)')
+        area.set_halign(Gtk.Align.END)
+        area.set_tooltip_text('Claude (Windows+C)')
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.bubble = Gtk.EventBox()
+        self.bubble.set_app_paintable(True)
+        self.bubble.connect('draw', self.draw_bubble)
+        self.bubble.set_no_show_all(True)
+        box.pack_start(self.bubble, False, False, 0)
+        box.pack_start(area, False, False, 0)
+        win.add(box)
         self.window, self.area = win, area
+        self.hint_timer = 0
         self.state = 'idle'
         self.state_since = time.monotonic()
         self.pos = self.place('home')
@@ -319,11 +357,97 @@ class Buddy:
         self.set_state('happy')
 
     def destroy(self):
-        for t in (self.anim, self.blink_timer):
+        for t in (self.anim, self.blink_timer, self.hint_timer):
             if t:
                 GLib.source_remove(t)
-        self.anim = self.blink_timer = 0
+        self.anim = self.blink_timer = self.hint_timer = 0
         self.window.destroy()
+
+    # ----- speech bubble with quick actions (buddy_hints) -----
+    def show_hint(self, text, actions, on_answer=None):
+        """text + buttons [(label, fn)]; 'Niet nu' and 'Nooit' are always added. Hides itself after 25 s."""
+        self.hide_hint()
+        inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        inner.get_style_context().add_class('buddy-hint')
+        label = Gtk.Label(label=text, xalign=0)
+        label.set_line_wrap(True)
+        label.set_max_width_chars(34)
+        label.get_style_context().add_class('buddy-text')
+        inner.pack_start(label, False, False, 0)
+        row = Gtk.FlowBox()
+        row.set_selection_mode(Gtk.SelectionMode.NONE)
+        row.set_max_children_per_line(4)
+        row.set_column_spacing(6)
+        row.set_row_spacing(6)
+
+        def pressed(fn, answer):
+            self.hide_hint()
+            if on_answer:
+                on_answer(answer)
+            if fn:
+                try:
+                    fn()
+                except Exception as error:  # shown as a notification instead of a silent failure
+                    self.ui.log('Suggestie mislukt: %s' % error)
+                    try:
+                        import backend
+                        backend.spawn(['notify-send', '-a', 'Claude', 'Dat lukte niet', str(error)[:200]])
+                    except Exception:  # noqa: BLE001
+                        pass
+                self.set_state('happy')
+        for i, (title, fn) in enumerate(list(actions) + [('Niet nu', None), ('Nooit', None)]):
+            button = Gtk.Button(label=title)
+            button.set_can_focus(False)
+            ctx = button.get_style_context()
+            ctx.add_class('claude-btn')
+            if i == 0:
+                ctx.add_class('buddy-main')
+            answer = 'ja' if fn else ('nooit' if title == 'Nooit' else 'niet-nu')
+            button.connect('clicked', lambda b, f=fn, a=answer: pressed(f, a))
+            row.add(button)
+        inner.pack_start(row, False, False, 0)
+        self.bubble.add(inner)
+        self.window.set_size_request(BUBBLE_WIDTH, -1)
+        inner.show_all()  # the bubble itself has no_show_all, so show_all() on it would do nothing
+        self.bubble.show()
+        self.set_state('attention' if self.state == 'idle' else self.state)
+        self.hint_timer = GLib.timeout_add_seconds(25, self.expire_hint, on_answer)
+
+    def expire_hint(self, on_answer):
+        self.hint_timer = 0
+        self.hide_hint()
+        return False
+
+    def hide_hint(self):
+        if self.hint_timer:
+            GLib.source_remove(self.hint_timer)
+            self.hint_timer = 0
+        child = self.bubble.get_child()
+        if child:
+            child.destroy()
+        self.bubble.hide()
+        self.window.set_size_request(*BUDDY)
+        self.window.resize(*BUDDY)
+        if self.state == 'attention':
+            self.set_state('idle')
+
+    def draw_bubble(self, widget, cr):
+        w, h, r = widget.get_allocated_width(), widget.get_allocated_height() - 12, 16
+        cr.new_sub_path()
+        cr.arc(w - r - 1, r + 1, r, -math.pi / 2, 0)
+        cr.arc(w - r - 1, h - r, r, 0, math.pi / 2)
+        cr.line_to(w - 50, h)
+        cr.line_to(w - 62, h + 11)  # the tail points at the buddy
+        cr.line_to(w - 72, h)
+        cr.arc(r + 1, h - r, r, math.pi / 2, math.pi)
+        cr.arc(r + 1, r + 1, r, math.pi, 1.5 * math.pi)
+        cr.close_path()
+        cr.set_source_rgba(0.035, 0.06, 0.15, 0.96)
+        cr.fill_preserve()
+        cr.set_line_width(1.2)
+        cr.set_source_rgba(*ORANGE, 0.6)
+        cr.stroke()
+        return False
 
     # ----- places on screen (margins from the bottom-right corner) -----
     def screen(self):
@@ -396,6 +520,8 @@ class Buddy:
 
     def set_busy(self, busy):
         self.busy = busy
+        if not busy:
+            self.breathe()
 
     def set_state(self, state):
         self.state = state
@@ -446,7 +572,23 @@ class Buddy:
                 self.blink = max(0.0, self.blink - 0.2)
             return True
         self.anim = 0
+        self.breathe()
         return False
+
+    def breathe(self):
+        """At rest only a slow breath (10 frames a second), and nothing at all while a program is in front."""
+        if self.anim or self.busy or self.ui.animations() != 'full':
+            return
+        self.anim = GLib.timeout_add(100, self.breath_tick)
+
+    def breath_tick(self):
+        if self.state != 'idle' or self.moving() or self.busy or self.blink > 0:
+            self.anim = 0
+            if not self.busy or self.state != 'idle':
+                self.run()  # back to the fast loop (a blink, a jump, a walk)
+            return False
+        self.area.queue_draw()
+        return True
 
     def schedule_blink(self):
         if not self.busy and self.ui.animations() != 'off' and random.random() < 0.8:
@@ -459,6 +601,48 @@ class Buddy:
         return True
 
     # ----- drawing -----
+    def pose(self, t, state, walking):
+        """Disney's animation principles, cheaply: anticipation (crouch before a jump), squash and stretch (flat on
+        landing, long in the air), follow-through (bounces that die out), a lean into the walking direction and a slow
+        breath at rest. Returns (height above the ground, scale x, scale y, rotation)."""
+        hop, sx, sy, lean = 0.0, 1.0, 1.0, 0.0
+        if state == 'happy':
+            if t < 0.16:  # anticipation: crouch
+                k = math.sin(t / 0.16 * math.pi / 2)
+                sx, sy = 1 + 0.16 * k, 1 - 0.2 * k
+            elif t < 1.6:
+                u = t - 0.16
+                period = 0.42
+                n, phase = int(u / period), (u % period) / period
+                height = 22 * (0.55 ** n)  # every bounce lower: follow-through
+                hop = height * math.sin(phase * math.pi)
+                v = math.cos(phase * math.pi)  # +1 going up, -1 coming down
+                if phase < 0.12 or phase > 0.88:  # touching the ground: squash
+                    f = 1 - min(phase, 1 - phase) / 0.12
+                    sx, sy = 1 + 0.14 * f * (height / 22), 1 - 0.16 * f * (height / 22)
+                else:  # in the air: stretch with the speed
+                    sx, sy = 1 - 0.06 * abs(v) * (height / 22), 1 + 0.1 * abs(v) * (height / 22)
+        elif state == 'attention':
+            hop = abs(math.sin(t * 7)) * 7
+            lean = math.sin(t * 7) * 0.08
+            sy = 1 + 0.05 * abs(math.cos(t * 7))
+        elif walking:
+            step = time.monotonic() * 11
+            hop = abs(math.sin(step)) * 6
+            ground = 1 - abs(math.sin(step))
+            sx, sy = 1 + 0.07 * ground, 1 - 0.07 * ground
+            lean = -0.14 * self.facing  # lean into the direction of travel
+        elif state == 'listen':
+            lean = 0.06 * math.sin(t * 1.5)  # head tilt while listening
+            sy = 1 + 0.02 * math.sin(t * 3)
+        elif state in ('think', 'work'):
+            sy = 1 + 0.03 * math.sin(t * (6 if state == 'work' else 2.5))
+            lean = 0.05 * math.sin(t * 1.2)
+        else:  # idle: breathing
+            b = math.sin(time.monotonic() * 2.1)
+            sx, sy = 1 - 0.015 * b, 1 + 0.025 * b
+        return hop, sx, sy, lean
+
     def draw(self, widget, cr):
         cr.set_operator(cairo.OPERATOR_CLEAR)
         cr.paint()
@@ -467,23 +651,25 @@ class Buddy:
         t = time.monotonic() - self.state_since
         state = self.state
         walking = self.moving()
-        hop = 0.0
-        if state == 'happy':
-            hop = abs(math.sin(t * 7)) * 16 * max(0.0, 1 - t / 1.6)
-        elif state == 'attention':
-            hop = abs(math.sin(t * 9)) * 8
-        elif walking:
-            hop = abs(math.sin(time.monotonic() * 12)) * 6
+        hop, sx, sy, lean = self.pose(t, state, walking)
         cx, cy, r = w / 2, h - 52 - hop, 34
+        ground = h - 18
 
-        # shadow
+        # shadow: smaller and lighter the higher the buddy is
         cr.save()
         cr.translate(cx, h - 12)
         cr.scale(1, 0.28)
-        cr.arc(0, 0, r * (0.9 - hop / 80), 0, 2 * math.pi)
+        cr.arc(0, 0, r * (0.95 - hop / 70) * sx, 0, 2 * math.pi)
         cr.restore()
-        cr.set_source_rgba(0, 0, 0, 0.35)
+        cr.set_source_rgba(0, 0, 0, 0.35 - hop / 120)
         cr.fill()
+
+        # squash, stretch and lean around the point where the body touches the ground
+        cr.save()
+        cr.translate(cx, ground - hop)
+        cr.rotate(lean)
+        cr.scale(sx, sy)
+        cr.translate(-cx, -(ground - hop))
 
         # glow while listening / working
         if state in ('listen', 'work', 'attention'):
@@ -548,6 +734,7 @@ class Buddy:
 
         # ring in front
         self.ring(cr, cx, cy, r, spin, back=False)
+        cr.restore()
 
         # thinking: three dots circling above the head
         if state in ('think', 'work'):

@@ -31,6 +31,21 @@ De MCP-server en de hooks praten met de draaiende shell via de bestaande socket 
 - `claude-event <soort> [json]` geeft een seintje aan het personage (luisteren, denken, hulpmiddel, toestemming, klaar).
 - `claude` opent of sluit het Claude-paneel (Windows+C).
 
+## Vooruitdenken (zonder AI)
+Het personage stelt zelf dingen voor in een tekstballon met knoppen die het meteen regelen (`shell/buddy_hints.py`):
+afgeronde download (openen, map tonen, .deb installeren), USB-stick (openen), batterij onder 15 % (scherm donkerder) en
+gewoontes uit de tijdlijn ("Je opent rond deze tijd vaak Firefox"). Elke ballon heeft ook "Vraag Claude" (zet een
+vraag klaar in het paneel; de gebruiker verstuurt met Enter), "Niet nu" (rest van de dag) en "Nooit". Antwoorden staan
+in het brein (tabel hints). Het personage stuurt zelf nooit iets naar Claude.
+
+## Tweede brein
+- Herinneringen, tijdlijn (30 dagen, programma's en bestanden die via Universe geopend worden) en antwoorden op
+  suggesties: SQLite in `~/.local/share/universe-os/brein.db`.
+- Inhoud van je bestanden: **Recoll** (Debian-pakket, Xapian, offline), aanbevolen pakket. Index van de eigen mappen,
+  elk half uur bijgewerkt op laagste prioriteit (niet op een bijna lege batterij). Zonder Recoll: zoeken op bestandsnaam.
+- Onderzocht en afgevallen: mem0/OpenMemory en Khoj (te zwaar, LLM nodig), basic-memory (Python 3.12, AGPL), de
+  MCP-memory-referentieserver (niets extra), localsearch (zwaarder dan Recoll).
+
 ## Hooks en personage
 | Claude Code (hook) | Personage |
 |---|---|
@@ -53,8 +68,8 @@ status, brein lezen). Openen, instellingen wijzigen, vensters sluiten en het bre
 ## Fasen
 1. **Deze stap:** starter, MCP-server met hulpmiddelen en brein (notities en voorkeuren), hooks, socketopdrachten,
    paneel met terminal, eenvoudig tijdelijk personage. Testen in de VM.
-2. Tweede brein uitbreiden: bestandsindex (elk half uur, laagste prioriteit) en tijdlijn van 30 dagen.
-3. **Vervolgproject:** het echte personage in Disney-stijl, als vooraf gerenderde animaties (geen live 3D), dat zonder
+2. Gedaan: bestandsindex (Recoll), tijdlijn, suggesties met tekstballon, Disney-principes in de bewegingen.
+3. **Vervolgproject:** ("Claude motion" bestaat niet als tool; Remotion/animation-studio maken alleen video's) het echte personage in Disney-stijl, als vooraf gerenderde animaties (geen live 3D), dat zonder
    andere aanpassingen het tijdelijke figuurtje vervangt.
 
 ## Open punten

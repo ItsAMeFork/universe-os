@@ -152,6 +152,30 @@ def secure_boot():
     return 'aan' if 'enabled' in text else 'uit' if 'disabled' in text else 'onbekend'
 
 
+def claude_path():
+    """Same lookup as find_claude() in claude_ui.py (also when ~/.local/bin is not on PATH)."""
+    for path in (shutil.which('claude'), os.path.expanduser('~/.local/bin/claude'), os.path.expanduser('~/.claude/local/claude')):
+        if path and os.access(path, os.X_OK):
+            return path
+    return None
+
+
+def claude_status():
+    path = claude_path()
+    if not path:
+        return {'installed': False, 'version': ''}
+    return {'installed': True, 'version': backend.out([path, '--version'], timeout=5).strip()}
+
+
+def claude_install():
+    """Runs Anthropic's official installer in a terminal, so the user sees what happens."""
+    if not shutil.which('xfce4-terminal'):
+        raise RuntimeError('Er is geen terminal beschikbaar om de installatie te starten.')
+    script = 'curl -fsSL https://claude.ai/install.sh | bash; echo; echo "Druk op Enter om dit venster te sluiten."; read -r _'
+    backend.spawn(['xfce4-terminal', '--title', 'Claude Code installeren', '-x', 'bash', '-c', script])
+    return True
+
+
 def handlers(app):
     def set_config(a):
         config.set_setting(a['key'], a['value'])
@@ -266,6 +290,9 @@ def handlers(app):
         'updates.refresh': lambda a: backend.updates.refresh(),
         'updates.install': lambda a: backend.updates.install(),
         'about': lambda a: about(),
+        'claude.status': lambda a: claude_status(),
+        'claude.install': lambda a: claude_install(),
+        'claude.open': lambda a: backend.spawn(['universe-ctl', 'claude']),
         'window.page': lambda a: app.pending_page,
     }
 
@@ -291,7 +318,7 @@ class ControlCenter(Gtk.Application):
             return
         bridge = Bridge(handlers(self), threaded={'updates.channel.set', 'network.status', 'status', 'audio.outputs', 'audio.select', 'wifi.list', 'wifi.connect', 'users.add', 'users.remove', 'users.admin',
                                                    'users.password', 'account.password', 'timezone.set', 'updates.status', 'keyboard.set',
-                                                   'locale.set', 'bluetooth.get', 'updates.refresh', 'updates.install'}, log=lambda *args: None)
+                                                   'locale.set', 'bluetooth.get', 'updates.refresh', 'updates.install', 'claude.status'}, log=lambda *args: None)
         self.window = Gtk.ApplicationWindow(application=self, title='Controlecentrum')
         self.window.set_default_size(1040, 720)
         self.window.set_icon_name('preferences-system')

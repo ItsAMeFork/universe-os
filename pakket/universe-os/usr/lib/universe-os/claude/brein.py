@@ -31,6 +31,9 @@ def connect():
         CREATE TRIGGER IF NOT EXISTS memories_au AFTER UPDATE ON memories BEGIN
             INSERT INTO memories_fts(memories_fts, rowid, text, tags) VALUES ('delete', old.id, old.text, old.tags);
             INSERT INTO memories_fts(rowid, text, tags) VALUES (new.id, new.text, new.tags); END;
+        CREATE TABLE IF NOT EXISTS timeline (at REAL NOT NULL, kind TEXT NOT NULL, item TEXT NOT NULL, label TEXT NOT NULL DEFAULT '');
+        CREATE INDEX IF NOT EXISTS timeline_at ON timeline(at);
+        CREATE TABLE IF NOT EXISTS hints (key TEXT PRIMARY KEY, answer TEXT NOT NULL, at REAL NOT NULL);
     """)
     return db
 
@@ -92,3 +95,47 @@ def forget(memory_id):
         if not cur.rowcount:
             raise ValueError('Herinnering %s bestaat niet' % memory_id)
     return True
+
+
+# ----- timeline: what the user opened (30 days), for Claude and for the buddy's suggestions -----
+TIMELINE_DAYS = 30
+
+
+def log_event(kind, item, label=''):
+    """kind: 'app' (a .desktop id) or 'file' (a path). Old entries go away after TIMELINE_DAYS."""
+    now = time.time()
+    with connect() as db:
+        db.execute('INSERT INTO timeline(at, kind, item, label) VALUES (?, ?, ?, ?)', (now, kind, str(item)[:500], str(label)[:200]))
+        if int(now) % 50 == 0:  # tidy up now and then, not on every insert
+            db.execute('DELETE FROM timeline WHERE at < ?', (now - TIMELINE_DAYS * 86400,))
+
+
+def timeline(days=7, kind=None, limit=100):
+    since = time.time() - max(1, min(int(days or 7), TIMELINE_DAYS)) * 86400
+    with connect() as db:
+        rows = db.execute('SELECT * FROM timeline WHERE at >= ?' + (' AND kind = ?' if kind else '') + ' ORDER BY at DESC LIMIT ?',
+                          [since] + ([kind] if kind else []) + [max(1, min(int(limit or 100), 500))])
+        return [{'wanneer': time.strftime('%Y-%m-%d %H:%M', time.localtime(r['at'])), 'soort': r['kind'],
+                 'wat': r['item'], 'naam': r['label']} for r in rows]
+
+
+def habits(hour, weekday=None, min_count=3):
+    """Apps the user often opens around this hour (±1) in the last 30 days, most frequent first."""
+    since = time.time() - TIMELINE_DAYS * 86400
+    hours = ['%02d' % ((hour + d) % 24) for d in (-1, 0, 1)]
+    with connect() as db:
+        rows = db.execute("SELECT item, max(label) AS label, count(DISTINCT date(at, 'unixepoch', 'localtime')) AS days "
+                          "FROM timeline WHERE kind = 'app' AND at >= ? AND strftime('%H', at, 'unixepoch', 'localtime') IN (?, ?, ?) "
+                          "GROUP BY item HAVING days >= ? ORDER BY days DESC LIMIT 5", [since] + hours + [min_count])
+        return [{'id': r['item'], 'naam': r['label'], 'dagen': r['days']} for r in rows]
+
+
+def hint_answer(key):
+    with connect() as db:
+        row = db.execute('SELECT answer, at FROM hints WHERE key = ?', (key,)).fetchone()
+        return (row['answer'], row['at']) if row else (None, 0)
+
+
+def set_hint_answer(key, answer):
+    with connect() as db:
+        db.execute('INSERT OR REPLACE INTO hints(key, answer, at) VALUES (?, ?, ?)', (key, answer, time.time()))
