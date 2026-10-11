@@ -14,12 +14,15 @@ if [ -z "$CLAUDE" ]; then
     read -r _
     exit 1
 fi
-cd "$HOME" || exit 1
+# Claude Code works in a folder of its own: it never remembers trusting the home folder itself, so it asked
+# "Do you trust this folder?" on every start (VM test, 11 Oct). The personal folder is added with --add-dir.
+WORK="${XDG_DATA_HOME:-$HOME/.local/share}/universe-os/claude"
+mkdir -p "$WORK" && cd "$WORK" || exit 1
 CONTINUE=
-# Continue the last conversation in the home folder if there is one (Claude Code names its folder after the path).
-if [ "$1" != "--nieuw" ] && ls "$HOME/.claude/projects/$(printf %s "$HOME" | sed 's/[^A-Za-z0-9]/-/g')"/*.jsonl >/dev/null 2>&1; then
+# Continue the last conversation if there is one (Claude Code names its folder after the path).
+if [ "$1" != "--nieuw" ] && ls "$HOME/.claude/projects/$(printf %s "$WORK" | sed 's/[^A-Za-z0-9]/-/g')"/*.jsonl >/dev/null 2>&1; then
     CONTINUE=--continue
 fi
 export UNIVERSE_CLAUDE=1
-exec "$CLAUDE" --model haiku $CONTINUE --mcp-config "$D/mcp.json" --settings "$D/settings.json" \
+exec "$CLAUDE" --model haiku $CONTINUE --add-dir "$HOME" --mcp-config "$D/mcp.json" --settings "$D/settings.json" \
     --append-system-prompt "$(cat "$D/uitleg.md")"

@@ -2,6 +2,15 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
+## 11 oktober avond: echte Claude Code getest in de VM (Axel ingelogd, Haiku 5.5)
+Werkt: vraag over het scherm (overzicht + schermafbeelding), Firefox en Rekenmachine openen (wacht nu op het venster),
+onthouden en terugvinden in een nieuw gesprek (brein), zoeken in bestandsinhoud (recoll), personage loopt mee.
+Opgelost tijdens de test: app_openen met "naam" i.p.v. "id" opende Atril; vertrouwensvraag bij elke start (Claude Code
+onthoudt de thuismap niet; nu eigen werkmap `~/.local/share/universe-os/claude` + `--add-dir ~`); paneel onzichtbaar na sluiten;
+typen (toetsenbord blijft bij het paneel); klikbare links en Ctrl+Shift+C/V. VM: virtio-vga + SSE4-processor (rust ~2 % i.p.v.
+50-90 %). Snelheid: sterren/planeten/vensterlijst/netwerk via D-Bus. Open: eerste inlog na opstarten (57 s gemeten met oude
+VGA), Chrome-sleutelbosvraag in de VM (oud wachtwoord), pakket opnieuw bouwen.
+
 ## 11 oktober: Claude in Universe OS, fase 1 (ontwerp: `docs/CLAUDE-IN-UNIVERSE.md`)
 | Wat | Waar | Test |
 |---|---|---|

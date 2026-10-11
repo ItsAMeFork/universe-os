@@ -578,6 +578,11 @@ class Shell:
                 if not (self.claude and self.claude.available()):
                     return 'fout: Claude Code is niet geïnstalleerd'
                 self.claude.toggle()
+            elif cmd == 'claude-ask' and len(parts) > 1:
+                # Puts a question ready in the Claude panel (the user sends it with Enter), e.g. from a launcher.
+                if not (self.claude and self.claude.available()):
+                    return 'fout: Claude Code is niet geïnstalleerd'
+                self.claude.ask(line.split(maxsplit=1)[1])
             elif cmd == 'claude-event' and len(parts) > 1:
                 import json
                 data = {}

@@ -11,6 +11,7 @@ import os
 import socket
 import subprocess
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import brein  # noqa: E402
@@ -77,14 +78,33 @@ def t_apps(a):
 
 
 def t_open_app(a):
-    app_id = str(a.get('id') or '')
+    # Haiku sometimes sends {"naam": ...} instead of {"id": ...}: with an empty id every program matched and the first
+    # one alphabetically (Atril) opened instead of Firefox (VM test, 11 Oct).
+    app_id = str(a.get('id') or a.get('naam') or a.get('name') or a.get('programma') or '').strip()
+    if not app_id:
+        raise ToolError('Geef het programma op met "id" (uit apps_lijst) of een naam.')
     if not app_id.endswith('.desktop'):
-        hits = [x for x in shell('apps.list') if app_id.lower() in (x['name'] + ' ' + x['id']).lower()]
+        q = app_id.lower()
+        apps = shell('apps.list')
+        hits = [x for x in apps if q in (x['name'] + ' ' + x['id']).lower()]
         if not hits:
             raise ToolError('Geen programma gevonden voor "%s". Gebruik apps_lijst.' % app_id)
+        # best match first: exact name or id, then names that start with the question
+        hits.sort(key=lambda x: (x['name'].lower() != q and x['id'].lower() != q + '.desktop',
+                                 not x['name'].lower().startswith(q), len(x['name'])))
         app_id = hits[0]['id']
+    before = {w.get('id') for w in shell('windows.list')}
     shell('apps.launch', {'id': app_id})
-    return 'Gestart: %s' % app_id
+    # Wait for its window (up to 8 s), so Claude does not take a screenshot before the program is there and conclude
+    # that it failed (VM test, 11 Oct).
+    stem = app_id[:-len('.desktop')].lower()
+    for _ in range(16):
+        time.sleep(0.5)
+        new = [w for w in shell('windows.list') if w.get('id') not in before]
+        if new:
+            match = next((w for w in new if stem in (w.get('appId') or '').lower()), new[0])
+            return 'Gestart: %s. Nieuw venster: "%s".' % (app_id, match.get('title') or match.get('appName') or '')
+    return 'Gestart: %s (nog geen venster na 8 s; trage programma\'s hebben soms meer tijd nodig).' % app_id
 
 
 def t_windows(a):
@@ -219,7 +239,7 @@ TOOLS = {
                   'Call this first when a request is about the screen.', S({}), t_overview, True),
     'status': ('Network, volume, battery and notifications.', S({}), t_status, True),
     'apps_lijst': ('Installed programs (id, name, description). Optional filter "zoek".', S({'zoek': STR}), t_apps, True),
-    'app_openen': ('Start a program by its .desktop id (from apps_lijst) or by (part of) its name.', S({'id': STR}, ['id']), t_open_app, False),
+    'app_openen': ('Start a program. Put its .desktop id (from apps_lijst) or (part of) its name in "id".', S({'id': STR}, ['id']), t_open_app, False),
     'vensters': ('Open windows with their id.', S({}), t_windows, True),
     'venster': ('Activate, minimize or close a window (id from vensters).',
                 S({'id': STR, 'actie': {'type': 'string', 'enum': ['activeren', 'minimaliseren', 'sluiten']}}, ['id', 'actie']), t_window, False),
@@ -255,6 +275,13 @@ TOOLS = {
 }
 
 
+def name_fallback(tool, args):
+    """app_openen also accepts a name under another key (Haiku used 'naam'); other tools need their exact keys."""
+    if tool == 'app_openen' and any(args.get(k) for k in ('naam', 'name', 'programma')):
+        return True
+    return None
+
+
 def content(result):
     if isinstance(result, dict) and '_image' in result:
         return [{'type': 'image', 'data': result['_image'], 'mimeType': result['_mime']}]
@@ -277,8 +304,13 @@ def handle(msg):
         tool = TOOLS.get(params.get('name'))
         if not tool:
             return {'content': [{'type': 'text', 'text': 'Onbekend hulpmiddel'}], 'isError': True}
+        args = params.get('arguments') or {}
+        missing = [k for k in tool[1].get('required', []) if k not in args]
+        if missing and name_fallback(params.get('name'), args) is None:
+            return {'content': [{'type': 'text', 'text': 'Ontbrekend: %s (gekregen: %s). Gebruik precies deze namen: %s.' % (
+                ', '.join(missing), ', '.join(args) or 'niets', ', '.join(tool[1].get('properties', {})))}], 'isError': True}
         try:
-            return {'content': content(tool[2](params.get('arguments') or {}))}
+            return {'content': content(tool[2](args))}
         except Exception as error:  # every failure is a tool result Claude can read, not a protocol error
             return {'content': [{'type': 'text', 'text': str(error) or error.__class__.__name__}], 'isError': True}
     raise MethodNotFound(method)
