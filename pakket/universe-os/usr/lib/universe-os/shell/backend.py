@@ -217,8 +217,16 @@ def search(query):
 
 
 # ---------- status ----------
-def network():
-    return network_status.status()
+_network = (0.0, None)
+
+
+def network(max_age=30):
+    """Network state, at most every 30 s: it costs three nmcli processes, and the panel asks every 10 s (in the VM
+    those spawns were a large part of the load of a quiet desktop)."""
+    global _network
+    if _network[1] is None or time.monotonic() - _network[0] > max_age:
+        _network = (time.monotonic(), network_status.status())
+    return _network[1]
 
 
 def volume():

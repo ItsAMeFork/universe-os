@@ -41,7 +41,54 @@ def classify(devices, radio, connectivity):
     return {'state': 'disconnected', 'reason': reason, 'message': message}
 
 
+NM_TYPES = {1: 'ethernet', 2: 'wifi', 5: 'bt', 8: 'gsm', 13: 'bridge', 16: 'tun', 22: 'dummy', 29: 'wireguard',
+            30: 'wifi-p2p', 32: 'loopback'}
+NM_CONNECTIVITY = {1: 'none', 2: 'portal', 3: 'limited', 4: 'full'}
+
+
+def _nm_state(state):
+    if state == 100:
+        return 'connected'
+    if 40 <= state < 100:
+        return 'connecting'
+    return {10: 'unmanaged', 20: 'unavailable', 30: 'disconnected'}.get(state, 'unknown')
+
+
+def dbus_status():
+    """The same rows as `nmcli device status`, read over D-Bus in this process. Three nmcli processes every
+    refresh were a noticeable load on a quiet desktop (VM, 11 Oct)."""
+    import gi
+    gi.require_version('Gio', '2.0')
+    from gi.repository import Gio, GLib
+    bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+
+    def prop(path, iface, name):
+        value = bus.call_sync('org.freedesktop.NetworkManager', path, 'org.freedesktop.DBus.Properties', 'Get',
+                              GLib.Variant('(ss)', (iface, name)), None, Gio.DBusCallFlags.NONE, 2000, None)
+        return value.unpack()[0]
+    nm, dev = 'org.freedesktop.NetworkManager', 'org.freedesktop.NetworkManager.Device'
+    rows = []
+    for path in prop('/org/freedesktop/NetworkManager', nm, 'Devices'):
+        kind = NM_TYPES.get(prop(path, dev, 'DeviceType'), 'other')
+        state = _nm_state(prop(path, dev, 'State'))
+        name = ''
+        active = prop(path, dev, 'ActiveConnection')
+        if active and active != '/':
+            try:
+                name = prop(active, 'org.freedesktop.NetworkManager.Connection.Active', 'Id')
+            except Exception:  # noqa: BLE001 - the connection went away meanwhile
+                name = ''
+        rows.append('%s:%s:%s' % (kind, state, name))
+    radio = 'enabled' if prop('/org/freedesktop/NetworkManager', nm, 'WirelessEnabled') else 'disabled'
+    connectivity = NM_CONNECTIVITY.get(prop('/org/freedesktop/NetworkManager', nm, 'Connectivity'), 'unknown')
+    return classify('\n'.join(rows), radio, connectivity)
+
+
 def status():
+    try:
+        return dbus_status()
+    except Exception:  # noqa: BLE001 - fall back to nmcli (older NetworkManager, D-Bus trouble)
+        pass
     try:
         devices = query('-f', 'TYPE,STATE,CONNECTION', 'device', 'status')
         radio = query('radio', 'wifi')

@@ -215,7 +215,7 @@ class ClaudeUI:
                                         '#3a4566', '#ff8b8b', '#85ffe3', '#ffc97a', '#8ec0ff', '#dcb2ff', '#b0fff0', '#ffffff')):
             rgba.parse(spec)
         term.set_colors(fg, bg, palette)
-        term.set_cursor_blink_mode(Vte.CursorBlinkMode.ON)
+        term.set_cursor_blink_mode(Vte.CursorBlinkMode.OFF)  # every blink is a screen update (costly without a GPU)
         term.set_scrollback_lines(5000)
         term.set_font(Pango.FontDescription('Monospace 11'))
         term.connect('child-exited', self.child_exited)
@@ -373,7 +373,7 @@ class Buddy:
         self.last_frame = 0
         self.apply_pos()
         win.show_all()
-        self.blink_timer = GLib.timeout_add_seconds(4, self.schedule_blink)
+        self.blink_timer = GLib.timeout_add_seconds(6, self.schedule_blink)  # every frame costs the compositor
         # Arrive: a short hop out of the corner.
         self.set_state('happy')
 
@@ -547,6 +547,9 @@ class Buddy:
     def set_state(self, state):
         self.state = state
         self.state_since = time.monotonic()
+        if self.anim and state != 'idle':  # a slow rest loop (blink, breath) becomes the full 30 fps loop
+            GLib.source_remove(self.anim)
+            self.anim = 0
         self.run()
 
     # ----- animation loop: only runs while something moves -----
@@ -570,7 +573,8 @@ class Buddy:
         if not self.anim:
             self.slow_frames = 0
             self.last_frame = time.monotonic()
-            self.anim = GLib.timeout_add(33, self.tick)
+            # 30 fps for walking and the states; a blink or wiggle at rest is fine at 15 fps (half the frames to draw)
+            self.anim = GLib.timeout_add(66 if self.state == "idle" and not self.moving() else 33, self.tick)
         self.area.queue_draw()
 
     def tick(self):
@@ -637,7 +641,7 @@ class Buddy:
     def schedule_blink(self):
         if not self.busy and self.ui.animations() != 'off':
             r = random.random()
-            if r < 0.25 and self.ui.animations() == 'full':
+            if r < 0.15 and self.ui.animations() == "full":
                 self.wiggle_until = time.monotonic() + 1.2  # a short jelly wiggle
                 self.run()
             elif r < 0.85:
