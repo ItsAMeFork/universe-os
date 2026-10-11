@@ -208,7 +208,7 @@ class ClaudeUI:
         gi.require_version('Vte', '2.91')
         from gi.repository import Pango, Vte
         term = Vte.Terminal()
-        bg = Gdk.RGBA(0.02, 0.04, 0.10, 0.0)
+        bg = Gdk.RGBA(0.03, 0.05, 0.12, 1.0)  # opaque: VTE replaces (not blends) its background, planets shone through
         fg = Gdk.RGBA(0.91, 1.0, 0.98, 1.0)
         palette = [Gdk.RGBA() for _ in range(16)]
         for rgba, spec in zip(palette, ('#0b1022', '#ff6b6b', '#5ef0c4', '#ffb357', '#6aa8ff', '#c792ea', '#85ffe3', '#d8e6f0',
@@ -233,8 +233,20 @@ class ClaudeUI:
         if self.alive_timer:
             GLib.source_remove(self.alive_timer)
             self.alive_timer = 0
+        self.slide_id = getattr(self, 'slide_id', 0) + 1  # stop a closing fade that is still running
+        if self.panel is not None:
+            self.panel.set_opacity(1.0)
+        if self.panel is not None and not self.panel.get_visible():
+            # A layer surface that was hidden stayed invisible when shown again (labwc, 11 Oct): build a new window
+            # and move the running terminal into it, so the conversation with Claude Code continues.
+            if self.term:
+                self.holder.remove(self.term)
+            self.panel.destroy()
+            self.panel = None
         if self.panel is None:
             self.build_panel()
+            if self.term:
+                self.holder.pack_start(self.term, True, True, 0)
         if self.term is None:
             self.start_terminal()
         E, K = GtkLayerShell.Edge, GtkLayerShell.KeyboardMode
@@ -242,7 +254,7 @@ class ClaudeUI:
         if not self.panel.get_visible():
             self.panel.show_all()
             if self.animations() == 'full':
-                self.slide(-PANEL_WIDTH, 12)
+                self.fade(0.0, 1.0)
         self.panel.present()
         self.term.grab_focus()
         # The keyboard stays with the panel while it is open (like the start menu). Switching to on-demand after a
@@ -251,28 +263,31 @@ class ClaudeUI:
             self.buddy.event('panel', {})
         return True
 
-    def slide(self, start, end, done=None):
-        E = GtkLayerShell.Edge
+    def fade(self, start, end, done=None):
+        """Fade the panel in or out (0.18 s). Not a slide from outside the screen: a layer surface that had a negative
+        margin stayed invisible when it was shown again (labwc, 11 Oct)."""
         t0 = time.monotonic()
+        self.slide_id = getattr(self, 'slide_id', 0) + 1  # a newer slide (open while closing) cancels this one
+        mine = self.slide_id
 
         def step():
-            if not self.panel:
+            if not self.panel or mine != self.slide_id:
                 return False
-            t = min(1.0, (time.monotonic() - t0) / 0.22)
-            GtkLayerShell.set_margin(self.panel, E.RIGHT, int(start + (end - start) * ease(t)))
+            t = min(1.0, (time.monotonic() - t0) / 0.18)
+            self.panel.set_opacity(start + (end - start) * ease(t))
             if t >= 1.0:
                 if done:
                     done()
                 return False
             return True
-        GtkLayerShell.set_margin(self.panel, E.RIGHT, start)
+        self.panel.set_opacity(start)
         GLib.timeout_add(16, step)
 
     def close(self):
         if not (self.panel and self.panel.get_visible()):
             return False
         if self.animations() == 'full':
-            self.slide(12, -PANEL_WIDTH, self.panel.hide)
+            self.fade(1.0, 0.0, self.panel.hide)
         else:
             self.panel.hide()
         if self.term and not self.alive_timer:
