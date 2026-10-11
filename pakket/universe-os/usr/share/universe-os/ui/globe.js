@@ -7,7 +7,9 @@ const bitmaps=new Map();
 function remember(key,canvas){
  let pixels=canvas.width*canvas.height;
  for(const image of bitmaps.values())pixels+=image.width*image.height;
- while(bitmaps.size&&(bitmaps.size>=32||pixels>8_000_000)){
+ // Room for every planet of a full app list (each app has its own hue): with 32 places the cache missed on every
+ // refresh once more than 32 programs were installed, and all planets were drawn again on the CPU.
+ while(bitmaps.size&&(bitmaps.size>=200||pixels>12_000_000)){
   const oldest=bitmaps.keys().next().value,image=bitmaps.get(oldest);
   pixels-=image.width*image.height;bitmaps.delete(oldest);
  }
@@ -22,7 +24,7 @@ export function globe(seed,rock=false,size=320){
  if(!Number.isFinite(seed))seed=165; // desktop shortcuts have no hue; "hsla(undefined…)" makes addColorStop throw
  size=Math.max(32,Math.min(1280,Math.ceil(size)));
  const key=`globe:${seed}:${rock}:${size}`;
- if(bitmaps.has(key))return copy(bitmaps.get(key),'space-globe');
+ if(bitmaps.has(key)){const hit=bitmaps.get(key);bitmaps.delete(key);bitmaps.set(key,hit);return copy(hit,'space-globe');} // LRU
  const canvas=document.createElement('canvas');canvas.className='space-globe';canvas.width=canvas.height=size;canvas.setAttribute('aria-hidden','true');
  const c=canvas.getContext('2d');c.scale(size/320,size/320);
  const hue=Number.isFinite(+seed)?((Math.round(+seed)%360)+360)%360:200; // never an invalid colour string

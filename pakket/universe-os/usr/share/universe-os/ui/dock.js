@@ -63,11 +63,14 @@ function render(){
   ...others.map(w=>button({name:w.title||w.appName||'Venster',img:w.icon,iconName:'grid',open:true,active:w.activated,onClick:()=>call('windows.activate',{id:w.id})})));
  resize();
 }
+let lastSize=[0,0];
 /** Surface size: the bar, plus room above it for a popup. */
 function resize(){
  const width=Math.max(Math.ceil(bar.offsetWidth)+4,popup?Math.ceil(popup.offsetWidth)+8:0);
  const height=DOCK_HEIGHT+(popup?Math.ceil(popup.offsetHeight)+12:0);
- return call('dock.size',{width,height}).catch(()=>{});
+ if(width===lastSize[0]&&height===lastSize[1])return Promise.resolve();
+ lastSize=[width,height];
+ return call('dock.size',{width,height}).catch(()=>{lastSize=[0,0];});
 }
 function saveLayout(){return call('layout.set',{layout}).then(l=>{layout=l;}).catch(e=>toast('Opslaan mislukt: '+e.message));}
 function saveDock(dock){layout={...layout,dock};render();saveLayout();}
@@ -129,7 +132,10 @@ async function init(){
  try{windows=await call('windows.list');}catch{}
  render();window.__universePageReady?.();
 }
-on('windows',list=>{windows=list||[];render();});
+// The shell sends the window list on every change of any window (also a title that ticks): only rebuild the bar
+// when something it shows changed.
+const shownWindows=l=>JSON.stringify((l||[]).map(w=>[w.id,w.title,w.appId,w.icon,w.activated,w.minimized]));
+on('windows',list=>{const before=shownWindows(windows);windows=list||[];if(shownWindows(windows)!==before)render();});
 on('layout',l=>{if(l){layout=l;render();}});
 on('apps-changed',()=>loadApps().then(render));
 on('start-state',open=>{startOpen=!!open;render();});

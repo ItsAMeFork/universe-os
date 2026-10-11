@@ -313,32 +313,49 @@ class Shell:
 
     # ----- windows -----
     def window_list(self):
+        """Windows with program name and icon. The lookup (a search through all .desktop files and an icon theme
+        lookup) is cached per appId: the list is rebuilt on every window change, also when a title ticks."""
+        cache = self.__dict__.setdefault('app_cache', {})
         result = []
         for w in self.toplevels.list():
-            app = None
-            if w['appId']:
-                app = backend.desktop_app(w['appId'] + '.desktop') or backend.desktop_app(w['appId'].lower() + '.desktop')
-                if not app:
-                    hits = Gio.DesktopAppInfo.search(w['appId'])
-                    if hits and hits[0]:
-                        app = backend.desktop_app(hits[0][0])
-            w['appName'] = app.get_display_name() if app else w['appId']
-            w['icon'] = backend.icon_uri(app.get_icon()) if app else None
+            key = w['appId']
+            if key not in cache:
+                app = None
+                if key:
+                    app = backend.desktop_app(key + '.desktop') or backend.desktop_app(key.lower() + '.desktop')
+                    if not app:
+                        hits = Gio.DesktopAppInfo.search(key)
+                        if hits and hits[0]:
+                            app = backend.desktop_app(hits[0][0])
+                cache[key] = (app.get_display_name() if app else key, backend.icon_uri(app.get_icon()) if app else None)
+            w['appName'], w['icon'] = cache[key]
             result.append(w)
         return result
 
     def windows_changed(self):
+        """Many window events come in a burst (activating one window changes two): one update per 60 ms is enough."""
+        if not getattr(self, 'windows_timer', 0):
+            self.windows_timer = GLib.timeout_add(60, self.windows_update)
+        return False
+
+    def windows_update(self):
+        self.windows_timer = 0
         windows = self.toplevels.list()
-        for world in self.worlds:
-            world.emit('background-busy', any(not w.get('minimized') for w in windows))
+        busy = any(not w.get('minimized') for w in windows)
+        if busy != getattr(self, 'last_busy', None):  # the world only needs to hear when it changes
+            self.last_busy = busy
+            for world in self.worlds:
+                world.emit('background-busy', busy)
         if self.claude and self.claude.buddy:
-            self.claude.buddy.set_busy(any(not w.get('minimized') for w in windows))
+            self.claude.buddy.set_busy(busy)
         if windows:
             self.release_initial_focus()
+        listed = None
         if self.overview and self.overview.window.get_visible():
-            self.overview.emit('windows', self.window_list())
+            listed = self.window_list()
+            self.overview.emit('windows', listed)
         if self.dock:
-            self.dock.emit('windows', self.window_list())
+            self.dock.emit('windows', listed if listed is not None else self.window_list())
         return False
 
     def desktop_toggle(self):
@@ -651,7 +668,7 @@ class Shell:
         self.build()
         # The world page now loads in its own WebKit process while Python imports the window list.
         from toplevels import Toplevels
-        self.toplevels = Toplevels(self.windows_changed, log)
+        self.toplevels = Toplevels(self.windows_changed, log)  # windows_changed coalesces bursts
         try:
             from claude_ui import ClaudeUI  # cheap: panel and buddy are only built when needed
             self.claude = ClaudeUI(self, log)
@@ -683,6 +700,7 @@ class Shell:
             GLib.source_remove(self.apps_changed_timer)
         def send():
             self.apps_changed_timer = None
+            self.__dict__.pop('app_cache', None)  # names and icons of windows may have changed
             self.broadcast('apps-changed')
             return False
         self.apps_changed_timer = GLib.timeout_add(300, send)

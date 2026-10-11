@@ -84,16 +84,25 @@ function worldAt(sx,sy){
 // ----- stars and orbits on one canvas (redrawn only when the view changes) -----
 const STARS=Array.from({length:900},(_,i)=>{let s=(i*9301+49297)%233280;const r=()=>(s=(s*9301+49297)%233280)/233280;
  const u=r()*2-1,t=r()*Math.PI*2,q=Math.sqrt(1-u*u);return [q*Math.cos(t),u,q*Math.sin(t),.25+r()*.75,r()<.06];});
+// Stars grouped by brightness: one path and one fill per group instead of a fill (and a colour string) per star.
+// 24 steps between .25 and 1: the difference with the exact brightness is invisible.
+const STAR_GROUPS=Array.from({length:24},(_,i)=>({style:`rgba(208,224,255,${alpha(.25+.75*(i+.5)/24)})`,stars:[]}));
+for(const s of STARS)STAR_GROUPS[Math.min(23,Math.floor((s[3]-.25)/.75*24))].stars.push(s);
+let skyShown=false;
 function drawSky(){
  const dpr=Math.min(devicePixelRatio||1,2),w=innerWidth,hgt=innerHeight;
  if(sky.width!==Math.round(w*dpr)||sky.height!==Math.round(hgt*dpr)){sky.width=Math.round(w*dpr);sky.height=Math.round(hgt*dpr);}
  const c=sky.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,hgt);
- document.body.style.backgroundImage='none'; // the login picture of world.html, shown until the first real sky
+ if(!skyShown){skyShown=true;document.body.style.backgroundImage='none';} // the login picture of world.html, until the first real sky
  const cy=Math.cos(cam.yaw),sy=Math.sin(cam.yaw),cp=Math.cos(cam.pitch),sp=Math.sin(cam.pitch);
- for(const [x,y,z,b,big] of STARS){ // stars are far away: they only turn with the camera
-  const x1=x*cy-z*sy,z1=x*sy+z*cy,y2=y*cp-z1*sp,z2=y*sp+z1*cp;if(z2<=.05)continue;
-  const px=w/2+x1/z2*FOV,py=hgt/2+y2/z2*FOV;if(px<0||py<0||px>w||py>hgt)continue;
-  c.fillStyle=`rgba(208,224,255,${alpha(b)})`;c.beginPath();c.arc(px,py,big?1.5:.7,0,7);c.fill();
+ for(const group of STAR_GROUPS){ // stars are far away: they only turn with the camera
+  c.beginPath();
+  for(const [x,y,z,,big] of group.stars){
+   const x1=x*cy-z*sy,z1=x*sy+z*cy,y2=y*cp-z1*sp,z2=y*sp+z1*cp;if(z2<=.05)continue;
+   const px=w/2+x1/z2*FOV,py=hgt/2+y2/z2*FOV;if(px<0||py<0||px>w||py>hgt)continue;
+   const r=big?1.5:.7;c.moveTo(px+r,py);c.arc(px,py,r,0,7);
+  }
+  c.fillStyle=group.style;c.fill();
  }
  // Orbits around the Earth (folders) and the galaxy ring of the programs, as real 3D circles.
  const ringAlpha=Math.min(1,mix*1.4);
@@ -143,7 +152,7 @@ async function refreshSpace(){
   const d=o.ring==='desk'?defaultPos(o,deskObjs.indexOf(o),deskObjs.length):o.kind==='app'?defaultPos(o,0,0,...o.cluster):defaultPos(o);
   o.pos=saved[o.key]||d;
  });
- objects=all;renderObjects();
+ objects=all;earthRef=all.find(o=>o.kind==="earth")||null;renderObjects();
 }
 function renderObjects(){
  const focusKey=document.activeElement?.closest?.('.sp-obj')?.dataset.key;
@@ -171,7 +180,8 @@ let frame=0;
 function requestRender(){if(!frame)frame=requestAnimationFrame(render);}
 // mix: 1 = everything in its place, 0 = everything pulled into the Earth (login/logout animations).
 let mix=1;
-const centre=()=>objects.find(o=>o.kind==='earth')?.pos||[0,0,0];
+let earthRef=null; // set in refreshSpace (find() per object per frame was O(n²) during the animations)
+const centre=()=>earthRef?.pos||[0,0,0];
 // earthScale: the Earth grows out of a point of light after login. glow: how bright the Earth burns (0..1).
 let earthScale=1,glow=0,flash=0;
 function shownAt(o,m){
@@ -188,17 +198,23 @@ function render(){
  for(const o of objects){
   const el=o.el;if(!el)continue;
   const v=shown(o),p=project(v.pos),px=p?p.s*v.size:0;
-  if(!p||px<3||p.x<-px||p.y<-px||p.x>innerWidth+px||p.y>innerHeight+px){el.style.display='none';continue;}
-  el.style.display='';
-  const k=px/BASE;
-  el.style.transform=`translate(${(p.x-BASE/2).toFixed(1)}px,${(p.y-BASE/2).toFixed(1)}px) scale(${k.toFixed(4)})`;
-  el.style.zIndex=String(Math.max(1,Math.round(100000-p.depth)));
-  el.style.setProperty('--k',k.toFixed(4));
-  el.classList.toggle('far',px<64); // labels only for planets that are big enough (crowded groups stay readable)
+  // Every style is only written when it changed: each write (above all --k, which the label uses) makes WebKit
+  // recalculate styles, and that for every planet on every frame of a drag or zoom.
+  if(!p||px<3||p.x<-px||p.y<-px||p.x>innerWidth+px||p.y>innerHeight+px){if(el._d!=='none'){el._d='none';el.style.display='none';}continue;}
+  if(el._d!==''){el._d='';el.style.display='';}
+  const k=px/BASE,ks=k.toFixed(4);
+  const tf=`translate(${(p.x-BASE/2).toFixed(1)}px,${(p.y-BASE/2).toFixed(1)}px) scale(${ks})`;
+  if(el._tf!==tf){el._tf=tf;el.style.transform=tf;}
+  const z=Math.max(1,Math.round(100000-p.depth));
+  if(el._z!==z){el._z=z;el.style.zIndex=String(z);}
+  if(el._k!==ks){el._k=ks;el.style.setProperty('--k',ks);}
+  const far=px<64; // labels only for planets that are big enough (crowded groups stay readable)
+  if(el._far!==far){el._far=far;el.classList.toggle('far',far);}
   const fade=p.depth>9000?Math.max(.25,1-(p.depth-9000)/9000):1;
   // inside the Earth during the login/logout animation: invisible, they appear while flying out
   const inside=mix<1&&o.kind!=='earth'?Math.min(1,mix*2.5):1;
-  el.style.opacity=fade*inside<1?(fade*inside).toFixed(2):'';
+  const op=fade*inside<1?(fade*inside).toFixed(2):'';
+  if(el._op!==op){el._op=op;el.style.opacity=op;}
  }
 }
 addEventListener('resize',requestRender);

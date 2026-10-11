@@ -16,8 +16,13 @@ pill.addEventListener('click',()=>toggle(true));
 
 function netIcon(n){return !n||n.state!=='connected'?'offline':n.type==='wifi'?'wifi':'wired';}
 function netText(n){if(!n)return 'Netwerkstatus onbekend';const name=n.state==='connected'?`${n.type==='wifi'?'Wifi':n.type==='ethernet'?'Kabel':'Netwerk'}: ${n.name||'verbonden'}. `:'';return name+(n.message||'Netwerkstatus onbekend');}
+let pillKey='';
 function renderPill(){
  const now=new Date(),v=status.volume,b=status.battery,count=status.notifications?.length||0;
+ // Status arrives every 10 s and the clock ticks every 15 s: only rebuild when something visible changed.
+ const key=[fmtTime(now),JSON.stringify(status.network),v?.level,v?.muted,b?.present,b?.percent,b?.charging,count].join('|');
+ if(key===pillKey)return;
+ pillKey=key;
  pill.replaceChildren(...[
   h('span',{class:'item'},fmtTime(now)),
   h('span',{class:'item',title:netText(status.network)},icon(netIcon(status.network))),
