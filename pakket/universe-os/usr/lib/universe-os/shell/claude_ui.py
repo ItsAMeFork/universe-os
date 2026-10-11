@@ -17,7 +17,7 @@ import cairo
 import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('GtkLayerShell', '0.1')
-from gi.repository import Gdk, GLib, Gtk, GtkLayerShell  # noqa: E402
+from gi.repository import Gdk, Gio, GLib, Gtk, GtkLayerShell  # noqa: E402
 
 PANEL_WIDTH = 620
 KEEP_ALIVE = 600  # seconds Claude Code keeps running after the panel is closed
@@ -219,6 +219,16 @@ class ClaudeUI:
         term.set_scrollback_lines(5000)
         term.set_font(Pango.FontDescription('Monospace 11'))
         term.connect('child-exited', self.child_exited)
+        # Links (like the sign-in link of Claude Code) open with a click; Ctrl+Shift+C/V copy and paste (the sign-in
+        # code has to be pasted back). VTE does neither by itself.
+        term.set_allow_hyperlink(True)
+        try:
+            regex = Vte.Regex.new_for_match(r'https?://[^\s<>"\']+', -1, 0x00000400)  # PCRE2_MULTILINE
+            term.match_set_cursor_name(term.match_add_regex(regex, 0), 'pointer')
+        except Exception as error:  # noqa: BLE001 - only clickable links are lost
+            self.log('Links in het Claude-paneel niet klikbaar: %s' % error)
+        term.connect('button-press-event', self.terminal_click)
+        term.connect('key-press-event', self.terminal_key)
         argv = ['/usr/bin/universe-claude'] + (['--nieuw'] if fresh else [])
         term.spawn_async(Vte.PtyFlags.DEFAULT, os.path.expanduser('~'), argv, None, GLib.SpawnFlags.DEFAULT,
                          None, None, -1, None, None, None)
@@ -308,6 +318,34 @@ class ClaudeUI:
         self.stop_terminal()
         self.start_terminal(fresh=fresh)
         self.term.grab_focus()
+
+    def terminal_click(self, term, event):
+        if event.button != 1 or event.type != Gdk.EventType.BUTTON_PRESS:
+            return False
+        uri = term.hyperlink_check_event(event)
+        if not uri:
+            match = term.match_check_event(event)
+            uri = match[0] if match else None
+        if uri and uri.startswith(('http://', 'https://')):
+            try:
+                Gio.AppInfo.launch_default_for_uri(uri, None)
+            except GLib.Error as error:
+                self.log('Link openen mislukt: %s' % error.message)
+            return True
+        return False
+
+    def terminal_key(self, term, event):
+        mods = event.state & (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK)
+        if mods == (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK):
+            from gi.repository import Vte
+            key = Gdk.keyval_to_lower(event.keyval)
+            if key == Gdk.KEY_c:
+                term.copy_clipboard_format(Vte.Format.TEXT)
+                return True
+            if key == Gdk.KEY_v:
+                term.paste_clipboard()
+                return True
+        return False
 
     def child_exited(self, term, status):
         if term is self.term:
