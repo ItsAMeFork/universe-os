@@ -1,6 +1,7 @@
 import {updatesView} from './updates-ui.js';
 import {call,on,applySettings,motionAllowed,toast,h,icon} from './api.js';
 import {alpha,globe,earth,paintEarths,earthsPainted,starfield,pixelSize} from './globe.js';
+import {sharpenPlanet,sharpenEarth} from './planets-hq.js';
 import {debugFPS,afterPaint} from './performance.js';
 import {SETTINGS} from './settings-index.js';
 import {keepTab} from './focus.js';
@@ -28,8 +29,8 @@ let logoutOverlay=null;
 on('logout-begin',async()=>{
  if(logoutOverlay)return;
  logoutOverlay=h('p',{class:'logout-note',role:'status'},'Afmelden…');
- root.append(logoutOverlay);root.inert=true;closeMenu();if(current)leave();
- await animateWorld('out');
+ root.append(logoutOverlay);root.inert=true;closeMenu();if(current)leave();select(null,false);document.activeElement?.blur?.();
+ await animateWorld('out',null,{core:true});
  call('logout.finish').catch(e=>toast(e.message));
 });
 on('logout-error',message=>{logoutOverlay?.remove();logoutOverlay=null;root.inert=false;mix=1;requestRender();toast('Afmelden mislukt: '+message);});
@@ -43,12 +44,12 @@ async function start(){
  // Just logged in: everything starts inside the Earth (as the login screen left it) until the space is loaded.
  let intro=false;try{intro=await call('intro.claim');}catch{}
  const saved={...cam};
- if(intro&&motionAllowed(settings)){mix=0;cam=closeView([0,0,0]);initialFocus=false;paintEarths();}
+ if(intro&&motionAllowed(settings)){mix=0;cam=closeView([0,0,0]);initialFocus=false;paintEarths();setCore(1,1);}
  await afterPaint();const loaded=build();debugFPS();await afterPaint();
  call('world.ready',{milliseconds:performance.now()}).catch(()=>{});
  window.__universePageReady?.();
  // The planets burst out of the Earth that exploded on the login screen.
- if(intro)loaded.then(()=>earthsPainted()).then(()=>animateWorld('in',saved));
+ if(intro)loaded.then(()=>earthsPainted()).then(()=>animateWorld('in',saved,{core:true}));
  setTimeout(paintEarths,1500);
 }
 const planetGlobe=(p,diameter)=>p.style==='earth'?earth(pixelSize(diameter)):globe(p.hue,!!p.rock,pixelSize(diameter));
@@ -108,7 +109,8 @@ function drawSky(){
  const ringAlpha=Math.min(1,mix*1.4);
  if(ringAlpha>0){c.globalAlpha=ringAlpha;ring(c,420,'rgba(255,165,82,.55)',1.5);ring(c,1350,'rgba(133,255,227,.10)',1);ring(c,1900,'rgba(133,255,227,.06)',1);c.globalAlpha=1;}
  if(mix<1&&mix>0)drawTrails(c);
- if(glow>0){const e=objects.find(o=>o.kind==='earth'),p=e&&project(e.pos);
+ if(boom>0&&boom<1)drawBoom(c);
+ if(glow>0){const e=earthRef,p=e&&project(e.pos);
   if(p){const r=p.s*e.size*earthScale*.5;const g=c.createRadialGradient(p.x,p.y,r*.6,p.x,p.y,r*(1.6+glow*1.4));
    g.addColorStop(0,`rgba(255,200,140,${alpha(.55*glow)})`);g.addColorStop(.5,`rgba(120,180,255,${alpha(.25*glow)})`);g.addColorStop(1,'rgba(80,120,255,0)');
    c.fillStyle=g;c.fillRect(0,0,w,hgt);}}
@@ -184,9 +186,18 @@ let earthRef=null; // set in refreshSpace (find() per object per frame was O(n²
 const centre=()=>earthRef?.pos||[0,0,0];
 // earthScale: the Earth grows out of a point of light after login. glow: how bright the Earth burns (0..1).
 let earthScale=1,glow=0,flash=0;
+// Every planet has its own moment (a wave instead of all at once) and, when they fly out, swings a little past its
+// place and settles back (a spring), like a real throw.
+const backOut=t=>{const u=t-1;return 1+2.4*u*u*u+1.4*u*u;};
+function personal(o,m){
+ if(m>=1||m<=0)return m;
+ const d=(hash(o.key)%100)/100*.3,t=Math.max(0,Math.min(1,(m-d)/(1-d)));
+ return trailDir>0?backOut(t):t*t*(3-2*t);
+}
 function shownAt(o,m){
  if(o.kind==='earth')return {pos:o.pos,size:o.size*earthScale};
- if(m>=1)return {pos:o.pos,size:o.size};
+ m=personal(o,m);
+ if(m===1)return {pos:o.pos,size:o.size};
  // spiral: everything turns around the Earth while it moves in or out
  const c=centre(),turn=(1-m)*(2.2+(hash(o.key)%100)/40),ct=Math.cos(turn),st=Math.sin(turn);
  const dx=(o.pos[0]-c[0])*m,dz=(o.pos[2]-c[2])*m;
@@ -202,6 +213,7 @@ function render(){
   // recalculate styles, and that for every planet on every frame of a drag or zoom.
   if(!p||px<3||p.x<-px||p.y<-px||p.x>innerWidth+px||p.y>innerHeight+px){if(el._d!=='none'){el._d='none';el.style.display='none';}continue;}
   if(el._d!==''){el._d='';el.style.display='';}
+  el._px=px;
   const k=px/BASE,ks=k.toFixed(4);
   const tf=`translate(${(p.x-BASE/2).toFixed(1)}px,${(p.y-BASE/2).toFixed(1)}px) scale(${ks})`;
   if(el._tf!==tf){el._tf=tf;el.style.transform=tf;}
@@ -216,15 +228,42 @@ function render(){
   const op=fade*inside<1?(fade*inside).toFixed(2):'';
   if(el._op!==op){el._op=op;el.style.opacity=op;}
  }
+ sharpenSoon();
+}
+// ----- sharp planets: once the view rests, every visible planet is painted at the size it is shown (planets-hq.js) -----
+const WEAK=(navigator.hardwareConcurrency||2)<=2,MAX_TIER=WEAK?512:1024;
+let sharpenTimer=0;
+function sharpenSoon(){clearTimeout(sharpenTimer);sharpenTimer=setTimeout(sharpen,220);}
+function sharpen(){
+ if(mix<1||document.hidden)return; // not during the login/logout animation
+ const dpr=Math.min(devicePixelRatio||1,2);
+ for(const o of objects){
+  const el=o.el;if(!el||el._d==='none'||!el._px)continue;
+  const canvas=el.querySelector('.sp-planet canvas');if(!canvas)continue;
+  const want=el._px*dpr,have=+canvas.dataset.tier||0;
+  if(o.kind==='earth'){
+   // the shipped picture is 720 px; only paint a bigger Earth when it is shown bigger than that
+   if(want>760){const tier=want>1100?1440:1024;if(have<tier)sharpenEarth(canvas,WEAK?Math.min(tier,1024):tier,want);}
+  }else if(o.kind==='app'){
+   const tier=Math.min(MAX_TIER,want<=230?256:want<=460?512:1024);
+   if(have<tier)sharpenPlanet(canvas,o.hue,o.hue%3===0,tier,want);
+  }
+ }
 }
 addEventListener('resize',requestRender);
 function select(key,focus=true){
  selected=key;
  for(const el of layer.children){const on=el.dataset.key===key;el.classList.toggle('selected',on);el.setAttribute('aria-selected',String(on));if(on&&focus&&document.activeElement!==el)el.focus({preventScroll:true});}
 }
+/** Opening a program from space: its planet takes a breath and sends out a ring of light (CSS, no frames from JS). */
+function launchEffect(o){
+ if(!o.el||!motionAllowed(settings))return;
+ o.el.classList.remove('launching');void o.el.offsetWidth;o.el.classList.add('launching');
+ setTimeout(()=>o.el&&o.el.classList.remove('launching'),900);
+}
 function openObj(o){
  const fail=e=>toast(e.message);
- if(o.kind==='app')return launch(o.target);
+ if(o.kind==='app'){launchEffect(o);return launch(o.target);}
  if(o.kind==='launcher')return call('desktop.launch',{path:o.target}).catch(fail);
  if(o.kind==='install')return call('run',{tool:'installer'}).catch(fail);
  return call('open.path',{path:o.target}).catch(fail);
@@ -252,7 +291,8 @@ layer.addEventListener('pointerdown',e=>{
  if(current||(e.button!==0&&e.button!==2))return;
  const el=e.target.closest('.sp-obj');
  if(el&&e.target.closest('input'))return;
- drag={button:e.button,x:e.clientX,y:e.clientY,lastX:e.clientX,lastY:e.clientY,el,moved:false};
+ stopGlide();
+ drag={button:e.button,x:e.clientX,y:e.clientY,lastX:e.clientX,lastY:e.clientY,el,moved:false,vx:0,vy:0,t:performance.now()};
  if(el)delete el.dataset.dragged;
  addEventListener('pointermove',onDragMove);addEventListener('pointerup',onDragEnd);addEventListener('pointercancel',onDragEnd);
 });
@@ -261,6 +301,7 @@ function onDragMove(e){
  const dx=e.clientX-drag.lastX,dy=e.clientY-drag.lastY;
  if(!drag.moved){if(Math.hypot(e.clientX-drag.x,e.clientY-drag.y)<6)return;drag.moved=true;root.classList.add('dragging');}
  drag.lastX=e.clientX;drag.lastY=e.clientY;
+ {const now=performance.now(),dt=Math.max(1,now-drag.t);drag.t=now;drag.vx=drag.vx*.6+dx/dt*.4;drag.vy=drag.vy*.6+dy/dt*.4;} // pixels per ms
  if(drag.button===2){cam.yaw+=dx*.005;cam.pitch=clamp(cam.pitch+dy*.005,-1.45,1.45);}
  else if(drag.el){ // move the planet in the plane facing the camera, at its own depth
   const o=drag.el._obj,p=project(o.pos);if(p){const v=unrotate(dx/p.s,dy/p.s,0);o.pos=[o.pos[0]+v[0],o.pos[1]+v[1],o.pos[2]+v[2]];}
@@ -277,16 +318,48 @@ function onDragEnd(e){
   }else if(!d.el)select(null,false);
   return;
  }
- if(d.el){d.el.dataset.dragged='1';savePos(d.el._obj);}else saveCamera();
+ if(d.el){d.el.dataset.dragged='1';savePos(d.el._obj);}
+ else if(motionAllowed(settings)&&performance.now()-d.t<80&&Math.hypot(d.vx,d.vy)>.25)glide(d);
+ else saveCamera();
+}
+/** After a quick drag the space glides on and slows down (moving or turning), like a phone. */
+let glideFrame=0;
+function stopGlide(){if(glideFrame){cancelAnimationFrame(glideFrame);glideFrame=0;saveCamera();}}
+function glide(d){
+ let vx=d.vx,vy=d.vy,last=performance.now();const turn=d.button===2;
+ const step=t=>{
+  const dt=Math.min(50,t-last);last=t;
+  const dx=vx*dt,dy=vy*dt;
+  if(turn){cam.yaw+=dx*.005;cam.pitch=clamp(cam.pitch+dy*.005,-1.45,1.45);}
+  else{const s=FOV/cam.dist,v=unrotate(-dx/s,-dy/s,0);cam.tx+=v[0];cam.ty+=v[1];cam.tz+=v[2];}
+  const decay=Math.pow(.9,dt/16.7);vx*=decay;vy*=decay;render();
+  if(Math.hypot(vx,vy)<.02){glideFrame=0;saveCamera();sharpenSoon();return;}
+  glideFrame=requestAnimationFrame(step);
+ };
+ glideFrame=requestAnimationFrame(step);
 }
 layer.addEventListener('contextmenu',e=>e.preventDefault());
-layer.addEventListener('wheel',e=>{
- if(current)return;e.preventDefault();
- const before=cam.dist;cam.dist=clamp(cam.dist*Math.exp(e.deltaY*(e.deltaMode===1?.06:.0015)),180,12000);
- // zoom towards the pointer, like a map
- const s=FOV/before,f=1-cam.dist/before,v=unrotate((e.clientX-innerWidth/2)/s*f,(e.clientY-innerHeight/2)/s*f,0);
+// Wheel zoom glides to its target (a few frames) instead of jumping per notch; towards the pointer, like a map.
+let zoom=null;
+function zoomStep(dist,x,y){
+ const before=cam.dist;cam.dist=dist;
+ const s=FOV/before,f=1-cam.dist/before,v=unrotate((x-innerWidth/2)/s*f,(y-innerHeight/2)/s*f,0);
  cam.tx+=v[0];cam.ty+=v[1];cam.tz+=v[2];
- requestRender();saveCamera();
+}
+layer.addEventListener('wheel',e=>{
+ if(current)return;e.preventDefault();stopGlide();
+ const target=clamp((zoom?zoom.target:cam.dist)*Math.exp(e.deltaY*(e.deltaMode===1?.06:.0015)),180,12000);
+ if(!motionAllowed(settings)){zoomStep(target,e.clientX,e.clientY);requestRender();saveCamera();return;}
+ const running=!!zoom;zoom={target,x:e.clientX,y:e.clientY,last:performance.now()};
+ if(running)return;
+ const step=t=>{
+  if(!zoom)return;
+  const k=1-Math.pow(1-.3,Math.min(4,(t-zoom.last)/16.7));zoom.last=t; // the same speed at any frame rate
+  const d=cam.dist+(zoom.target-cam.dist)*k,done=Math.abs(zoom.target-d)<.5;
+  zoomStep(done?zoom.target:d,zoom.x,zoom.y);render();
+  if(done){zoom=null;saveCamera();sharpenSoon();}else requestAnimationFrame(step);
+ };
+ requestAnimationFrame(step);
 },{passive:false});
 /** Flies the camera to look at a point (instant with reduced motion). */
 function flyTo(target,dist,turn){
@@ -315,18 +388,44 @@ function drawTrails(c){
   c.strokeStyle=g;c.lineWidth=Math.max(1.5,a.s*o.size*.12);c.beginPath();c.moveTo(b.x,b.y);c.lineTo(a.x,a.y);c.stroke();
  }
 }
+// The glowing core between login screen and desktop (= kern.png and explode.js CORE): login starts from it, logout
+// ends on it, so the login screen and the desktop are one animation.
+const coreEl=h('div',{class:'world-core','aria-hidden':'true'});
+function setCore(opacity,scale){
+ if(opacity<=0){coreEl.remove();return;}
+ coreEl.style.opacity=opacity.toFixed(3);coreEl.style.transform=`scale(${scale.toFixed(3)})`;
+ if(!coreEl.isConnected)root.append(coreEl);
+}
+// The explosion of the core at login: two shock waves and sparks from the middle of the Earth (drawn with the sky).
+let boom=0;
+const SPARKS=Array.from({length:240},(_,i)=>{let s=(i*7919+17)%233280;const r=()=>(s=(s*9301+49297)%233280)/233280;
+ const a=r()*Math.PI*2;return {a,speed:.25+r()*1.05,w:.8+r()*2.2,hot:r()<.5};});
+function drawBoom(c){
+ const e=earthRef,p=e&&project(e.pos);if(!p)return;
+ const big=Math.max(innerWidth,innerHeight),t=boom,ease=1-Math.pow(1-t,3),R0=p.s*e.size*.45;
+ for(const [delay,col] of [[0,'255,190,120'],[.1,'133,255,227']]){
+  const k=Math.max(0,(t-delay)/(1-delay));if(!k)continue;const r=R0*(.6+(1-Math.pow(1-k,3))*7);
+  c.strokeStyle=`rgba(${col},${alpha(.85*(1-k))})`;c.lineWidth=1.5+7*(1-k);c.beginPath();c.ellipse(p.x,p.y,r,r*.38,-.17,0,Math.PI*2);c.stroke();
+ }
+ c.lineCap='round';
+ for(const s of SPARKS){
+  const d=s.speed*big*ease,d0=s.speed*big*(1-Math.pow(1-Math.max(0,t-.06),3));
+  c.strokeStyle=s.hot?`rgba(255,220,170,${alpha(1-t)})`:`rgba(150,230,255,${alpha(.9*(1-t))})`;c.lineWidth=s.w;
+  c.beginPath();c.moveTo(p.x+Math.cos(s.a)*d0,p.y+Math.sin(s.a)*d0*.7);c.lineTo(p.x+Math.cos(s.a)*d,p.y+Math.sin(s.a)*d*.7);c.stroke();
+ }
+}
 const flashEl=h('div',{class:'world-flash','aria-hidden':'true'});
 function setFlash(v){flash=v;flashEl.style.opacity=v.toFixed(3);if(v>0&&!flashEl.isConnected)root.append(flashEl);if(v<=0)flashEl.remove();}
 const easeInOut=k=>k<.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2;
 /** 'in': after login/unlock: a point of light becomes the Earth, then everything flies out on spiral paths with light
  *  trails while the camera pulls back and turns into the desktop view `target`. 'out': for logout/lock: everything
  *  spirals into the Earth, which burns brighter, the camera turns in to the login view and ends in a soft flash. */
-function animateWorld(dir,target){
+function animateWorld(dir,target,{core=false}={}){
  const close=closeView(centre());
  const end=dir==='in'?(target||{...cam}):close,start=dir==='in'?close:{...cam};
  // turn the shortest way round
  while(end.yaw-start.yaw>Math.PI)end.yaw-=2*Math.PI;while(start.yaw-end.yaw>Math.PI)end.yaw+=2*Math.PI;
- if(!motionAllowed(settings)){mix=dir==='in'?1:0;earthScale=1;glow=0;cam=end;requestRender();return Promise.resolve();}
+ if(!motionAllowed(settings)){mix=dir==='in'?1:0;earthScale=1;glow=0;cam=end;setCore(core&&dir==='out'?1:0,1);requestRender();return Promise.resolve();}
  trailDir=dir==='in'?1:-1;
  cam={...start};mix=dir==='in'?0:1;earthScale=dir==='in'?0:1;requestRender();
  const dur=dir==='in'?2300:1900,t0=performance.now();let last=t0,slowFrames=0;
@@ -338,7 +437,10 @@ function animateWorld(dir,target){
    if(dir==='in'){
     // 0-0.25: the Earth grows out of light (overshoots a little); 0.15-1: everything flies out, camera pulls back
     const a=Math.min(1,k/.25);earthScale=a<1?Math.sin(a*Math.PI/2)*1.08:1+.08*Math.max(0,1-(k-.25)/.15);
-    glow=k<.35?1-k/.35*.4:Math.max(0,.6-(k-.35)/.4);setFlash(k<.12?.85*(1-k/.12):0);
+    glow=k<.35?1-k/.35*.4:Math.max(0,.6-(k-.35)/.4);
+    if(core){ // the core bursts open: it grows and fades, the shock waves and sparks fly out
+     const c=Math.min(1,k/.3);setCore(1-c*c*(3-2*c),1+2.2*(1-Math.pow(1-c,3)));boom=Math.min(1,k/.55);
+    }else setFlash(k<.12?.85*(1-k/.12):0);
     const m=Math.max(0,Math.min(1,(k-.15)/.85)),e=easeInOut(m);
     mix=e;for(const key of Object.keys(end))cam[key]=start[key]+(end[key]-start[key])*e;
     cam.yaw+=.7*Math.sin(Math.PI*e); // a swirl that ends exactly in the target view
@@ -347,11 +449,13 @@ function animateWorld(dir,target){
     mix=1-Math.min(1,e*1.1);glow=Math.sin(Math.min(1,k*1.1)*Math.PI)*.9; // brightest while everything falls in, calm at the end
     for(const key of Object.keys(end))cam[key]=start[key]+(end[key]-start[key])*e;
     cam.yaw-=.7*Math.sin(Math.PI*e);
-    setFlash(k>.72?Math.sin((k-.72)/.28*Math.PI)*.55:0); // peaks and is gone at the end: the last picture = lock/login screen
+    if(core){ // everything gathers into the core: it ends exactly on kern.png, the first picture of the login screen
+     const c=Math.max(0,(k-.62)/.38);setCore(c*c*(3-2*c),2.4-1.4*(1-Math.pow(1-c,2)));
+    }else setFlash(k>.72?Math.sin((k-.72)/.28*Math.PI)*.55:0); // peaks and is gone at the end: the last picture = lock screen
    }
    render();
    if(k<1)requestAnimationFrame(step);
-   else{glow=0;earthScale=1;setFlash(0);render();resolve();}
+   else{glow=0;earthScale=1;setFlash(0);boom=0;if(core)setCore(dir==='out'?1:0,1);render();resolve();}
   };
   requestAnimationFrame(step);
  });

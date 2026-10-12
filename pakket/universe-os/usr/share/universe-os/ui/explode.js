@@ -15,6 +15,15 @@ function overlay(){
  const c=canvas.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);
  return {canvas,c,W,H};
 }
+// The glowing core between login screen and desktop: the login screen ends on it, swaybg shows it (kern.png, made
+// with scripts/assets/maak-kern.mjs from the same stops), the desktop starts from it; logging out ends on it again.
+export const CORE=[[0,'255,247,236',1],[.1,'255,214,160',.95],[.3,'255,138,72',.5],[.62,'120,84,255',.16],[1,'60,40,160',0]];
+export function drawCore(c,W,H,scale=1,opacity=1){
+ c.fillStyle=`rgba(5,8,21,${alpha(opacity)})`;c.fillRect(0,0,W,H);
+ const g=c.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.min(W,H)*.55*scale);
+ for(const [o,rgb,a] of CORE)g.addColorStop(o,`rgba(${rgb},${alpha(a*opacity)})`);
+ c.fillStyle=g;c.fillRect(0,0,W,H);
+}
 const rand=seed=>()=>(seed=(seed*16807)%2147483647)/2147483647;
 const ease=t=>1-Math.pow(1-t,3);
 // Without a GPU (a VM, an old pc) one frame can take seconds: the 2 s explosion then held up the login for a minute
@@ -105,6 +114,35 @@ export async function explodePlanet(source,rect,{reduced=false,onStart}={}){
   c.restore();
  });
  canvas.remove();
+}
+
+/** After a correct password: the planet charges up and collapses into the glowing core in the middle of the screen
+ * (flash), and the screen stays on that core. The desktop starts from the same picture and continues with the
+ * explosion (world.js), so login screen and desktop are one animation, however fast the computer starts. */
+export async function chargeToCore(source,rect,{reduced=false,onStart}={}){
+ const {canvas,c,W,H}=overlay(),rnd=rand(7);
+ if(reduced||!source||!rect.width){drawCore(c,W,H);return canvas;}
+ const cx=rect.left+rect.width/2,cy=rect.top+rect.height/2,R=rect.width*.44;
+ onStart?.();
+ const drawCracks=cracks(c,cx,cy,R,0,rnd);
+ await run(700,t=>{
+  const e=t*t,shake=e*6,sx=(rnd()-.5)*shake,sy=(rnd()-.5)*shake,s=1+e*.06;
+  c.clearRect(0,0,W,H);
+  const g=c.createRadialGradient(cx,cy,R*.8,cx,cy,R*(1.5+e));g.addColorStop(0,`rgba(255,170,90,${alpha(.5*e)})`);g.addColorStop(1,'rgba(255,120,40,0)');
+  c.fillStyle=g;c.fillRect(0,0,W,H);
+  c.save();c.translate(cx+sx,cy+sy);c.scale(s,s);c.drawImage(source,-rect.width/2,-rect.height/2,rect.width,rect.height);c.restore();
+  c.save();c.translate(sx,sy);drawCracks(e);c.restore();
+  c.fillStyle=`rgba(255,200,140,${alpha(e*.35)})`;c.beginPath();c.arc(cx+sx,cy+sy,R*s,0,Math.PI*2);c.fill();
+ });
+ // collapse: the planet shrinks into a point of light while the core grows over the whole screen
+ await run(420,t=>{
+  const e=ease(t);c.clearRect(0,0,W,H);
+  drawCore(c,W,H,.25+.75*e,e);
+  const s=1-e;if(s>.02){c.save();c.globalAlpha=s;c.translate(cx,cy);c.scale(s,s);c.drawImage(source,-rect.width/2,-rect.height/2,rect.width,rect.height);c.restore();}
+  if(t<.4){c.fillStyle=`rgba(255,250,240,${alpha(.7*(1-t/.4))})`;c.fillRect(0,0,W,H);}
+ });
+ c.clearRect(0,0,W,H);drawCore(c,W,H);
+ return canvas; // stays on screen until the session takes over
 }
 
 export async function formPlanet(rect,{reduced=false}={}){

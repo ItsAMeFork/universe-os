@@ -6,7 +6,13 @@ mkdir -p "$STATE"
 LOG="$STATE/shell.log"
 crashes=0
 window_start=$(date +%s)
+# Started from the labwc autostart: when labwc is gone (logged out) there is nothing to restart the shell for.
+COMPOSITOR=$(pgrep -nu "$(id -u)" -x labwc || echo 0)
 while :; do
+    if ! kill -0 "$COMPOSITOR" 2>/dev/null || [ ! -S "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/${WAYLAND_DISPLAY:-wayland-0}" ]; then
+        echo "--- compositor gestopt; shellbewaking stopt ($(date))" >>"$LOG"
+        exit 0
+    fi
     echo "--- shell start $(date)" >>"$LOG"
     universe-shell >>"$LOG" 2>&1
     code=$?

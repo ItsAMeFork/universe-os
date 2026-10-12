@@ -96,7 +96,7 @@ def apps():
             continue
         cats = [c for c in (app.get_categories() or '').split(';') if c]
         result.append({'id': app.get_id(), 'name': app.get_display_name() or app.get_name(), 'comment': app.get_description() or '',
-                       'icon': icon_uri(app.get_icon()), 'categories': cats, 'game': 'Game' in cats,
+                       'icon': icon_uri(app.get_icon(), 256), 'categories': cats, 'game': 'Game' in cats,
                        'keywords': ' '.join(app.get_keywords() or [])})
     result.sort(key=lambda a: a['name'].lower())
     return result
@@ -322,6 +322,8 @@ def power(action):
     if action == 'logout':
         return spawn(['labwc', '--exit'])
     if action in ('reboot', 'poweroff', 'suspend'):
+        if action != 'suspend':
+            subprocess.run(['universe-geluid', 'afsluiten', '--wacht'], timeout=6, check=False)  # like Windows: first the sound
         r = subprocess.run(['systemctl', action], capture_output=True, text=True, timeout=30)
         if r.returncode != 0:
             raise RuntimeError('De energieactie is mislukt.' +
@@ -404,7 +406,7 @@ def _file_entry(path, key, source):
     if not folder and path.endswith('.desktop'):
         app = Gio.DesktopAppInfo.new_from_filename(path)
         if app:
-            entry.update(kind='launcher', name=app.get_display_name(), icon=icon_uri(app.get_icon()))
+            entry.update(kind='launcher', name=app.get_display_name(), icon=icon_uri(app.get_icon(), 256))
     return entry
 
 
@@ -443,7 +445,7 @@ def desktop_list():
             if not app:
                 continue
             entries.append({'key': item['id'], 'name': app.get_display_name(), 'kind': 'app', 'target': item['target'],
-                            'icon': icon_uri(app.get_icon()), 'source': 'shortcut'})
+                            'icon': icon_uri(app.get_icon(), 256), 'source': 'shortcut'})
         elif os.path.exists(item['target']):
             entry = _file_entry(item['target'], item['id'], 'shortcut')
             if entry:

@@ -1,0 +1,15 @@
+#!/bin/sh
+# Speelt een systeemgeluid van Universe OS: inloggen, afmelden, afsluiten of melding (eigen geluiden, gemaakt met
+# scripts/assets/maak-geluiden.mjs). Niets als de instelling "Systeemgeluiden" uit staat.
+#   universe-geluid inloggen [--wacht]     --wacht: pas terugkomen als het geluid klaar is (vóór afsluiten)
+case "$1" in inloggen|afmelden|afsluiten|melding) ;; *) exit 0 ;; esac
+f=/usr/share/sounds/universe/$1.wav
+[ -f "$f" ] || exit 0
+grep -q '"sounds": *false' "${XDG_CONFIG_HOME:-$HOME/.config}/universe-os/settings.json" 2>/dev/null && exit 0
+if command -v pw-play >/dev/null 2>&1; then speel="pw-play --volume=0.8"; elif command -v paplay >/dev/null 2>&1; then speel=paplay; else exit 0; fi
+if [ "$2" = "--wacht" ]; then
+    timeout 4 $speel "$f" >/dev/null 2>&1
+else
+    $speel "$f" >/dev/null 2>&1 &
+fi
+exit 0

@@ -2,7 +2,7 @@
 export const SETTINGS=[
  {id:'appearance',name:'Weergave en toegankelijkheid',icon:'display',words:'animaties beweging verminderen schaal tekst grootte lettergrootte toegankelijkheid reizen thema'},
  {id:'network',name:'Netwerk en wifi',icon:'wifi',words:'internet wifi wlan draadloos ethernet kabel vpn verbinding'},
- {id:'sound',name:'Geluid en microfoon',icon:'volume',words:'volume luidspreker koptelefoon microfoon audio dempen'},
+ {id:'sound',name:'Geluid en microfoon',icon:'volume',words:'volume luidspreker koptelefoon microfoon audio dempen systeemgeluiden geluiden inloggen meldingen'},
  {id:'displays',name:'Beeldschermen',icon:'display',words:'scherm resolutie monitor meerdere beeldschermen schaal'},
  {id:'bluetooth',name:'Bluetooth',icon:'bluetooth',words:'bluetooth koppelen koptelefoon muis'},
  {id:'keyboard',name:'Taal en toetsenbord',icon:'keyboard',words:'taal nederlands engels toetsenbord indeling qwerty azerty internationaal testen tekens'},

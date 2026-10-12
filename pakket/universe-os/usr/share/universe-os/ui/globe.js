@@ -4,7 +4,7 @@
  * valid CSS, so addColorStop throws (it stopped the planet animation at its last frame). */
 export const alpha=v=>Math.max(0,Math.min(1,v)).toFixed(3);
 const bitmaps=new Map();
-function remember(key,canvas){
+export function remember(key,canvas){
  let pixels=canvas.width*canvas.height;
  for(const image of bitmaps.values())pixels+=image.width*image.height;
  // Room for every planet of a full app list (each app has its own hue): with 32 places the cache missed on every
@@ -15,6 +15,7 @@ function remember(key,canvas){
  }
  bitmaps.set(key,canvas);
 }
+export const cached=key=>bitmaps.get(key);
 function copy(canvas,className=''){
  const result=document.createElement('canvas');result.width=canvas.width;result.height=canvas.height;
  result.className=className;result.setAttribute('aria-hidden','true');result.getContext('2d').drawImage(canvas,0,0);return result;
@@ -51,7 +52,7 @@ export function starfield(w=1600,h=1000,count=520){
 // The home world as a real-looking Earth (concept 10 Oct): oceans, continents, ice caps, clouds, city lights on the
 // night side and a thin blue atmosphere. Drawn once per pixel on the CPU (no GPU, no image files) and cached.
 // Internal resolution is capped at 720 px; CSS scales it up, which keeps the first start fast on weak hardware.
-function noise3(seed){
+export function noise3(seed){
  const hash=(x,y,z)=>{let n=(Math.imul(x,374761393)+Math.imul(y,668265263)+Math.imul(z,1274126177)+seed)|0;
   n=Math.imul(n^(n>>>13),1274126177);return ((n^(n>>>16))>>>0)/4294967296;};
  const smooth=t=>t*t*(3-2*t),mix=(a,b,t)=>a+(b-a)*t;
@@ -62,7 +63,7 @@ function noise3(seed){
  };
  return (x,y,z,octaves)=>{let sum=0,amp=.5,norm=0;for(let i=0;i<octaves;i++){sum+=noise(x,y,z)*amp;norm+=amp;x*=2.03;y*=2.03;z*=2.03;amp*=.5;}return sum/norm;};
 }
-function* earthRows(px,d){
+export function* earthRows(px,d){
  const land=noise3(1013),cloud=noise3(7717),city=noise3(4243);
  const R=px*.44,cx=px/2,cy=px/2,glow=1.13;
  const L=[-.83,-.36,.43],tilt=.41,ct=Math.cos(tilt),st=Math.sin(tilt),lon=2.1,cl=Math.cos(lon),sl=Math.sin(lon);

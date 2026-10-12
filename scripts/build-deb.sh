@@ -53,9 +53,9 @@ fi
 # Vergrendelscherm (swaylock --image): de aarde in de ruimte, net als het inlogscherm (2560x1440, gemaakt met
 # scripts/assets/maak-vergrendeld.html). swaylock schaalt het per scherm.
 install -Dm644 "$ROOT/scripts/assets/vergrendeld.png" "$STAGE/usr/share/universe-os/backgrounds/vergrendeld.png"
-# Overgang na het inloggen (swaybg + achtergrond van world.html): het laatste beeld van het inlogscherm, zodat er geen
-# zwart scherm is terwijl de shell en de ruimtewereld laden (~10 s in de VM). Gemaakt met maak-vergrendeld.html?overgang.
-install -Dm644 "$ROOT/scripts/assets/overgang.png" "$STAGE/usr/share/universe-os/backgrounds/overgang.png"
+# De gloeiende kern tussen inlogscherm en bureaublad (swaybg, achtergrond van world.html en van het inlogscherm na
+# afmelden): het laatste beeld van inloggen en afmelden, zodat beide één animatie zijn. Gemaakt met maak-kern.mjs.
+install -Dm644 "$ROOT/scripts/assets/kern.png" "$STAGE/usr/share/universe-os/backgrounds/kern.png"
 
 # Python-bindingen voor wlr-foreign-toplevel (vensteroverzicht), gegenereerd met de pywayland-scanner.
 PROTO="$STAGE/usr/lib/universe-os/shell/protocols"

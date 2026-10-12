@@ -262,6 +262,7 @@ class Shell:
         except OSError:
             return False
         os.close(fd)
+        backend.spawn(['universe-geluid', 'inloggen'])  # with the planets flying out of the Earth
         return True
 
     def make_start(self):
@@ -574,6 +575,8 @@ class Shell:
                 self.broadcast('config', data)
                 if self.claude:
                     self.claude.update_buddy()  # buddy switched on/off in the Control Center
+            elif cmd == 'logout':  # the same animated logout as the start menu (also for scripts and tests)
+                GLib.idle_add(self.begin_logout)
             elif cmd == 'claude':
                 if not (self.claude and self.claude.available()):
                     return 'fout: Claude Code is niet geïnstalleerd'
@@ -639,6 +642,7 @@ class Shell:
         if self.logout_pending:
             return False
         self.logout_pending = True
+        backend.spawn(['universe-geluid', 'afmelden'])
         self.hide_overview()
         if self.panel:
             self.panel.emit('panel-close')
@@ -647,7 +651,7 @@ class Shell:
             GtkLayerShell.set_keyboard_mode(world.window, GtkLayerShell.KeyboardMode.EXCLUSIVE)
             world.emit('logout-begin')
         # Logging out must still work if artwork or the JavaScript callback fails.
-        self.logout_timer = GLib.timeout_add(1800, self.finish_logout)
+        self.logout_timer = GLib.timeout_add(4500, self.finish_logout)  # the page says when its animation is done; 1.8 s cut it off
         return False
 
     def finish_logout(self):

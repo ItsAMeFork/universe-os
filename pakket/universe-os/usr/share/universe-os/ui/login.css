@@ -19,3 +19,9 @@ main::after{content:'';position:absolute;width:min(100vw,900px);aspect-ratio:1;b
 @keyframes form-in{from{opacity:0;transform:translateY(24px) scale(.97)}}
 #stars{transition:opacity .6s ease}#stars.fade{opacity:.35}
 html.reduce-motion .formed form,html.no-motion .formed form,html.reduce-motion .formed .login-power,html.no-motion .formed .login-power{animation:none}
+
+/* The glowing core (= kern.png, the last picture of logging out and the first of the desktop): the planet forms out of it. */
+#core{position:fixed;inset:0;z-index:2;pointer-events:none;background:#050815 url(../backgrounds/kern.png) center/cover}
+#core.fading{animation:core-fade 1.3s ease-in forwards}
+@keyframes core-fade{to{opacity:0}}
+

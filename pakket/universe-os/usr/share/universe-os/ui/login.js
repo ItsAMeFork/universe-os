@@ -3,7 +3,7 @@ import {call,on,available,applySettings} from './api.js';
 import {paintEarths} from './globe.js';
 import {afterPaint,debugFPS} from './performance.js';
 import {DEFAULT_CAM,distFor,drawSky,bigEarth} from './space.js';
-import {explodePlanet,formPlanet} from './explode.js';
+import {chargeToCore,formPlanet} from './explode.js';
 const $=id=>document.getElementById(id);
 // The Earth in space, seen with the camera of the 3D desktop (space.js); after login the desktop starts in this view.
 const planetPx=()=>Math.min(innerWidth*.8,innerHeight*.78,650);
@@ -17,10 +17,14 @@ const reducedMotion=()=>animations!=='full'||matchMedia('(prefers-reduced-motion
 afterPaint().then(async()=>{
  scene();$('planet').append(bigEarth(planetPx()));debugFPS();paintEarths();
  await settingsKnown;
+ // The screen starts on the glowing core (where logging out ended, and the same picture as kern.png); light streams
+ // together and the planet forms out of it, then the form slides in.
  if(!reducedMotion()){
   document.body.classList.add('forming');
+  $('core').classList.add('fading');
   await formPlanet($('planet').getBoundingClientRect());
  }
+ $('core').remove();document.documentElement.style.background='#050815'; // the core was also the first paint
  document.body.classList.remove('forming');document.body.classList.add('formed');
 });
 addEventListener('resize',()=>{if(!leaving)scene();});
@@ -42,10 +46,11 @@ on('login-cancelled',()=>{error('');$('user').value='';$('user').focus();});
 on('login-prompt',showPrompt);on('login-message',data=>{$('message').textContent=data.text;});on('login-error',text=>{const cancelled=cancelling;error(text);if(cancelled)$('other-user').hidden=false;});
 on('login-success',async()=>{
  if(leaving)return;leaving=true;$('response').value='';$('message').textContent='Welkom. Universe OS wordt geopend…';document.body.classList.add('depart');
- // The planet charges up and explodes; the desktop then starts in the same view and its planets burst out of the centre.
+ // The planet charges up and collapses into the glowing core; the desktop starts from that same picture and
+ // continues with the explosion (world.js), so the two are one animation.
  const planet=$('planet'),canvas=planet.querySelector('canvas');
- await explodePlanet(canvas,planet.getBoundingClientRect(),{reduced:reducedMotion(),onStart:()=>{planet.style.visibility='hidden';}});
- planet.style.visibility='hidden';$('stars').classList.add('fade');
+ await chargeToCore(canvas,planet.getBoundingClientRect(),{reduced:reducedMotion(),onStart:()=>{planet.style.visibility='hidden';}});
+ planet.style.visibility='hidden';
  try{await call('login.start');}catch(e){error(e.message);}
 });
 let settingsReady;const settingsKnown=new Promise(r=>{settingsReady=r;});setTimeout(()=>settingsReady(),3000);
