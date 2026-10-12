@@ -32,9 +32,63 @@ xfce4-terminal --title "Universe OS herstelmodus" &
 '''
 
 
+# Window snapping like Windows (Axel, 12 Oct): Windows+arrows move a window between halves, quarters, maximised and
+# minimised the way Windows does it. labwc only knows "snap to an edge" and "snap to a region"; the If queries ask
+# where the window is now. tiled=left is a half from Windows+Left or from dragging to the left edge.
+def _when(query, then, otherwise):
+    return '<action name="If">%s<then>%s</then><else>%s</else></action>' % (query, then, otherwise)
+
+
+def _region(name):
+    return '<action name="SnapToRegion" region="%s"/>' % name
+
+
+def _edge(direction):
+    return '<action name="SnapToEdge" direction="%s"/>' % direction
+
+
+def _snap_actions(direction):
+    tiled = lambda d: '<query tiled="%s"/>' % d
+    region = lambda r: '<query tiled_region="%s"/>' % r
+    if direction == 'left':    # from the right half back to normal, from a right quarter to the left quarter
+        return _when(tiled('right'), '<action name="UnSnap"/>',
+               _when(region('top-right'), _region('top-left'),
+               _when(region('bottom-right'), _region('bottom-left'), _edge('left'))))
+    if direction == 'right':
+        return _when(tiled('left'), '<action name="UnSnap"/>',
+               _when(region('top-left'), _region('top-right'),
+               _when(region('bottom-left'), _region('bottom-right'), _edge('right'))))
+    if direction == 'up':      # a half becomes the upper quarter, a lower quarter the half, otherwise maximise
+        return _when(tiled('left'), _region('top-left'),
+               _when(tiled('right'), _region('top-right'),
+               _when(region('bottom-left'), _edge('left'),
+               _when(region('bottom-right'), _edge('right'), '<action name="Maximize"/>'))))
+    # down: maximised -> back to normal, a half -> lower quarter, an upper quarter -> the half, otherwise minimise
+    return _when('<query maximized="both"/>', '<action name="UnMaximize"/>',
+           _when(tiled('left'), _region('bottom-left'),
+           _when(tiled('right'), _region('bottom-right'),
+           _when(region('top-left'), _edge('left'),
+           _when(region('top-right'), _edge('right'), '<action name="Iconify"/>')))))
+
+
+# Halves and quarters (dragging a window while holding Ctrl, Shift or the Windows key shows them; Windows+arrows use
+# them for the quarters).
+REGIONS = '''  <regions>
+    <region name="left" x="0%" y="0%" width="50%" height="100%"/>
+    <region name="right" x="50%" y="0%" width="50%" height="100%"/>
+    <region name="top-left" x="0%" y="0%" width="50%" height="50%"/>
+    <region name="top-right" x="50%" y="0%" width="50%" height="50%"/>
+    <region name="bottom-left" x="0%" y="50%" width="50%" height="50%"/>
+    <region name="bottom-right" x="50%" y="50%" width="50%" height="50%"/>
+    <region name="center" x="15%" y="10%" width="70%" height="80%"/>
+  </regions>'''
+
+
 def _keybind(item):
     key = quoteattr(item['key'])
     extra = ' onRelease="yes"' if item.get('onRelease') else ''
+    if item.get('snap'):
+        return '    <keybind key=%s%s>%s</keybind>' % (key, extra, _snap_actions(item['snap']))
     if item.get('labwc'):
         direction = ' direction=%s' % quoteattr(item['direction']) if item.get('direction') else ''
         action = '<action name="%s"%s/>' % (item['labwc'], direction)
@@ -64,7 +118,13 @@ def rc_xml(recovery=False):
     <fields><field content="icon" width="6%%"/><field content="title" width="94%%"/></fields>
   </windowSwitcher>
   <focus><followMouse>no</followMouse><raiseOnFocus>no</raiseOnFocus></focus>
-  <snapping><range>10</range><topMaximize>yes</topMaximize></snapping>
+  <!-- Snapping like Windows: drag a window against the left or right edge for half the screen, against the top to
+       maximise; the outline shows where it goes. Windows+arrows for halves and quarters. -->
+  <snapping><range>12</range><overlay enabled="yes"><delay inner="150" outer="150"/></overlay><topMaximize>yes</topMaximize><notifyClient>always</notifyClient></snapping>
+  <resistance><unSnapThreshold>20</unSnapThreshold></resistance>
+  <!-- Every window edge can be dragged to make the window larger or smaller (wider grip than the visible border). -->
+  <resize><popupShow>Never</popupShow><drawContents>yes</drawContents><minimumArea>10</minimumArea><cornerRange>14</cornerRange></resize>
+%s
   <desktops number="1"/>
   <keyboard>
     <repeatRate>25</repeatRate><repeatDelay>600</repeatDelay>
@@ -79,7 +139,7 @@ def rc_xml(recovery=False):
     </device>
   </libinput>
 </labwc_config>
-''' % ('\n'.join(binds), 'yes' if s['naturalScroll'] else 'no', 'yes' if s['tapToClick'] else 'no', s['pointerSpeed'])
+''' % (REGIONS, '\n'.join(binds), 'yes' if s['naturalScroll'] else 'no', 'yes' if s['tapToClick'] else 'no', s['pointerSpeed'])
 
 
 def environment():

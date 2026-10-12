@@ -62,7 +62,9 @@ $kanalen = if ($Kanaal -eq 'beide') { 'test', 'stable' } else { , $Kanaal }
 $tot = (Get-Date).AddMinutes(10)
 foreach ($k in $kanalen) {
     while ($true) {
-        $lijst = (Invoke-WebRequest "$bron/dists/$k/main/binary-amd64/Packages?t=$(Get-Random)" -UseBasicParsing).Content
+        # As text: GitHub Pages serves Packages without a text type, so .Content was bytes and never matched (12 Oct).
+        $antwoord = Invoke-WebRequest "$bron/dists/$k/main/binary-amd64/Packages?t=$(Get-Random)" -UseBasicParsing
+        $lijst = [Text.Encoding]::UTF8.GetString($antwoord.RawContentStream.ToArray())
         if ($lijst -match "(?m)^Version: $([regex]::Escape($versie))$") { Write-Host "  $k`: $versie staat online" -ForegroundColor Green; break }
         if ((Get-Date) -gt $tot) { Write-Host "  $k`: $versie nog niet zichtbaar; probeer later $bron" -ForegroundColor Yellow; break }
         Start-Sleep 20
