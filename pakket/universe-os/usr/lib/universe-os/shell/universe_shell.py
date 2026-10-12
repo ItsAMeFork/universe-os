@@ -612,9 +612,10 @@ class Shell:
     # ----- system sounds like Windows (Axel, 12 Oct): devices in/out, low battery -----
     def watch_devices(self):
         """One sound per physical USB device (stick, mouse, phone...): udev reports usb_device once per device,
-        its interfaces are filtered out. udevadm sleeps in the kernel until something happens: no polling."""
+        its interfaces are filtered out. stdbuf: udevadm buffers its output in a pipe (the sounds came much later);
+        setpriv: it stops together with the shell. It sleeps in the kernel until something happens: no polling."""
         try:
-            proc = Gio.Subprocess.new(['udevadm', 'monitor', '--udev', '--subsystem-match=usb/usb_device'],
+            proc = Gio.Subprocess.new(['setpriv', '--pdeathsig', 'TERM', 'stdbuf', '-oL', 'udevadm', 'monitor', '--udev', '--subsystem-match=usb/usb_device'],
                                       Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_SILENCE)
         except GLib.Error as error:
             log('apparaatgeluiden niet beschikbaar: %s' % error.message)

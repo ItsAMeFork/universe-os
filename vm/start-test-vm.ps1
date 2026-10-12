@@ -4,7 +4,8 @@
 # Beheerkanaal QMP op 127.0.0.1:4445:  node vm\qmp.mjs 4445 status|scherm|typ|toets
 param([string]$Iso, [switch]$Nieuw, [int]$GeheugenMB = 4096, [int]$Cpus = 2, [switch]$SecureBoot, [switch]$ZonderVenster,
       [ValidateSet('gtk', 'sdl')][string]$Venster = 'gtk', [string]$Resolutie = '1920x1080', [switch]$VolledigScherm,
-      [string]$Processor = 'qemu64,+ssse3,+sse4.1,+sse4.2,+popcnt', [ValidateSet('VGA', 'virtio-vga')][string]$Videokaart = 'virtio-vga')
+      [string]$Processor = 'qemu64,+ssse3,+sse4.1,+sse4.2,+popcnt', [ValidateSet('VGA', 'virtio-vga')][string]$Videokaart = 'virtio-vga',
+      [ValidateSet('none', 'dsound')][string]$Geluid = 'none')
 $ErrorActionPreference = 'Stop'
 $qemu = 'C:\Program Files\qemu'
 $vm = 'D:\UniverseOS-VMs'
@@ -48,7 +49,8 @@ $qargs = @(
     '-display', $display, '-vga', 'none', '-device', "$Videokaart,edid=on,$(if ($Videokaart -eq 'VGA') { 'vgamem_mb=64,' })xres=$(($Resolutie -split 'x')[0]),yres=$(($Resolutie -split 'x')[1])",
     # usb-tablet: absolute muispositie, nodig om via QMP precies te klikken.
     '-device', 'qemu-xhci', '-device', 'usb-tablet',
-    '-audiodev', 'none,id=geluid', '-device', 'ich9-intel-hda', '-device', 'hda-duplex,audiodev=geluid',
+    # -Geluid dsound: hear the VM on this pc. (The wav backend paused the VM at a reboot, 12 Oct.)
+    '-audiodev', "$Geluid,id=geluid", '-device', 'ich9-intel-hda', '-device', 'hda-duplex,audiodev=geluid',
     '-serial', "file:$vm\test-vm-serial.log",
     '-qmp', 'tcp:127.0.0.1:4445,server,nowait'
 )

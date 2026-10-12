@@ -220,10 +220,10 @@ html.reduce-motion .sp-obj.launching::after,html.no-motion .sp-obj.launching::af
 .launch-panel h1{margin:0;font-size:clamp(22px,3.2vw,40px);font-weight:600;letter-spacing:.02em}
 .launch-kicker{margin:0;text-transform:uppercase;letter-spacing:.35em;font-size:13px;color:#85ffe3}
 .launch-sub{margin:6px 0 0;max-width:34em;padding:0 16px;color:#b9c0dd}
-.launch-ring{--p:0;width:min(42vmin,260px);aspect-ratio:1;border-radius:50%;display:grid;place-items:center;margin:18px 0;
+.launch-dial{position:relative;width:min(42vmin,260px);aspect-ratio:1;margin:18px 0}
+.launch-ring{--p:0;position:absolute;inset:0;border-radius:50%;
  background:conic-gradient(#85ffe3 calc(var(--p)*360deg),#ffffff14 0);box-shadow:0 0 60px #85ffe344;
- -webkit-mask:radial-gradient(circle,transparent 0 calc(50% - 7px),#000 calc(50% - 6px));position:relative}
-.launch-ring::before{content:'';position:absolute;inset:0;border-radius:50%}
+ -webkit-mask:radial-gradient(circle closest-side,transparent calc(100% - 14px),#000 calc(100% - 13px))}
 .launch-number{position:absolute;inset:0;display:grid;place-items:center;font-size:clamp(64px,13vmin,120px);font-weight:700;
  color:#fff;text-shadow:0 0 28px #85ffe3aa;font-variant-numeric:tabular-nums}
 .launch-number.beat{animation:launch-beat .9s cubic-bezier(.2,.9,.3,1.2)}
