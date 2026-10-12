@@ -2,6 +2,13 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
+## 12 oktober avond: versie 0.2.9 (getest in de test-VM, nog niet gepubliceerd)
+- Eigen "chill reggae space"-geluiden (`maak-geluiden.mjs`): opstarten (inlogscherm, 1x per opstart), in-/afmelden, afsluiten, melding, fout (kritieke melding), apparaat in/uit (udev), vergrendelen/ontgrendelen, verkeerd wachtwoord op het vergrendelscherm (PAM optional -> `universe-lock-poging`), prullenbak, schermafbeelding, volume, batterij 10/5 %.
+- Afsluiten/herstarten = zelfde animatie als afmelden (`begin_logout(action)`).
+- Verplicht herstarten na updates: melding "Sla je werk op", 2 min, laatste 10 s lancering-aftelling op de wereld; vangnet `shutdown -r +3` in `universe-updates-run`.
+- Chrome: beleid HardwareAccelerationModeEnabled=false (beeld in blokken op Axels pc, ook native Wayland).
+- VM: gtklock werkt niet op 640x480 (alleen VM); QEMU pauzeert bij een herstart van de test-VM (WHPX): proces herstarten.
+
 ## 12 oktober: versie 0.2.8 (getest in de test-VM)
 - Vergrendelscherm = inlogscherm-stijl met naam/foto en wachtwoordveld (gtklock + userinfo, `pakket/.../gtklock`); ontgrendelen getest.
 - Afmelden stopt de hele sessie (`universe-session` -> loginctl terminate-session; shellbewaking stopt zonder compositor): geen vastlopers bij opnieuw inloggen (3 rondes getest).
