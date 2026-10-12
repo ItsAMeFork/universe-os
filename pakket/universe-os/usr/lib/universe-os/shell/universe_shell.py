@@ -231,7 +231,8 @@ class Shell:
         return 'anim'
 
     def watch_lock(self):
-        running = subprocess.run(['pgrep', '-u', str(os.getuid()), '-x', 'swaylock'], stdout=subprocess.DEVNULL).returncode == 0
+        running = any(subprocess.run(['pgrep', '-u', str(os.getuid()), '-x', name], stdout=subprocess.DEVNULL).returncode == 0
+                      for name in ('gtklock', 'swaylock'))
         if running:
             self.lock_seen = True
             return True

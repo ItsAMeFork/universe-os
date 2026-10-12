@@ -4,11 +4,20 @@
 # frozen screen. The ring now always shows where the password goes; Caps Lock is shown too.
 # Background: the Earth in space with "Vergrendeld" (scripts/assets/vergrendeld.png, like the login screen). swaylock stays the
 # secure lock (ext-session-lock) and keeps the session running; the ring sits on top of the planet.
+pgrep -u "$(id -u)" -x gtklock >/dev/null && exit 0
 pgrep -u "$(id -u)" -x swaylock >/dev/null && exit 0
 # Animation (Axel, 10 Oct): the desktop is first pulled into the Earth that the lock screen shows, then swaylock
 # starts; the shell brings the desktop back out after unlocking. --direct (before sleep): lock at once.
 if [ "$1" != "--direct" ] && [ "$(universe-ctl lock 2>/dev/null)" = "ok anim" ]; then
     sleep 1.9
+fi
+# gtklock (12 Oct, Axel: "like the login screen, with the user name, and the user types his password"): the Earth in
+# space, a glass card with the picture and name of the user, a real password field and the time (style.css). It is a
+# secure lock as well (ext-session-lock: if it crashed, the screen stays locked). swaylock below is the fallback.
+if command -v gtklock >/dev/null 2>&1; then
+    MOD=$(ls /usr/lib/*/gtklock/userinfo-module.so 2>/dev/null | head -1)
+    exec gtklock -s /usr/share/universe-os/gtklock/style.css -x /usr/share/universe-os/gtklock/layout.ui ${MOD:+-m "$MOD"} \
+        -t "%H:%M" -D "%A %e %B" -H -T 30
 fi
 IMAGE=/usr/share/universe-os/backgrounds/vergrendeld.png
 set --

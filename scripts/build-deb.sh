@@ -56,6 +56,8 @@ install -Dm644 "$ROOT/scripts/assets/vergrendeld.png" "$STAGE/usr/share/universe
 # De gloeiende kern tussen inlogscherm en bureaublad (swaybg, achtergrond van world.html en van het inlogscherm na
 # afmelden): het laatste beeld van inloggen en afmelden, zodat beide één animatie zijn. Gemaakt met maak-kern.mjs.
 install -Dm644 "$ROOT/scripts/assets/kern.png" "$STAGE/usr/share/universe-os/backgrounds/kern.png"
+# Sterrenhemel achter de aarde op het vergrendelscherm (gtklock), ook gemaakt met maak-kern.mjs.
+install -Dm644 "$ROOT/scripts/assets/sterren.png" "$STAGE/usr/share/universe-os/backgrounds/sterren.png"
 
 # Python-bindingen voor wlr-foreign-toplevel (vensteroverzicht), gegenereerd met de pywayland-scanner.
 PROTO="$STAGE/usr/lib/universe-os/shell/protocols"

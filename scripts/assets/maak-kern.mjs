@@ -33,3 +33,26 @@ const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(W); ihdr.writeUInt32BE(H, 4); 
 const out = join(dirname(fileURLToPath(import.meta.url)), 'kern.png');
 writeFileSync(out, Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw, {level: 9})), chunk('IEND', Buffer.alloc(0))]));
 console.log(out);
+
+// sterren.png: the starry sky behind the Earth on the lock screen (gtklock, pakket/.../gtklock/style.css).
+{
+  const raw2 = Buffer.alloc((W * 3 + 1) * H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const o = y * (W * 3 + 1) + 1 + x * 3; raw2[o] = BG[0]; raw2[o + 1] = BG[1]; raw2[o + 2] = BG[2]; }
+  let s = 7; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  // a faint nebula on the right, as on the login screen
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const d = Math.hypot((x - W * .78) / (W * .25), (y - H * .25) / (H * .35)), a = Math.max(0, 1 - d) ** 2 * .22;
+    if (a > 0) { const o = y * (W * 3 + 1) + 1 + x * 3; raw2[o] += Math.round(120 * a); raw2[o + 1] += Math.round(60 * a); raw2[o + 2] += Math.round(70 * a); }
+  }
+  for (let i = 0; i < 900; i++) {
+    const x = Math.floor(r() * W), y = Math.floor(r() * H), b = .25 + r() * .75, big = r() < .06;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const px = x + dx, py = y + dy; if (px < 0 || py < 0 || px >= W || py >= H) continue;
+      const f = (dx === 0 && dy === 0 ? 1 : big ? .45 : .12) * b, o = py * (W * 3 + 1) + 1 + px * 3;
+      raw2[o] = Math.min(255, raw2[o] + 208 * f); raw2[o + 1] = Math.min(255, raw2[o + 1] + 224 * f); raw2[o + 2] = Math.min(255, raw2[o + 2] + 255 * f);
+    }
+  }
+  const out2 = join(dirname(fileURLToPath(import.meta.url)), 'sterren.png');
+  writeFileSync(out2, Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw2, {level: 9})), chunk('IEND', Buffer.alloc(0))]));
+  console.log(out2);
+}
