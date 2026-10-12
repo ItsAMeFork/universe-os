@@ -2,6 +2,15 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
+## 12 oktober: versie 0.2.8 (getest in de test-VM)
+- Vergrendelscherm = inlogscherm-stijl met naam/foto en wachtwoordveld (gtklock + userinfo, `pakket/.../gtklock`); ontgrendelen getest.
+- Afmelden stopt de hele sessie (`universe-session` -> loginctl terminate-session; shellbewaking stopt zonder compositor): geen vastlopers bij opnieuw inloggen (3 rondes getest).
+- Inloggen/afmelden als één animatie via de gloeiende kern (`kern.png`, `explode.js chargeToCore`, `world.js setCore/drawBoom`).
+- Scherpe realistische planeten (`planets-hq.js`), pictogrammen 256 px, vloeiend zoomen/slepen, startring bij openen.
+- Systeemgeluiden (`universe-geluid`, eigen geluiden uit `maak-geluiden.mjs`), instelling Systeemgeluiden.
+- Chrome native Wayland + systeemtitelbalk (onleesbare tekst op Axels pc); min/max/sluiten op alle vensters (gsettings button-layout).
+- ISO start ook met oud BIOS (syslinux + grub-pc in installer); installer-fout "Missing variables: d" opgelost.
+
 ## 11 oktober avond: echte Claude Code getest in de VM (Axel ingelogd, Haiku 5.5)
 Werkt: vraag over het scherm (overzicht + schermafbeelding), Firefox en Rekenmachine openen (wacht nu op het venster),
 onthouden en terugvinden in een nieuw gesprek (brein), zoeken in bestandsinhoud (recoll), personage loopt mee.

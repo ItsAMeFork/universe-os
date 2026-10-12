@@ -1,0 +1,19 @@
+#!/bin/sh
+# Google Chrome as a native Wayland program for every user. Through Xwayland (Chrome's default) its text came out torn
+# and unreadable on some graphics cards (Axel's pc, 12 Oct); natively it draws correctly. Writes an override of
+# Chrome's launcher in /usr/local/share/applications (wins over /usr/share/applications for the menu, dock and
+# planets). Run as root by the package (postinst) and after every apt/dpkg run (/etc/apt/apt.conf.d/90universe-chrome),
+# so it follows Chrome updates. Without Chrome it removes the override. Chrome's own title bar showed only a close
+# button; session.py turns on "system title bar" per user, so Chrome gets the Universe title bar with
+# minimise/maximise/close like every other window.
+SRC=/usr/share/applications/google-chrome.desktop
+DST=/usr/local/share/applications/google-chrome.desktop
+if [ ! -f "$SRC" ]; then
+    rm -f "$DST"
+    exit 0
+fi
+mkdir -p /usr/local/share/applications
+sed -E 's#^(Exec=/usr/bin/google-chrome-stable)( |$)#\1 --ozone-platform=wayland\2#' "$SRC" >"$DST.tmp" &&
+    mv "$DST.tmp" "$DST" && chmod 0644 "$DST"
+command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database -q /usr/local/share/applications 2>/dev/null
+exit 0

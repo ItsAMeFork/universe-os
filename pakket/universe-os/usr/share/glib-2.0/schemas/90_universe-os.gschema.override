@@ -1,0 +1,4 @@
+# Universe OS: minimise, maximise and close on every window, like Windows. Apps that draw their own title bar
+# (GTK 3/4, GNOME apps such as the calculator) only showed a close button (Debian default "appmenu:close").
+[org.gnome.desktop.wm.preferences]
+button-layout='appmenu:minimize,maximize,close'

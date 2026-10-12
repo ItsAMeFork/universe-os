@@ -52,7 +52,13 @@ async function start(){
  if(intro)loaded.then(()=>earthsPainted()).then(()=>animateWorld('in',saved,{core:true}));
  setTimeout(paintEarths,1500);
 }
-const planetGlobe=(p,diameter)=>p.style==='earth'?earth(pixelSize(diameter)):globe(p.hue,!!p.rock,pixelSize(diameter));
+// Planets of the rooms (Applicaties, Softwarewinkel, ...): the quick picture at once, the sharp one right after.
+const planetGlobe=(p,diameter)=>{
+ if(p.style==='earth')return earth(pixelSize(diameter));
+ const g=globe(p.hue,!!p.rock,pixelSize(diameter));
+ requestAnimationFrame(()=>sharpenPlanet(g,p.hue,!!p.rock,Math.min(MAX_TIER,pixelSize(diameter)<=256?256:512),1e6));
+ return g;
+};
 function build(){
  root.replaceChildren(h('div',{class:'nebula','aria-hidden':'true'}),sky,layer,room);
  return refreshSpace();

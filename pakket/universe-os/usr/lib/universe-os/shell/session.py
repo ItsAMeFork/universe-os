@@ -99,6 +99,34 @@ def environment():
     return '\n'.join(lines) + '\n'
 
 
+def chrome_system_title_bar():
+    """Google Chrome uses the Universe title bar (minimise, maximise, close) instead of its own, which only had a
+    close button on Wayland (12 Oct). Chrome's "Use system title bar and borders" is a profile preference; it is set
+    at login while Chrome is not running, and seeded for a profile that does not exist yet."""
+    import json
+    import subprocess
+    base = os.path.join(os.environ.get('XDG_CONFIG_HOME') or os.path.expanduser('~/.config'), 'google-chrome')
+    prefs = os.path.join(base, 'Default', 'Preferences')
+    try:
+        if subprocess.run(['pgrep', '-u', str(os.getuid()), '-x', 'chrome'], stdout=subprocess.DEVNULL).returncode == 0:
+            return
+        data = {}
+        if os.path.exists(prefs):
+            with open(prefs, encoding='utf-8') as f:
+                data = json.load(f)
+            if data.get('browser', {}).get('custom_chrome_frame') is False:
+                return
+        elif os.path.exists(base):
+            return  # another profile layout: leave it alone
+        data.setdefault('browser', {})['custom_chrome_frame'] = False
+        os.makedirs(os.path.dirname(prefs), exist_ok=True)
+        with open(prefs + '.universe', 'w', encoding='utf-8') as f:
+            json.dump(data, f)
+        os.replace(prefs + '.universe', prefs)
+    except (OSError, ValueError):
+        pass  # never block the login for this
+
+
 def write(recovery=False):
     target = os.path.join(config.user_dir(), 'labwc-recovery' if recovery else 'labwc')
     os.makedirs(target, exist_ok=True)
@@ -115,7 +143,24 @@ def write(recovery=False):
             f.write(content)
         os.replace(path + '.tmp', path)
     os.chmod(os.path.join(target, 'autostart'), 0o755)
+    if not recovery:
+        chrome_system_title_bar()
+        window_buttons()
     return target
+
+
+def window_buttons():
+    """Minimise, maximise and close on windows that draw their own title bar (GTK 3/4 apps), like Windows. The schema
+    default (90_universe-os.gschema.override) did not reach those apps through the settings portal, a user value does
+    (VM, 12 Oct). Only Debian's default is replaced: a layout the user chose stays."""
+    import subprocess
+    key = ['org.gnome.desktop.wm.preferences', 'button-layout']
+    try:
+        current = subprocess.run(['gsettings', 'get'] + key, capture_output=True, text=True, timeout=5).stdout.strip()
+        if current in ("'appmenu:close'", "':close'", "'appmenu:minimize,maximize,close'"):
+            subprocess.run(['gsettings', 'set'] + key + ['appmenu:minimize,maximize,close'], timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        pass
 
 
 def reconfigure():
