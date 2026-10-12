@@ -6,6 +6,9 @@
 # so it follows Chrome updates. Without Chrome it removes the override. Chrome's own title bar showed only a close
 # button; session.py turns on "system title bar" per user, so Chrome gets the Universe title bar with
 # minimise/maximise/close like every other window.
+# Still torn into blocks with noise natively (Axel's pc, 12 Oct evening, X11 and Wayland alike): Chrome's GPU path does
+# not work on that graphics card. The package ships the Chrome policy /etc/opt/chrome/policies/managed/universe-os.json
+# (HardwareAccelerationModeEnabled=false): Chrome then draws in software, correctly, for every user and every launcher.
 SRC=/usr/share/applications/google-chrome.desktop
 DST=/usr/local/share/applications/google-chrome.desktop
 if [ ! -f "$SRC" ]; then

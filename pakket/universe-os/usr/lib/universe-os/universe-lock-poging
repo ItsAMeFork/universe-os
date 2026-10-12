@@ -1,0 +1,19 @@
+#!/bin/sh
+# Lock screen sounds (Axel, 12 Oct): gtklock has no hook for a wrong password, so PAM calls this for every password
+# attempt on the lock screen (/etc/pam.d/gtklock: "auth optional pam_exec.so quiet ...", added by the package; optional,
+# so it can never let anyone in or keep anyone out). It runs as the user. In the background: is gtklock still running
+# once the check is done, then the password was wrong and a soft error sound plays. Unlocking plays its own sound.
+[ "$PAM_TYPE" = auth ] || exit 0
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+uid=$(id -u)
+export PATH XDG_RUNTIME_DIR="/run/user/$uid"
+HOME=$(getent passwd "$uid" | cut -d: -f6)
+export HOME
+(
+    sleep 0.8
+    n=0  # gtklock checks the password in a child process: wait until it is gone (pam_faildelay: up to ~3 s)
+    while [ "$(pgrep -u "$uid" -x gtklock | wc -l)" -gt 1 ] && [ $n -lt 30 ]; do sleep 0.2; n=$((n + 1)); done
+    sleep 0.4
+    pgrep -u "$uid" -x gtklock >/dev/null && universe-geluid fout
+) </dev/null >/dev/null 2>&1 &
+exit 0

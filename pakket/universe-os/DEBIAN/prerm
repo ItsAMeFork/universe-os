@@ -4,4 +4,7 @@ set -e
 if [ "$1" = "remove" ] || [ "$1" = "upgrade" ] || [ "$1" = "deconfigure" ]; then
     find /usr/lib/universe-os/shell /usr/lib/universe-os/claude -name '__pycache__' -type d -prune -exec rm -rf {} + 2>/dev/null || true
 fi
+if [ "$1" = "remove" ] && [ -f /etc/pam.d/gtklock ]; then
+    sed -i '/universe-lock-poging/d' /etc/pam.d/gtklock || true
+fi
 exit 0

@@ -57,6 +57,10 @@ if [ "$1" = "configure" ]; then
     python3 -m compileall -q /usr/lib/universe-os/shell /usr/lib/universe-os/claude >/dev/null 2>&1 || true
     # Google Chrome natively on Wayland for every user (torn text through Xwayland on some graphics cards).
     /usr/lib/universe-os/universe-chrome-wayland || true
+    # Lock screen: a soft sound after a wrong password (universe-lock-poging). Optional line before the normal stack.
+    if [ -f /etc/pam.d/gtklock ] && ! grep -q universe-lock-poging /etc/pam.d/gtklock; then
+        sed -i '1i auth optional pam_exec.so quiet /usr/lib/universe-os/universe-lock-poging' /etc/pam.d/gtklock || true
+    fi
 fi
 
 exit 0
