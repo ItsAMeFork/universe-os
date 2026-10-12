@@ -18,7 +18,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Kopiëren naar de bouw-VM mislukt.' }
 # uitvoer/ en de live-build-cache blijven staan. De mappen uit git worden eerst leeggemaakt, anders blijven bestanden
 # die in git verwijderd zijn in de VM staan en komen ze toch in het pakket of ISO (8 okt: oude apt-daily-drop-ins).
 $clean = 'pakket scripts branding docs vm live/config live/auto' -split ' ' | ForEach-Object { "~/$Map/$_" }
-& ssh @opts -p 2222 bouwer@127.0.0.1 "mkdir -p ~/$Map && rm -rf $($clean -join ' ') && tar -xf /tmp/universe-os.tar -C ~/$Map && rm /tmp/universe-os.tar && echo $sha > ~/$Map/.commit"
+& ssh -n @opts -p 2222 bouwer@127.0.0.1 "mkdir -p ~/$Map && rm -rf $($clean -join ' ') && tar -xf /tmp/universe-os.tar -C ~/$Map && rm /tmp/universe-os.tar && echo $sha > ~/$Map/.commit"
 if ($LASTEXITCODE -ne 0) { throw 'Uitpakken in de bouw-VM mislukt.' }
 Remove-Item $tar
 Write-Host "Commit $sha staat in ~/$Map in de bouw-VM."

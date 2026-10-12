@@ -6,12 +6,14 @@
 # Vooraf: versienummer verhoogd in branding/universe.json en alles gecommit.
 param([ValidateSet('beide', 'test', 'stable')][string]$Kanaal = 'beide')
 $ErrorActionPreference = 'Stop'
+# ssh -n (stdin from nothing) for the calls without input: in a terminal tab Windows OpenSSH otherwise waited for
+# keyboard input after "true" and the script hung at the first step (12 Oct).
 $vm = 'D:\UniverseOS-VMs'
 $root = Split-Path $PSScriptRoot -Parent
 $opts = @('-o', "UserKnownHostsFile=$vm\known_hosts", '-o', 'StrictHostKeyChecking=accept-new', '-i', "$vm\keys\id_ed25519", '-p', '2222')
 $bron = 'https://itsamefork.github.io/universe-os-apt'
 
-function Bereikbaar { & ssh @opts -o BatchMode=yes -o ConnectTimeout=5 bouwer@127.0.0.1 true 2>$null; return $LASTEXITCODE -eq 0 }
+function Bereikbaar { & ssh -n @opts -o BatchMode=yes -o ConnectTimeout=5 bouwer@127.0.0.1 true 2>$null; return $LASTEXITCODE -eq 0 }
 
 $versie = (Get-Content "$root\branding\universe.json" -Raw | ConvertFrom-Json).version
 Write-Host "== Universe OS $versie publiceren (kanaal: $Kanaal)" -ForegroundColor Cyan
@@ -31,14 +33,14 @@ if (-not (Bereikbaar)) {
 
 # Na een slaapstand van de laptop loopt de VM-klok achter; gpg weigert dan een sleutel "uit de toekomst".
 $nu = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd HH:mm:ss')
-& ssh @opts -o BatchMode=yes bouwer@127.0.0.1 "sudo -n date -u -s '$nu' >/dev/null"
+& ssh -n @opts -o BatchMode=yes bouwer@127.0.0.1 "sudo -n date -u -s '$nu' >/dev/null"
 if ($LASTEXITCODE -ne 0) { Write-Host 'Let op: klok van de bouw-VM niet gelijkgezet.' -ForegroundColor Yellow }
 
 Write-Host '== Code naar de bouw-VM'
 & "$PSScriptRoot\sync-naar-vm.ps1"
 
 Write-Host '== Pakket bouwen'
-& ssh @opts -o BatchMode=yes bouwer@127.0.0.1 'cd ~/universe-os-claude && sh scripts/build-deb.sh >/tmp/build-deb.log 2>&1 || { tail -20 /tmp/build-deb.log; exit 1; }; tail -1 /tmp/build-deb.log'
+& ssh -n @opts -o BatchMode=yes bouwer@127.0.0.1 'cd ~/universe-os-claude && sh scripts/build-deb.sh >/tmp/build-deb.log 2>&1 || { tail -20 /tmp/build-deb.log; exit 1; }; tail -1 /tmp/build-deb.log'
 if ($LASTEXITCODE -ne 0) { throw 'Pakket bouwen mislukt (zie hierboven).' }
 
 $stappen = switch ($Kanaal) {
