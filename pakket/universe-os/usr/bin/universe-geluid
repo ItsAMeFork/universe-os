@@ -1,14 +1,24 @@
 #!/bin/sh
-# Speelt een systeemgeluid van Universe OS: inloggen, afmelden, afsluiten of melding (eigen geluiden, gemaakt met
+# Speelt een systeemgeluid van Universe OS (eigen "chill reggae space"-geluiden, gemaakt met
 # scripts/assets/maak-geluiden.mjs). Niets als de instelling "Systeemgeluiden" uit staat.
 #   universe-geluid inloggen [--wacht]     --wacht: pas terugkomen als het geluid klaar is (vóór afsluiten)
-case "$1" in inloggen|afmelden|afsluiten|melding) ;; *) exit 0 ;; esac
+case "$1" in
+    opstarten|inloggen|afmelden|afsluiten|melding|fout|apparaat-in|apparaat-uit|vergrendelen|ontgrendelen|prullenbak|schermafbeelding|volume|waarschuwing|aftellen|lancering) ;;
+    *) exit 0 ;;
+esac
 f=/usr/share/sounds/universe/$1.wav
 [ -f "$f" ] || exit 0
 grep -q '"sounds": *false' "${XDG_CONFIG_HOME:-$HOME/.config}/universe-os/settings.json" 2>/dev/null && exit 0
-if command -v pw-play >/dev/null 2>&1; then speel="pw-play --volume=0.8"; elif command -v paplay >/dev/null 2>&1; then speel=paplay; else exit 0; fi
+# Een kort geluid niet opstapelen (volumeknop ingedrukt houden, veel meldingen tegelijk).
+if [ "$1" = volume ] || [ "$1" = melding ]; then
+    pgrep -u "$(id -u)" -f "sounds/universe/$1.wav" >/dev/null 2>&1 && exit 0
+fi
+if command -v pw-play >/dev/null 2>&1; then speel="pw-play --volume=0.8"
+elif command -v paplay >/dev/null 2>&1; then speel=paplay
+elif command -v aplay >/dev/null 2>&1; then speel="aplay -q"
+else exit 0; fi
 if [ "$2" = "--wacht" ]; then
-    timeout 4 $speel "$f" >/dev/null 2>&1
+    timeout 5 $speel "$f" >/dev/null 2>&1
 else
     $speel "$f" >/dev/null 2>&1 &
 fi

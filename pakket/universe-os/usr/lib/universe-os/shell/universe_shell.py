@@ -609,7 +609,118 @@ class Shell:
             log('opdracht %s mislukt: %s' % (line, error))
             return 'fout: %s' % error
 
+    # ----- system sounds like Windows (Axel, 12 Oct): devices in/out, low battery -----
+    def watch_devices(self):
+        """One sound per physical USB device (stick, mouse, phone...): udev reports usb_device once per device,
+        its interfaces are filtered out. udevadm sleeps in the kernel until something happens: no polling."""
+        try:
+            proc = Gio.Subprocess.new(['udevadm', 'monitor', '--udev', '--subsystem-match=usb/usb_device'],
+                                      Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_SILENCE)
+        except GLib.Error as error:
+            log('apparaatgeluiden niet beschikbaar: %s' % error.message)
+            return
+        self.udev = proc
+        self.udev_lines = Gio.DataInputStream.new(proc.get_stdout_pipe())
+        self.device_sound_at = 0.0
+        self.udev_lines.read_line_async(GLib.PRIORITY_LOW, None, self.device_event)
+
+    def device_event(self, stream, result):
+        try:
+            line, _ = stream.read_line_finish_utf8(result)
+        except GLib.Error:
+            return
+        if line is None:
+            return  # udevadm stopped
+        words = line.split()
+        if len(words) > 2 and words[0] == 'UDEV' and words[2] in ('add', 'remove'):
+            now = time.monotonic()
+            if now - self.device_sound_at > 1.0:  # a hub with several devices: one sound
+                self.device_sound_at = now
+                backend.sound('apparaat-in' if words[2] == 'add' else 'apparaat-uit')
+        stream.read_line_async(GLib.PRIORITY_LOW, None, self.device_event)
+
+    def check_battery_sound(self):
+        """Warning sound when the battery drops to 10 % and again at 5 % (not charging)."""
+        try:
+            bat = backend.battery()
+        except Exception:  # noqa: BLE001
+            return True
+        if not bat.get('present'):
+            return False  # desktop pc: stop checking
+        level = bat.get('percent', 100)
+        if bat.get('charging') or level > 10:
+            self.battery_level_warned = 100
+        elif level <= 10 < self.battery_level_warned or level <= 5 < self.battery_level_warned:
+            self.battery_level_warned = 5 if level <= 5 else 10
+            backend.sound('waarschuwing')
+        return True
+
+    # ----- mandatory restart after updates (Axel, 12 Oct) -----
+    # universe-updates-run writes restartRequired + installedAt. From the moment the message is shown the computer
+    # restarts after 2 minutes; the last 10 seconds are a launch countdown on the world, then the shutdown animation.
+    RESTART_AFTER = 120
+    LAUNCH_SECONDS = 10
+
+    def check_restart(self):
+        if getattr(self, 'restart_deadline', 0) or self.logout_pending:
+            return
+        data = backend.updates._read()
+        at = data.get('installedAt')
+        if not data.get('restartRequired') or not isinstance(at, (int, float)) or at < boot_time():
+            return  # nothing installed since this boot
+        if backend.is_live():
+            return
+        self.restart_deadline = time.monotonic() + self.RESTART_AFTER
+        self.restart_version = str(data.get('version') or '')
+        self.restart_reminded = False
+        log('Updates geïnstalleerd (%s): herstart over %d s.' % (self.restart_version or '?', self.RESTART_AFTER))
+        self.notify('Sla je werk op',
+                    'Er zijn updates geïnstalleerd. Over 2 minuten wordt de computer opnieuw opgestart.')
+        GLib.timeout_add(1000, self.restart_tick)
+
+    def notify(self, title, body):
+        try:
+            backend.spawn(['notify-send', '-u', 'critical', '-c', 'universe.restart', '-a', 'Universe OS',
+                           '-i', 'system-software-update', title, body])
+        except RuntimeError:
+            pass
+
+    def restart_tick(self):
+        if self.logout_pending:
+            return False  # the user restarted or logged out himself
+        left = self.restart_deadline - time.monotonic()
+        if left <= 60 and not self.restart_reminded:
+            self.restart_reminded = True
+            self.notify('Nog 1 minuut', 'De computer wordt over 1 minuut opnieuw opgestart. Sla je werk op.')
+        if left <= self.LAUNCH_SECONDS + 0.5:
+            self.begin_launch(max(1, round(left)))
+            return False
+        return True
+
+    def begin_launch(self, seconds):
+        """The launch of the new software: the world rises above all windows and counts down from 10."""
+        self.hide_overview()
+        if self.panel:
+            self.panel.emit('panel-close')
+        if self.start:
+            self.start_menu(False)
+        for world in self.worlds:
+            GtkLayerShell.set_layer(world.window, GtkLayerShell.Layer.OVERLAY)
+            world.emit('launch-countdown', {'seconds': seconds, 'version': self.restart_version})
+        self.launch_left = seconds
+        backend.sound('aftellen')
+        def tick():
+            self.launch_left -= 1
+            if self.launch_left > 0:
+                backend.sound('aftellen')
+                return True
+            self.launch_timer = 0
+            self.begin_logout('reboot', sound='lancering')
+            return False
+        self.launch_timer = GLib.timeout_add(1000, tick)
+
     def status_tick(self):
+        self.check_restart()
         if self.panel:
             def work():
                 try:
@@ -634,23 +745,28 @@ class Shell:
         return True
 
     def power(self, action):
-        if action != 'logout':
+        if action not in ('logout', 'reboot', 'poweroff'):
             return backend.power(action)
-        GLib.idle_add(self.begin_logout)
+        # Shutting down and restarting look like logging out (Axel, 12 Oct): everything is pulled into the Earth and
+        # the glowing core; then the shutdown sound and the power action.
+        GLib.idle_add(self.begin_logout, action)
         return True
 
-    def begin_logout(self):
+    def begin_logout(self, action='logout', sound=None):
         if self.logout_pending:
             return False
-        self.logout_pending = True
-        backend.spawn(['universe-geluid', 'afmelden'])
+        self.logout_pending = action
+        backend.sound(sound or ('afmelden' if action == 'logout' else 'afsluiten'))
+        if getattr(self, 'launch_timer', 0):
+            GLib.source_remove(self.launch_timer)
+            self.launch_timer = 0
         self.hide_overview()
         if self.panel:
             self.panel.emit('panel-close')
         for world in self.worlds:
             GtkLayerShell.set_layer(world.window, GtkLayerShell.Layer.OVERLAY)
             GtkLayerShell.set_keyboard_mode(world.window, GtkLayerShell.KeyboardMode.EXCLUSIVE)
-            world.emit('logout-begin')
+            world.emit('logout-begin', {'action': action})
         # Logging out must still work if artwork or the JavaScript callback fails.
         self.logout_timer = GLib.timeout_add(4500, self.finish_logout)  # the page says when its animation is done; 1.8 s cut it off
         return False
@@ -658,12 +774,17 @@ class Shell:
     def finish_logout(self):
         if not self.logout_pending:
             return False
-        self.logout_pending = False
+        action, self.logout_pending = self.logout_pending, False
         if self.logout_timer:
             GLib.source_remove(self.logout_timer)
             self.logout_timer = None
         try:
-            backend.power('logout')
+            if action == 'logout':
+                backend.power('logout')
+            else:
+                # The shutdown sound started with the animation; let it finish (it is 3.8 s, the animation ~3 s).
+                time.sleep(0.6)
+                backend.power(action, sound_first=False)
         except Exception as error:
             for world in self.worlds:
                 GtkLayerShell.set_layer(world.window, GtkLayerShell.Layer.BACKGROUND)
@@ -693,6 +814,9 @@ class Shell:
         if not self.toplevels.start():
             log('Zonder vensteroverzicht verder.')
         GLib.timeout_add_seconds(10, self.status_tick)
+        self.watch_devices()
+        self.battery_level_warned = 100
+        GLib.timeout_add_seconds(60, self.check_battery_sound)
         Gtk.main()
         return 0
 
@@ -714,6 +838,18 @@ class Shell:
             self.broadcast('apps-changed')
             return False
         self.apps_changed_timer = GLib.timeout_add(300, send)
+
+
+def boot_time():
+    """When this computer started (epoch seconds), from /proc/stat."""
+    try:
+        with open('/proc/stat') as f:
+            for line in f:
+                if line.startswith('btime '):
+                    return int(line.split()[1])
+    except (OSError, ValueError):
+        pass
+    return time.time()  # unknown: never restart because of an old status
 
 
 def process_age():

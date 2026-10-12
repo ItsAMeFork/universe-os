@@ -310,20 +310,30 @@ def status():
 def set_volume(level):
     level = max(0, min(100, int(level)))
     subprocess.run(['wpctl', 'set-volume', '@DEFAULT_AUDIO_SINK@', '%d%%' % level], check=False)
+    sound('volume')  # like Windows: a tick at the new volume
 
 
 def toggle_mute():
     subprocess.run(['wpctl', 'set-mute', '@DEFAULT_AUDIO_SINK@', 'toggle'], check=False)
+    sound('volume')
 
 
-def power(action):
+def sound(name):
+    """A Universe system sound (universe-geluid; silent when Systeemgeluiden is off). Never fails."""
+    try:
+        spawn(['universe-geluid', name])
+    except (OSError, RuntimeError):
+        pass
+
+
+def power(action, sound_first=True):
     if action == 'lock':
         return spawn(['universe-lock'])
     if action == 'logout':
         return spawn(['labwc', '--exit'])
     if action in ('reboot', 'poweroff', 'suspend'):
-        if action != 'suspend':
-            subprocess.run(['universe-geluid', 'afsluiten', '--wacht'], timeout=6, check=False)  # like Windows: first the sound
+        if action != 'suspend' and sound_first:
+            subprocess.run(['universe-geluid', 'afsluiten', '--wacht'], timeout=7, check=False)  # like Windows: first the sound
         r = subprocess.run(['systemctl', action], capture_output=True, text=True, timeout=30)
         if r.returncode != 0:
             raise RuntimeError('De energieactie is mislukt.' +
@@ -491,6 +501,7 @@ def desktop_rename(path, name):
 
 def desktop_trash(path):
     Gio.File.new_for_path(_in_desktop(path)).trash(None)
+    sound('prullenbak')
     return True
 
 

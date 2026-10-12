@@ -4,7 +4,9 @@
 Eén taak voor alles: de knop "Updates installeren", de controle bij inloggen en de timer (3 min na opstarten, daarna
 elke 24 uur) starten allemaal deze unit. Loopt hij al, dan start systemd geen tweede; daarnaast een eigen slot.
 Stappen: controleren (apt-get update) -> downloaden -> installeren (apt-get upgrade --with-new-pkgs: nieuwe
-afhankelijkheden mogen, niets wordt verwijderd; eigen aanpassingen in configuratiebestanden blijven). Nooit herstarten.
+afhankelijkheden mogen, niets wordt verwijderd; eigen aanpassingen in configuratiebestanden blijven).
+Na een installatie is herstarten verplicht (Axel, 12 okt): de shell van elke ingelogde gebruiker meldt het en telt
+2 minuten af (de laatste 10 seconden als lancering); als vangnet herstart dit script zelf na 3 minuten.
 Status voor de interface: /var/lib/universe-os/updates/status.json (leesbaar voor iedereen).
 Mislukt het (geen internet, slot bezet te lang), dan exitcode 1: de unit probeert het na 20 minuten opnieuw.
 """
@@ -93,7 +95,6 @@ def main():
     checked = time.time()
     simulate = apt(['-s', 'upgrade', '--with-new-pkgs'], 300)
     count = sum(1 for line in simulate.stdout.splitlines() if line.startswith('Inst '))
-    shell_update = any(line.startswith('Inst universe-os ') for line in simulate.stdout.splitlines())
     if count == 0:
         write('current', count=0, checkedAt=checked, message='Alles is bijgewerkt.', error=None)
         return 0
@@ -113,14 +114,22 @@ def main():
     if result.returncode != 0:
         subprocess.run(['dpkg', '--configure', '-a'], env=APT_ENV, capture_output=True, timeout=1800)
         fail('Installeren is niet gelukt. Een nieuwe poging volgt over 20 minuten.', result.stdout + result.stderr)
-    reboot = os.path.exists('/run/reboot-required')
-    message = '%d update%s geïnstalleerd.' % (count, '' if count == 1 else 's')
-    if reboot:
-        message += ' Herstart de computer om af te ronden.'
-    elif shell_update:
-        message += ' Meld je af en weer aan voor de nieuwste Universe-versie.'
-    write('current', count=0, installed=count, installedAt=time.time(), checkedAt=checked, message=message, error=None)
+    message = '%d update%s geïnstalleerd. De computer wordt over 2 minuten opnieuw opgestart.' % (count, '' if count == 1 else 's')
+    write('current', count=0, installed=count, installedAt=time.time(), checkedAt=checked, message=message, error=None,
+          restartRequired=True, version=installed_version())
+    # Vangnet: ook zonder ingelogde gebruiker (inlogscherm) of als een shell niet reageert. De shells herstarten zelf
+    # na 2 minuten, met animatie en geluid; deze geplande herstart komt een minuut later.
+    subprocess.run(['shutdown', '-r', '+3', 'Universe OS: updates geïnstalleerd, de computer wordt opnieuw opgestart.'],
+                   capture_output=True, timeout=30)
     return 0
+
+
+def installed_version():
+    try:
+        return subprocess.run(['dpkg-query', '-W', '-f=${Version}', 'universe-os'], capture_output=True, text=True,
+                              timeout=30).stdout.strip()
+    except (OSError, subprocess.TimeoutExpired):
+        return ''
 
 
 if __name__ == '__main__':

@@ -26,14 +26,38 @@ const room=h('section',{class:'room glass',hidden:true,role:'dialog','aria-modal
 let logoutOverlay=null;
 // Logout (Axel, 10 Oct): everything is pulled back into the Earth and the Earth comes close, exactly as the login
 // screen shows it; then the session ends and the login screen takes over in the same picture.
-on('logout-begin',async()=>{
+// Shutting down and restarting use the same animation (Axel, 12 Oct).
+on('logout-begin',async(data)=>{
  if(logoutOverlay)return;
- logoutOverlay=h('p',{class:'logout-note',role:'status'},'Afmelden…');
+ const action=data?.action||'logout';
+ launchPanel?.classList.add('launched');
+ logoutOverlay=h('p',{class:'logout-note',role:'status'},{logout:'Afmelden…',poweroff:'Afsluiten…',reboot:'Opnieuw opstarten…'}[action]||'Afmelden…');
  root.append(logoutOverlay);root.inert=true;closeMenu();if(current)leave();select(null,false);document.activeElement?.blur?.();
  await animateWorld('out',null,{core:true});
  call('logout.finish').catch(e=>toast(e.message));
 });
-on('logout-error',message=>{logoutOverlay?.remove();logoutOverlay=null;root.inert=false;mix=1;requestRender();toast('Afmelden mislukt: '+message);});
+// Launch of the new software (Axel, 12 Oct): after an update the computer must restart; the last 10 seconds count
+// down here, above all windows, like a rocket launch. Then the shell starts the restart animation (logout-begin).
+let launchPanel=null;
+on('launch-countdown',({seconds=10,version=''}={})=>{
+ if(launchPanel)return;
+ closeMenu();if(current)leave();root.inert=true;
+ const number=h('div',{class:'launch-number','aria-live':'assertive'},String(seconds));
+ const ring=h('div',{class:'launch-ring','aria-hidden':'true'},number);
+ launchPanel=h('section',{class:'launch-panel',role:'alertdialog','aria-label':'Lancering van de nieuwe software'},
+  h('p',{class:'launch-kicker'},'Lancering'),
+  h('h1',{},version?'Universe OS '+version.replace(/[-+~].*$/,''):'De nieuwe Universe OS'),
+  ring,
+  h('p',{class:'launch-sub'},'De updates zijn geïnstalleerd. De computer start opnieuw op met de nieuwe software.'));
+ root.append(launchPanel);
+ const end=performance.now()+seconds*1000;
+ const tick=()=>{const left=Math.max(0,Math.ceil((end-performance.now())/1000));
+  if(left>0){if(number.textContent!==String(left)){number.textContent=String(left);number.classList.remove('beat');void number.offsetWidth;number.classList.add('beat');}
+   ring.style.setProperty('--p',String(1-(end-performance.now())/(seconds*1000)));requestAnimationFrame(tick);}
+  else{number.textContent='🚀';ring.style.setProperty('--p','1');}};
+ requestAnimationFrame(tick);
+});
+on('logout-error',message=>{logoutOverlay?.remove();launchPanel?.remove();launchPanel=null;logoutOverlay=null;root.inert=false;mix=1;requestRender();toast('Afmelden mislukt: '+message);});
 document.body.append(root);
 
 async function start(){

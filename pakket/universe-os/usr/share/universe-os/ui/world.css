@@ -213,3 +213,20 @@ html.reduce-motion .sp-obj.launching::after,html.no-motion .sp-obj.launching::af
 /* The glowing core between login screen and desktop: the same picture as kern.png (scripts/assets/maak-kern.mjs). */
 .world-core{position:absolute;inset:0;z-index:31;pointer-events:none;transform-origin:50% 50%;
  background:radial-gradient(circle 55vmin at 50% 50%,rgba(255,247,236,1) 0%,rgba(255,214,160,.95) 10%,rgba(255,138,72,.5) 30%,rgba(120,84,255,.16) 62%,rgba(60,40,160,0) 100%),#050815}
+/* Launch countdown after an update (world.js launch-countdown): above everything, the last 10 seconds. */
+.launch-panel{position:absolute;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+ background:radial-gradient(circle at 50% 50%,#0b1021d9 0%,#050815f2 70%);color:#e2e6fa;text-align:center;animation:launch-in .6s ease-out both;transition:opacity .8s}
+.launch-panel.launched{opacity:0}
+.launch-panel h1{margin:0;font-size:clamp(22px,3.2vw,40px);font-weight:600;letter-spacing:.02em}
+.launch-kicker{margin:0;text-transform:uppercase;letter-spacing:.35em;font-size:13px;color:#85ffe3}
+.launch-sub{margin:6px 0 0;max-width:34em;padding:0 16px;color:#b9c0dd}
+.launch-ring{--p:0;width:min(42vmin,260px);aspect-ratio:1;border-radius:50%;display:grid;place-items:center;margin:18px 0;
+ background:conic-gradient(#85ffe3 calc(var(--p)*360deg),#ffffff14 0);box-shadow:0 0 60px #85ffe344;
+ -webkit-mask:radial-gradient(circle,transparent 0 calc(50% - 7px),#000 calc(50% - 6px));position:relative}
+.launch-ring::before{content:'';position:absolute;inset:0;border-radius:50%}
+.launch-number{position:absolute;inset:0;display:grid;place-items:center;font-size:clamp(64px,13vmin,120px);font-weight:700;
+ color:#fff;text-shadow:0 0 28px #85ffe3aa;font-variant-numeric:tabular-nums}
+.launch-number.beat{animation:launch-beat .9s cubic-bezier(.2,.9,.3,1.2)}
+@keyframes launch-in{from{opacity:0}to{opacity:1}}
+@keyframes launch-beat{0%{transform:scale(1.35);opacity:.4}40%{transform:scale(.96);opacity:1}100%{transform:scale(1)}}
+html.reduce-motion .launch-number.beat,html.no-motion .launch-number.beat{animation:none}
