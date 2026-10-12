@@ -2,8 +2,10 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
-## 12 oktober nacht: versie 0.2.11 (getest in de test-VM, nog niet gepubliceerd)
+## 12 oktober nacht: versie 0.2.11 (gepubliceerd 23:45, test + stable)
 - Vensters vastklikken zoals Windows (`session.py`: rij losse If-acties, labwc 0.8.3 staat geen If in If toe; gebieden helften/kwarten). Getest: alle Windows+pijl-stappen, slepen naar de rand, rand verslepen.
+- Open vraag aan Axel: verplichte herstart bij elke update (ook Debian) of alleen bij Universe OS-updates?
+- Niet in labwc 0.8.3: Snap Assist en de scheidslijn tussen twee vastgeklikte vensters slepen.
 - Let op: elke geïnstalleerde update (ook Debian-beveiligingsupdates) geeft de verplichte herstart (gezien in de VM: librsvg).
 
 ## 12 oktober laat: versie 0.2.10 (gepubliceerd 23:20)
