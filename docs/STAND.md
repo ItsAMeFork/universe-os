@@ -2,7 +2,12 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
-## 12 oktober avond: versie 0.2.9 (getest in de test-VM, nog niet gepubliceerd)
+## 12 oktober laat: versie 0.2.10 (getest in de test-VM, nog niet gepubliceerd)
+- Opstartgeluid op 100 % en volgens de laatste volumestand (`/var/lib/universe-os/geluid/volume`, gezet door de sessie, toegepast door het inlogscherm; volume niet te testen in de VM).
+- Afsluitdeuntje = opstartgroove als afscheid (5,8 s); de pc gaat pas uit als het klaar is (VM: uit na 9 s).
+- Volumedeuntje bij loslaten van de schuif en bij de volumetoetsen; meteoor bij beheerdersrechten (polkit-venster in de shell, sudo via PAM optional `universe-admin-geluid`).
+
+## 12 oktober avond: versie 0.2.9 (gepubliceerd 22:37)
 - Eigen "chill reggae space"-geluiden (`maak-geluiden.mjs`): opstarten (inlogscherm, 1x per opstart), in-/afmelden, afsluiten, melding, fout (kritieke melding), apparaat in/uit (udev), vergrendelen/ontgrendelen, verkeerd wachtwoord op het vergrendelscherm (PAM optional -> `universe-lock-poging`), prullenbak, schermafbeelding, volume, batterij 10/5 %.
 - Afsluiten/herstarten = zelfde animatie als afmelden (`begin_logout(action)`).
 - Verplicht herstarten na updates: melding "Sla je werk op", 2 min, laatste 10 s lancering-aftelling op de wereld; vangnet `shutdown -r +3` in `universe-updates-run`.
