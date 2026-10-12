@@ -2,7 +2,11 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
-## 12 oktober laat: versie 0.2.10 (getest in de test-VM, nog niet gepubliceerd)
+## 12 oktober nacht: versie 0.2.11 (getest in de test-VM, nog niet gepubliceerd)
+- Vensters vastklikken zoals Windows (`session.py`: rij losse If-acties, labwc 0.8.3 staat geen If in If toe; gebieden helften/kwarten). Getest: alle Windows+pijl-stappen, slepen naar de rand, rand verslepen.
+- Let op: elke geïnstalleerde update (ook Debian-beveiligingsupdates) geeft de verplichte herstart (gezien in de VM: librsvg).
+
+## 12 oktober laat: versie 0.2.10 (gepubliceerd 23:20)
 - Opstartgeluid op 100 % en volgens de laatste volumestand (`/var/lib/universe-os/geluid/volume`, gezet door de sessie, toegepast door het inlogscherm; volume niet te testen in de VM).
 - Afsluitdeuntje = opstartgroove als afscheid (5,8 s); de pc gaat pas uit als het klaar is (VM: uit na 9 s).
 - Volumedeuntje bij loslaten van de schuif en bij de volumetoetsen; meteoor bij beheerdersrechten (polkit-venster in de shell, sudo via PAM optional `universe-admin-geluid`).

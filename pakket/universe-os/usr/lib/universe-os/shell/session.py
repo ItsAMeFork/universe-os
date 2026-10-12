@@ -33,10 +33,13 @@ xfce4-terminal --title "Universe OS herstelmodus" &
 
 
 # Window snapping like Windows (Axel, 12 Oct): Windows+arrows move a window between halves, quarters, maximised and
-# minimised the way Windows does it. labwc only knows "snap to an edge" and "snap to a region"; the If queries ask
-# where the window is now. tiled=left is a half from Windows+Left or from dragging to the left edge.
-def _when(query, then, otherwise):
-    return '<action name="If">%s<then>%s</then><else>%s</else></action>' % (query, then, otherwise)
+# minimised the way Windows does it. labwc only knows "snap to an edge" and "snap to a region", and an If action
+# cannot contain another If (labwc 0.8.3). So each key is a row of simple If actions in an order where a step never
+# matches the result of an earlier one; the first one does the "otherwise" (several queries = any of them).
+# tiled=left is a half from Windows+Left or from dragging the window to the left edge.
+def _if(queries, then=None, otherwise=None):
+    return '<action name="If">%s%s%s</action>' % (''.join(queries), '<then>%s</then>' % then if then else '',
+                                                  '<else>%s</else>' % otherwise if otherwise else '')
 
 
 def _region(name):
@@ -50,25 +53,33 @@ def _edge(direction):
 def _snap_actions(direction):
     tiled = lambda d: '<query tiled="%s"/>' % d
     region = lambda r: '<query tiled_region="%s"/>' % r
-    if direction == 'left':    # from the right half back to normal, from a right quarter to the left quarter
-        return _when(tiled('right'), '<action name="UnSnap"/>',
-               _when(region('top-right'), _region('top-left'),
-               _when(region('bottom-right'), _region('bottom-left'), _edge('left'))))
-    if direction == 'right':
-        return _when(tiled('left'), '<action name="UnSnap"/>',
-               _when(region('top-left'), _region('top-right'),
-               _when(region('bottom-left'), _region('bottom-right'), _edge('right'))))
-    if direction == 'up':      # a half becomes the upper quarter, a lower quarter the half, otherwise maximise
-        return _when(tiled('left'), _region('top-left'),
-               _when(tiled('right'), _region('top-right'),
-               _when(region('bottom-left'), _edge('left'),
-               _when(region('bottom-right'), _edge('right'), '<action name="Maximize"/>'))))
-    # down: maximised -> back to normal, a half -> lower quarter, an upper quarter -> the half, otherwise minimise
-    return _when('<query maximized="both"/>', '<action name="UnMaximize"/>',
-           _when(tiled('left'), _region('bottom-left'),
-           _when(tiled('right'), _region('bottom-right'),
-           _when(region('top-left'), _edge('left'),
-           _when(region('top-right'), _edge('right'), '<action name="Iconify"/>')))))
+    rows = {
+        # from the right half back to normal, from a right quarter to the left quarter, otherwise the left half
+        'left': [_if([tiled('right'), region('top-right'), region('bottom-right')], otherwise=_edge('left')),
+                 _if([tiled('right')], '<action name="UnSnap"/>'),
+                 _if([region('top-right')], _region('top-left')),
+                 _if([region('bottom-right')], _region('bottom-left'))],
+        'right': [_if([tiled('left'), region('top-left'), region('bottom-left')], otherwise=_edge('right')),
+                  _if([tiled('left')], '<action name="UnSnap"/>'),
+                  _if([region('top-left')], _region('top-right')),
+                  _if([region('bottom-left')], _region('bottom-right'))],
+        # a half becomes the upper quarter, a lower quarter the half again, otherwise maximise
+        'up': [_if([tiled('left'), tiled('right'), region('bottom-left'), region('bottom-right')],
+                   otherwise='<action name="Maximize"/>'),
+               _if([tiled('left')], _region('top-left')),
+               _if([tiled('right')], _region('top-right')),
+               _if([region('bottom-left')], _edge('left')),
+               _if([region('bottom-right')], _edge('right'))],
+        # maximised -> back to normal, a half -> lower quarter, an upper quarter -> the half, otherwise minimise
+        'down': [_if(['<query maximized="both"/>', tiled('left'), tiled('right'), region('top-left'), region('top-right')],
+                     otherwise='<action name="Iconify"/>'),
+                 _if(['<query maximized="both"/>'], '<action name="UnMaximize"/>'),
+                 _if([tiled('left')], _region('bottom-left')),
+                 _if([tiled('right')], _region('bottom-right')),
+                 _if([region('top-left')], _edge('left')),
+                 _if([region('top-right')], _edge('right'))],
+    }
+    return ''.join(rows[direction])
 
 
 # Halves and quarters (dragging a window while holding Ctrl, Shift or the Windows key shows them; Windows+arrows use
