@@ -50,7 +50,10 @@ $stappen = switch ($Kanaal) {
 }
 Write-Host '== Ondertekenen en publiceren. Typ de wachtwoordzin van de updatesleutel (je ziet niet wat je typt).' -ForegroundColor Cyan
 $opdracht = 'umask 077; trap "rm -f /tmp/ww" EXIT; read -rs -p "Wachtwoordzin updatesleutel: " P; echo; printf %s "$P" > /tmp/ww; unset P; ' +
-            'export UNIVERSE_SLEUTEL_WACHTWOORDBESTAND=/tmp/ww; cd ~/universe-os-claude && ' + $stappen
+            'export UNIVERSE_SLEUTEL_WACHTWOORDBESTAND=/tmp/ww; cd ~/universe-os-claude && { ' + $stappen + '; } || ' +
+            # A typo in the passphrase left the new package half-added to the local source; the next attempt then refused
+            # it as "already published with different contents" (12 Oct). Undo everything that was not pushed.
+            '{ cd ~/universe-os-apt && git checkout -q -- . && git clean -fq -- pool; exit 1; }'
 & ssh @opts -t bouwer@127.0.0.1 $opdracht
 if ($LASTEXITCODE -ne 0) { throw 'Publiceren mislukt (verkeerde wachtwoordzin of versie al gepubliceerd? Zie hierboven).' }
 
