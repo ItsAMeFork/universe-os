@@ -102,7 +102,7 @@ const sounds = {};
   [[69, 0.0], [72, .55], [76, 1.1], [79, 2.2], [81, 3.3], [84, 4.4], [81, 5.4]].forEach(([n, at], i) => t.add(.3 + at, 2.4, bell(n, 1.6), {gain: .22, pan: i % 2 ? .45 : -.45, send: .7}));
   t.add(BEAT * 8, 2.6, bass(33, 2.2), {gain: .5, send: .1});
   t.add(BEAT * 8, 2.8, bell(69, 2.2), {gain: .22, send: .8});
-  sounds.opstarten = render(t, {echo: .45, wet: .4, peak: .63, fade: .9});
+  sounds.opstarten = render(t, {echo: .45, wet: .4, peak: .89, fade: .9}); // as loud as the rest (Axel, 12 Oct)
 }
 // Login: a skank, a bass drop and rising bells: the planet bursts open.
 {
@@ -122,13 +122,21 @@ const sounds = {};
   t.add(BEAT * .5, .3, skank(F.map(x => x + 12)), {gain: .25, pan: .3, send: .7});
   sounds.afmelden = render(t, {fade: .6});
 }
-// Shutdown: slower and deeper, a long bass slide into the low A and a fading pad.
+// Shutdown (Axel, 12 Oct: like the startup, but as a farewell): the startup groove backwards and twice as short,
+// G C F Am, the bells falling instead of rising, the bass sliding into the low A while the echo carries it away.
 {
-  const t = new Track(3.8);
-  t.add(0, 3.2, pad([53, 57, 60, 64], 3.2), {gain: .26, send: .5});
-  [[84, 0], [79, .3], [76, .6], [72, .95], [69, 1.35]].forEach(([n, at], i) => t.add(at, 2, bell(n, 1.4), {gain: .22, pan: i % 2 ? .35 : -.35, send: .6}));
-  t.add(.9, 2.4, bass(40, 2, 33), {gain: .5, send: .1}); t.add(.9, .5, kick(), {gain: .35});
-  sounds.afsluiten = render(t, {fade: 1});
+  const t = new Track(BEAT * 4 + 2.6);
+  t.add(0, BEAT * 4 + .8, pad([45, 57, 60, 64, 71], BEAT * 4 + .8), {gain: .35, send: .5});
+  [[G, 31], [C, 36], [F, 29], [Am, 33]].forEach(([chord, root], b) => {
+    const at = b * BEAT;
+    t.add(at, BEAT * .9, bass(root, BEAT * .8), {gain: .55, send: .05});
+    t.add(at + BEAT * .5, .3, skank(chord.map(x => x + 12)), {gain: .32, pan: b % 2 ? .3 : -.3, send: .6});
+    if (b === 1 || b === 3) { t.add(at, .5, kick(), {gain: .45, send: .02}); t.add(at, .1, rim(), {gain: .2, pan: .2, send: .4}); }
+  });
+  [[84, 0], [81, .4], [79, .8], [76, 1.4], [72, 2.0], [69, 2.6]].forEach(([n, at], i) => t.add(.2 + at, 2.2, bell(n, 1.4), {gain: .22, pan: i % 2 ? .45 : -.45, send: .7}));
+  t.add(BEAT * 4, 2.4, bass(40, 1.8, 33), {gain: .5, send: .1});
+  t.add(BEAT * 4, 2.4, bell(57, 1.8), {gain: .22, send: .8});
+  sounds.afsluiten = render(t, {echo: .45, wet: .4, peak: .89, fade: 1.2});
 }
 // Short UI sounds (lower): notification, error, device in/out, lock/unlock, trash, screenshot, volume, battery.
 const short = (fill, secs, peak = .45) => { const t = new Track(secs); fill(t); return render(t, {echo: .3, wet: .25, peak, fade: .15}); };
@@ -140,7 +148,19 @@ sounds.vergrendelen = short(t => { t.add(0, .9, pad([57, 60, 64], .8), {gain: .3
 sounds.ontgrendelen = short(t => { t.add(0, .9, bell(72, .4), {gain: .25, pan: -.3, send: .5}); t.add(.1, .9, bell(76, .5), {gain: .25, pan: .3, send: .5}); t.add(.2, .9, bell(81, .6), {gain: .22, send: .6}); }, 1.4);
 sounds.prullenbak = short(t => { t.add(0, .35, swish(.35), {gain: .25, send: .3}); t.add(.18, .5, bell(57, .25), {gain: .25, send: .3}); }, .8, .35);
 sounds.schermafbeelding = short(t => { t.add(0, .06, rim(), {gain: .5, send: .2}); t.add(.08, .06, rim(), {gain: .35, send: .2}); t.add(0, .5, bell(88, .2), {gain: .12, send: .5}); }, .6, .35);
-sounds.volume = short(t => { t.add(0, .25, bell(76, .08), {gain: .3, send: .15}); }, .3, .3);
+sounds.volume = short(t => { t.add(0, .3, bell(76, .12), {gain: .3, send: .2}); t.add(.07, .35, bell(81, .16), {gain: .26, send: .25}); }, .45, .4); // a little tune at the new volume
+// Administrator rights (polkit window, sudo): a meteor shoots past from left to right, with a few sparks afterwards.
+{
+  const t = new Track(2.2), dur = 1.3, parts = 13, hiss = lp(.2), body = lp(.05);
+  let ph = 0;
+  const meteor = tt => { const x = tt / dur, f = 900 * Math.pow(.25, x); ph += 2 * Math.PI * f / RATE;
+    const swell = Math.pow(Math.sin(Math.PI * Math.min(1, x)), 2);
+    return (hiss(rnd() * 2 - 1) * (.9 - .6 * x) + body(rnd() * 2 - 1) * 1.5 + Math.sin(ph) * .35) * swell; };
+  for (let i = 0; i < parts; i++) { const a = i * dur / parts; t.add(a, dur / parts, tt => meteor(a + tt), {gain: .5, pan: -.9 + 1.8 * i / (parts - 1), send: .35}); }
+  [[88, .75], [93, .9], [91, 1.05]].forEach(([n, at], i) => t.add(at, .8, bell(n, .35), {gain: .1, pan: .5 + i * .1, send: .7}));
+  t.add(.55, 1.2, bass(33, .6), {gain: .25, send: .1});
+  sounds.meteoor = render(t, {echo: .35, wet: .3, peak: .5, fade: .4});
+}
 sounds.waarschuwing = short(t => { [[76, 0], [72, .2], [69, .4]].forEach(([n, at]) => t.add(at, .8, bell(n, .5), {gain: .26, send: .5})); }, 1.6);
 // Launch countdown after an update (last 10 s): a soft rim + low bell per second, then the launch: a rising swell.
 sounds.aftellen = short(t => { t.add(0, .08, rim(), {gain: .35, send: .4}); t.add(0, .6, bell(57, .25), {gain: .25, send: .4}); t.add(0, .4, bass(33, .2), {gain: .25}); }, .7, .38);

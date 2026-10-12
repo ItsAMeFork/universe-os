@@ -310,7 +310,13 @@ def status():
 def set_volume(level):
     level = max(0, min(100, int(level)))
     subprocess.run(['wpctl', 'set-volume', '@DEFAULT_AUDIO_SINK@', '%d%%' % level], check=False)
-    sound('volume')  # like Windows: a tick at the new volume
+
+
+def volume_ping():
+    """Like Windows: when the slider is let go, a short tune at the new volume (also remembers the volume for the
+    login screen, see universe-geluid)."""
+    sound('volume')
+    return True
 
 
 def toggle_mute():
@@ -333,7 +339,7 @@ def power(action, sound_first=True):
         return spawn(['labwc', '--exit'])
     if action in ('reboot', 'poweroff', 'suspend'):
         if action != 'suspend' and sound_first:
-            subprocess.run(['universe-geluid', 'afsluiten', '--wacht'], timeout=7, check=False)  # like Windows: first the sound
+            subprocess.run(['universe-geluid', 'afsluiten', '--wacht'], timeout=10, check=False)  # like Windows: first the sound
         r = subprocess.run(['systemctl', action], capture_output=True, text=True, timeout=30)
         if r.returncode != 0:
             raise RuntimeError('De energieactie is mislukt.' +

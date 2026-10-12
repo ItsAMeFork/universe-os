@@ -16,7 +16,7 @@ def play(name, wait=False):
     """System sound on the login screen (universe-geluid; the greeter runs as the lightdm user with its own PipeWire)."""
     try:
         if wait:
-            subprocess.run(['universe-geluid', name, '--wacht'], timeout=7, check=False)
+            subprocess.run(['universe-geluid', name, '--wacht'], timeout=10, check=False)
         else:
             subprocess.Popen(['universe-geluid', name], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                              stderr=subprocess.DEVNULL, start_new_session=True)

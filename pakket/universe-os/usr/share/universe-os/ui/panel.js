@@ -44,6 +44,7 @@ function renderPanel(){
  const setVolume=latestValue(level=>call('volume.set',{level}),e=>toast(e.message));
  const volumeLabel=h('span',{},icon(v.muted?'mute':'volume'),`Geluid ${v.level}%`);
  slider.addEventListener('input',()=>{volumeLabel.replaceChildren(icon(v.muted?'mute':'volume'),`Geluid ${slider.value}%`);setVolume(Number(slider.value));});
+ slider.addEventListener('change',()=>setTimeout(()=>call('volume.ping').catch(()=>{}),120)); // the tune at the new volume, on release
  const mute=h('button',{type:'button','aria-pressed':String(!!v.muted)},icon(v.muted?'mute':'volume'),v.muted?'Gedempt':'Dempen');
  mute.addEventListener('click',()=>call('volume.mute').then(refresh).catch(e=>toast(e.message)));
  mute.disabled=!status.volume;

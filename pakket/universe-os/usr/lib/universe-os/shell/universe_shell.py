@@ -343,6 +343,12 @@ class Shell:
     def windows_update(self):
         self.windows_timer = 0
         windows = self.toplevels.list()
+        # A request for administrator rights (the polkit password window, e.g. installing software): a meteor shoots
+        # past (Axel, 12 Oct). sudo in a terminal gets the same sound through PAM (universe-admin-geluid).
+        auth = {str(w.get('id')) for w in windows if 'polkit' in (w.get('appId') or '').lower()}
+        if auth - getattr(self, 'auth_windows', set()):
+            backend.sound('meteoor')
+        self.auth_windows = auth
         busy = any(not w.get('minimized') for w in windows)
         if busy != getattr(self, 'last_busy', None):  # the world only needs to hear when it changes
             self.last_busy = busy
@@ -450,6 +456,7 @@ class Shell:
             'audio.select': lambda a: backend.audio.select(a),
             'volume.set': lambda a: backend.set_volume(a.get('level', 50)),
             'volume.mute': lambda a: backend.toggle_mute(),
+            'volume.ping': lambda a: backend.volume_ping(),
             'notifications.clear': lambda a: backend.clear_notifications(),
             'power': lambda a: self.power(a.get('action')),
             'logout.finish': lambda a: self.finish_logout(),
@@ -757,6 +764,7 @@ class Shell:
         if self.logout_pending:
             return False
         self.logout_pending = action
+        self.logout_started = time.monotonic()
         backend.sound(sound or ('afmelden' if action == 'logout' else 'afsluiten'))
         if getattr(self, 'launch_timer', 0):
             GLib.source_remove(self.launch_timer)
@@ -783,15 +791,26 @@ class Shell:
             if action == 'logout':
                 backend.power('logout')
             else:
-                # The shutdown sound started with the animation; let it finish (it is 3.8 s, the animation ~3 s).
-                time.sleep(0.6)
-                backend.power(action, sound_first=False)
+                # The shutdown tune (5.8 s, like the startup one) started with the animation (~3-4 s): the computer
+                # only goes off when it has finished.
+                wait = 5.6 - (time.monotonic() - self.logout_started)
+                GLib.timeout_add(max(1, int(wait * 1000)), self.power_off_now, action)
         except Exception as error:
-            for world in self.worlds:
-                GtkLayerShell.set_layer(world.window, GtkLayerShell.Layer.BACKGROUND)
-                GtkLayerShell.set_keyboard_mode(world.window, GtkLayerShell.KeyboardMode.ON_DEMAND)
-                world.emit('logout-error', str(error))
+            self.power_failed(error)
         return False
+
+    def power_off_now(self, action):
+        try:
+            backend.power(action, sound_first=False)
+        except Exception as error:
+            self.power_failed(error)
+        return False
+
+    def power_failed(self, error):
+        for world in self.worlds:
+            GtkLayerShell.set_layer(world.window, GtkLayerShell.Layer.BACKGROUND)
+            GtkLayerShell.set_keyboard_mode(world.window, GtkLayerShell.KeyboardMode.ON_DEMAND)
+            world.emit('logout-error', str(error))
 
     def run(self):
         if not GtkLayerShell.is_supported():
