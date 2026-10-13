@@ -2,6 +2,10 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
+## 13 oktober: versie 0.2.12 (getest in de test-VM, nog niet gepubliceerd)
+- Claude: hulpmiddel energie (vergrendelen/afmelden/herstarten/afsluiten/slaapstand) via shell `claude.power`: altijd met animatie, Claude-paneel sluit eerst, antwoord meteen (vroeger: eigen lock-opdracht wachtte tot ontgrendelen). VM: vergrendelen en afsluiten met open paneel getest.
+- Claude mag meer (geluidsuitgang, standaardbrowser, updates, bureaubladbestand); geweigerd: sudo/pkexec/su/passwd/gpg, energie-opdrachten in de terminal, bewerken van /usr, /etc, /var, ~/.claude, ~/.ssh, ~/.gnupg, en lockMinutes. Claude Code kent alleen Edit-regels (Write gaf waarschuwingen).
+
 ## 12 oktober nacht: versie 0.2.11 (gepubliceerd 23:45, test + stable)
 - Vensters vastklikken zoals Windows (`session.py`: rij losse If-acties, labwc 0.8.3 staat geen If in If toe; gebieden helften/kwarten). Getest: alle Windows+pijl-stappen, slepen naar de rand, rand verslepen.
 - Open vraag aan Axel: verplichte herstart bij elke update (ook Debian) of alleen bij Universe OS-updates?

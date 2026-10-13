@@ -9,9 +9,9 @@
              "Bash(systemctl suspend:*)", "Bash(systemctl hibernate:*)", "Bash(shutdown:*)", "Bash(reboot:*)",
              "Bash(poweroff:*)", "Bash(labwc --exit:*)",
              "Bash(sudo:*)", "Bash(pkexec:*)", "Bash(su:*)", "Bash(passwd:*)", "Bash(chpasswd:*)", "Bash(gpg:*)",
-             "Edit(//usr/**)", "Write(//usr/**)", "Edit(//etc/**)", "Write(//etc/**)", "Edit(//var/**)", "Write(//var/**)",
-             "Edit(~/.claude/**)", "Write(~/.claude/**)", "Edit(~/.ssh/**)", "Write(~/.ssh/**)", "Read(~/.ssh/**)",
-             "Edit(~/.gnupg/**)", "Write(~/.gnupg/**)", "Read(~/.gnupg/**)"]
+             "Edit(//usr/**)", "Edit(//etc/**)", "Edit(//var/**)",
+             "Edit(~/.claude/**)", "Edit(~/.ssh/**)", "Read(~/.ssh/**)",
+             "Edit(~/.gnupg/**)", "Read(~/.gnupg/**)"]
   },
   "hooks": {
     "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "/usr/lib/universe-os/claude/universe-claude-hook", "timeout": 3}]}],
