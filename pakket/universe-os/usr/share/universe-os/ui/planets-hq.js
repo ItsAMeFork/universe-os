@@ -79,7 +79,8 @@ export function* planetRows(seed,rock,px,d){
 // ----- painting queue: biggest planets first, in slices between frames -----
 const queue=new Map(); // key -> job
 let running=false;
-const weak=(navigator.hardwareConcurrency||2)<=2;
+// Weak: few cores, or the processor also draws the screen (gfx=soft: NVIDIA/unknown graphics, webview.py).
+const weak=(navigator.hardwareConcurrency||2)<=2||new URLSearchParams(location.search).get('gfx')==='soft';
 const SLICE=weak?5:9;
 
 /** Planet picture `key` at `px`, painted into `canvas` when done (it may be painted already: cached). */

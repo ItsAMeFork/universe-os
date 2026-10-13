@@ -262,7 +262,7 @@ function render(){
  sharpenSoon();
 }
 // ----- sharp planets: once the view rests, every visible planet is painted at the size it is shown (planets-hq.js) -----
-const WEAK=(navigator.hardwareConcurrency||2)<=2,MAX_TIER=WEAK?512:1024;
+const WEAK=(navigator.hardwareConcurrency||2)<=2||new URLSearchParams(location.search).get('gfx')==='soft',MAX_TIER=WEAK?512:1024;
 let sharpenTimer=0;
 function sharpenSoon(){clearTimeout(sharpenTimer);sharpenTimer=setTimeout(sharpen,220);}
 function sharpen(){

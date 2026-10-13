@@ -125,8 +125,13 @@ def make_view(page, bridge, transparent=False, zoom=1.0):
     view.connect('decide-policy', _policy)
     view.connect('context-menu', lambda *a: True)
     uri = GLib.filename_to_uri('%s/%s' % (UI_DIR, page))
+    params = []
     if os.environ.get('UNIVERSE_DEBUG_FPS') == '1':
-        uri += '?fps=1'
+        params.append('fps=1')
+    if os.environ.get('LIBGL_ALWAYS_SOFTWARE') == '1':
+        params.append('gfx=soft')  # the processor draws (webkit_safe_mode): the pages keep their work light
+    if params:
+        uri += '?' + '&'.join(params)
     view.load_uri(uri)
     return view
 
