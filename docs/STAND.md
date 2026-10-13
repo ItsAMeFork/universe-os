@@ -2,6 +2,13 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
+## 13 oktober 21:35: versie 0.2.14 (ISO klaar, update nog NIET gepubliceerd)
+- ISO: `D:\UniverseOS-VMs\iso\universe-os-0.2.14-amd64.iso`, SHA-256 f5181cf8…277c.
+- Grafisch model voor elke pc (`webview.webkit_safe_mode`): onbekende/zwakke kaart -> `WEBKIT_DMABUF_RENDERER_FORCE_SHM=1`.
+  NIET `WEBKIT_DISABLE_DMABUF_RENDERER` of `WEBKIT_DISABLE_COMPOSITING_MODE`: dan tekenden de doorzichtige balken alleen
+  het stuk onder de muis (balken verdwenen op de H310M-pc met 0.2.13). Getest in de VM met nagebootste NVIDIA-situatie.
+- Gebruikersnaamveld laat tekens weg die niet in een gebruikersnaam kunnen (toetsenbord stuurde "\" bij eerste toets, ook in BIOS).
+
 ## 13 oktober avond: versie 0.2.13 (ISO klaar; update nog NIET gepubliceerd, Axel doet dat thuis)
 - ISO: `D:\UniverseOS-VMs\iso\universe-os-0.2.13-amd64.iso`, SHA-256 8196828671…e747. Met WebKit-veilige modus voor NVIDIA/nouveau (H310M-pc).
 - ISO-bouw liep 4x vast: apt in de chroot tot 5,7 GB (OOM) terwijl de VM namen niet kon opzoeken. Opgelost met vaste DNS in de bouw-VM (`/etc/systemd/resolved.conf.d/universe-bouw.conf`), `live/config/apt/apt.conf`, verse VM-start en bouwen onder `systemd-run -p MemoryMax=5000M`.
