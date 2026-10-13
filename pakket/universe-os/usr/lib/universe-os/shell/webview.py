@@ -22,7 +22,13 @@ def webkit_safe_mode():
     has_render_node = bool(glob.glob('/dev/dri/renderD*'))
     if not has_render_node or not (drivers & WEBKIT_GOOD_DRIVERS):
         os.environ.setdefault('WEBKIT_DMABUF_RENDERER_FORCE_SHM', '1')
+        # Even then nouveau drew the panel and dock half see-through and smeared (Axel's Gigabyte pc, 0.2.14 live, 13
+        # Oct). The processor draws them instead (Mesa llvmpipe), exactly as in the test VM where everything looks
+        # right. Only for the Universe pages: backend.program_env removes it again for programs started from here.
+        os.environ.setdefault('LIBGL_ALWAYS_SOFTWARE', '1')
+        os.environ.setdefault('GALLIUM_DRIVER', 'llvmpipe')
     return sorted(drivers), has_render_node
+
 
 
 WEBKIT_GRAPHICS = webkit_safe_mode()

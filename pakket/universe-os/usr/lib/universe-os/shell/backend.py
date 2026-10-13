@@ -34,10 +34,20 @@ def desktop_app(desktop_id):
         return None
 
 
+# Set by webview.webkit_safe_mode for the Universe pages only (software drawing on NVIDIA/unknown graphics).
+SOFTWARE_GL_VARS = ('LIBGL_ALWAYS_SOFTWARE', 'GALLIUM_DRIVER', 'WEBKIT_DMABUF_RENDERER_FORCE_SHM')
+
+
+def program_env():
+    """The environment for programs the user starts: with the normal graphics of this pc."""
+    return {k: v for k, v in os.environ.items() if k not in SOFTWARE_GL_VARS}
+
+
 def spawn(args, **kw):
     """Start a program detached from the shell: it keeps running when the shell restarts."""
     if not shutil.which(args[0]) and not os.path.exists(args[0]):
         raise RuntimeError('Programma niet gevonden: %s' % args[0])
+    kw.setdefault('env', program_env())
     subprocess.Popen(args, start_new_session=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **kw)
 
 
@@ -521,5 +531,8 @@ def desktop_launch(path):
     app = Gio.DesktopAppInfo.new_from_filename(path)
     if not app:
         raise RuntimeError('Deze snelkoppeling werkt niet.')
-    app.launch([], None)
+    context = Gio.AppLaunchContext()
+    for name in SOFTWARE_GL_VARS:
+        context.unsetenv(name)
+    app.launch([], context)
     return True
