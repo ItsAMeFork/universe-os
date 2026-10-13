@@ -38,8 +38,31 @@ CLAUDE_CALLS = {'status', 'apps.list', 'apps.launch', 'windows.list', 'windows.a
                 'notifications.clear', 'run', 'desktop.list', 'desktop.mkdir', 'desktop.rename', 'desktop.trash',
                 'desktop.launch', 'browser.list', 'browser.select', 'audio.outputs', 'audio.select', 'config.get',
                 'config.set', 'start.toggle', 'layout.get', 'updates.status', 'updates.refresh', 'updates.install',
-                'claude.power'}
+                'claude.power', 'claude.anim'}
 CLAUDE_RUN = {'files', 'terminal', 'monitor', 'software', 'control', 'pavucontrol', 'wdisplays', 'blueman-manager', 'network-editor'}
+# Same set as universe_mcp.SECURITY_SETTINGS: `universe-ctl call config.set` must not bypass the MCP check.
+SECURITY_SETTINGS = {'lockMinutes'}
+# Fixed list for claude.anim / animatie_tonen. Planet flights are the existing world.open route (open-planet);
+# ruimte leaves the room (show-space). Buddy states and walks are the ones claude_ui.Buddy already plays.
+ANIMATIONS = {
+    'planeet-thuis': ('planeet', 'home'),
+    'planeet-applicaties': ('planeet', 'apps'),
+    'planeet-winkel': ('planeet', 'store'),
+    'planeet-controle': ('planeet', 'control'),
+    'planeet-internet': ('planeet', 'chat'),
+    'planeet-games': ('planeet', 'games'),
+    'ruimte': ('ruimte', None),
+    'buddy-rust': ('buddy', 'idle'),
+    'buddy-luisteren': ('buddy', 'listen'),
+    'buddy-denken': ('buddy', 'think'),
+    'buddy-werken': ('buddy', 'work'),
+    'buddy-aandacht': ('buddy', 'attention'),
+    'buddy-blij': ('buddy', 'happy'),
+    'buddy-naar-huis': ('plek', 'home'),
+    'buddy-naar-dock': ('plek', 'dock'),
+    'buddy-naar-wereld': ('plek', 'world'),
+    'buddy-naar-paneel': ('plek', 'panel'),
+}
 PANEL_CLOSED = (430, 44)
 PANEL_OPEN = (400, 700)
 DOCK_HEIGHT = 64  # CSS pixels of .dock in dock.html
@@ -466,6 +489,7 @@ class Shell:
             'notifications.clear': lambda a: backend.clear_notifications(),
             'power': lambda a: self.power(a.get('action')),
             'claude.power': lambda a: self.claude_power(a.get('action')),
+            'claude.anim': lambda a: self.show_animation(a.get('naam')),
             'logout.finish': lambda a: self.finish_logout(),
             'updates.status': lambda a: backend.updates_status(),
             'updates.refresh': lambda a: backend.updates.refresh(),
@@ -545,6 +569,10 @@ class Shell:
             return answer('fout: %s' % error)
         if name == 'run' and args.get('tool') not in CLAUDE_RUN:  # not the .deb installer or the system installer
             return answer('fout: niet toegestaan: run %s' % args.get('tool'))
+        if name == 'config.set' and args.get('key') in SECURITY_SETTINGS:
+            return answer('fout: Dit is een beveiligingsinstelling; die verandert de gebruiker zelf in het Controlecentrum.')
+        if name == 'claude.anim' and args.get('naam') not in ANIMATIONS:
+            return answer('fout: Onbekende animatie: %s. Kies uit: %s' % (args.get('naam'), ', '.join(ANIMATIONS)))
         fn = self.handlers()[name]
 
         def work():
@@ -765,6 +793,32 @@ class Shell:
         # Shutting down and restarting look like logging out (Axel, 12 Oct): everything is pulled into the Earth and
         # the glowing core; then the shutdown sound and the power action.
         GLib.idle_add(self.begin_logout, action)
+        return True
+
+    def show_animation(self, name):
+        """Play one allow-listed animation the world or the buddy already knows (animatie_tonen)."""
+        spec = ANIMATIONS.get(name)
+        if not spec:
+            raise ValueError('Onbekende animatie: %s' % name)
+        kind, arg = spec
+        if kind == 'planeet':  # same flight as world.open: the planet room opens
+            self.toplevels.show_desktop()
+            for world in self.worlds:
+                world.emit('open-planet', {'id': arg})
+            return True
+        if kind == 'ruimte':
+            for world in self.worlds:
+                world.emit('show-space')
+            return True
+        buddy = self.claude.buddy if self.claude else None
+        if not buddy:
+            raise RuntimeError('De buddy is er niet (uitgezet of Claude Code ontbreekt).')
+        if kind == 'buddy':
+            buddy.set_state(arg)
+        elif kind == 'plek':
+            buddy.go(arg)
+        else:
+            raise ValueError('Onbekende animatie: %s' % name)
         return True
 
     def claude_power(self, action):
