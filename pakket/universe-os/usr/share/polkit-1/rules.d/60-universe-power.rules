@@ -1,0 +1,14 @@
+// Universe OS: whoever is logged in at this computer may lock, sleep, restart and shut down without a password,
+// also when another session is open (a second user, the login screen, a remote shell). Before, logind then asked for
+// an administrator password, which Claude in the Claude panel cannot type: "shut down" failed (Axel, 13 Oct: "Claude
+// must always have permission as soon as a user is logged in"). Only for active local sessions; inhibitors (a running
+// installation that blocks shutdown) are still respected.
+polkit.addRule(function (action, subject) {
+    var power = ["org.freedesktop.login1.power-off", "org.freedesktop.login1.power-off-multiple-sessions",
+                 "org.freedesktop.login1.reboot", "org.freedesktop.login1.reboot-multiple-sessions",
+                 "org.freedesktop.login1.suspend", "org.freedesktop.login1.suspend-multiple-sessions",
+                 "org.freedesktop.login1.lock-sessions"];
+    if (power.indexOf(action.id) >= 0 && subject.local && subject.active) {
+        return polkit.Result.YES;
+    }
+});

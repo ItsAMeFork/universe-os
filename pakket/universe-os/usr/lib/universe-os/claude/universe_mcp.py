@@ -172,13 +172,28 @@ POWER = {'vergrendelen': 'lock', 'afmelden': 'logout', 'opnieuw_opstarten': 'reb
          'slaapstand': 'suspend'}
 
 
+def direct_power(action, reason):
+    command = {'lock': ['universe-lock'], 'logout': ['labwc', '--exit']}.get(action, ['systemctl', action])
+    try:
+        # Detached: universe-lock only returns after unlocking (that hung Claude before).
+        subprocess.Popen(command, start_new_session=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL)
+    except OSError as error:
+        raise ToolError('Dat lukte niet: %s (de shell gaf: %s)' % (error, reason))
+
+
 def t_power(a):
     """Through the shell, exactly like the buttons: the lock and shutdown animations always play (Axel, 13 Oct). The
     answer comes at once; the shell starts the animation a moment later and closes the Claude panel first."""
     action = POWER.get(a.get('actie'))
     if not action:
         raise ToolError('actie moet een van deze zijn: ' + ', '.join(POWER))
-    shell('claude.power', {'action': action})
+    try:
+        shell('claude.power', {'action': action})
+    except ToolError as error:
+        # The shell is unreachable or still the version from before the update (it only learns claude.power after
+        # logging in again): do it directly, without animation, so the request never fails (Axel, 13 Oct).
+        direct_power(action, error)
     return {'lock': 'Het scherm wordt vergrendeld (met de animatie).', 'logout': 'Je wordt afgemeld.',
             'reboot': 'De computer start opnieuw op.', 'poweroff': 'De computer wordt afgesloten.',
             'suspend': 'De computer gaat in slaapstand.'}[action]
