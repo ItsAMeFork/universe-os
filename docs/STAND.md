@@ -2,7 +2,11 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
-## 13 oktober: versie 0.2.12 (getest in de test-VM, nog niet gepubliceerd)
+## 13 oktober middag: versie 0.2.13 (ISO wordt gebouwd)
+- polkit `60-universe-power.rules`: actieve lokale sessie mag zonder wachtwoord afsluiten/herstarten/slaapstand, ook met meerdere sessies (Axel: Claude kon de pc niet meer uitzetten). energie valt terug op een directe opdracht als de shell geen claude.power kent.
+- ISO voor Axels tweede pc (Gigabyte H310M S2H 2.0, BIOS F12): "boot niet correct", nog onbekend wat hij precies ziet.
+
+## 13 oktober: versie 0.2.12 (gepubliceerd 08:58)
 - Claude: hulpmiddel energie (vergrendelen/afmelden/herstarten/afsluiten/slaapstand) via shell `claude.power`: altijd met animatie, Claude-paneel sluit eerst, antwoord meteen (vroeger: eigen lock-opdracht wachtte tot ontgrendelen). VM: vergrendelen en afsluiten met open paneel getest.
 - Claude mag meer (geluidsuitgang, standaardbrowser, updates, bureaubladbestand); geweigerd: sudo/pkexec/su/passwd/gpg, energie-opdrachten in de terminal, bewerken van /usr, /etc, /var, ~/.claude, ~/.ssh, ~/.gnupg, en lockMinutes. Claude Code kent alleen Edit-regels (Write gaf waarschuwingen).
 
