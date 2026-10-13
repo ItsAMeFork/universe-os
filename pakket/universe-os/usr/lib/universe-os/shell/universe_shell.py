@@ -912,8 +912,8 @@ def process_age():
 
 
 def main():
-    log('modules geladen na %.1f s; grafische drivers %s, render-node %s, WebKit veilig: %s' % (
-        process_age(), ','.join(WEBKIT_GRAPHICS[0]) or 'geen', WEBKIT_GRAPHICS[1], os.environ.get('WEBKIT_DISABLE_DMABUF_RENDERER') == '1'))
+    log('modules geladen na %.1f s; grafische drivers %s, render-node %s, WebKit via gedeeld geheugen: %s' % (
+        process_age(), ','.join(WEBKIT_GRAPHICS[0]) or 'geen', WEBKIT_GRAPHICS[1], os.environ.get('WEBKIT_DMABUF_RENDERER_FORCE_SHM') == '1'))
     Gtk.init(sys.argv)
     return Shell().run()
 

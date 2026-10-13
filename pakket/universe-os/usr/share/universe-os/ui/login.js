@@ -55,3 +55,7 @@ on('login-success',async()=>{
 });
 let settingsReady;const settingsKnown=new Promise(r=>{settingsReady=r;});setTimeout(()=>settingsReady(),3000);
 (async()=>{if(!available){settingsReady();error('Open dit scherm via de Universe OS-inlogomgeving.');$('submit').disabled=true;return;}try{const state=await call('login.ready');animations=state.animations||'full';applySettings({animations});settingsReady();$('user').value=state.user;if(state.prompt)showPrompt(state.prompt);}catch(e){error(e.message);$('submit').disabled=true;}})();
+// A user name never contains \ or spaces. Some keyboards send an extra key (the one next to left Shift, "\" in the US
+// layout) with the first keystroke after power-on, also in the BIOS (Axel's Gigabyte pc, 13 Oct): drop such characters
+// so the name is not wrong. Letters, digits and . _ - stay; capitals are kept as typed (PAM decides).
+$('user').addEventListener('input',e=>{const el=e.target,clean=el.value.replace(/[^A-Za-z0-9._-]/g,'');if(clean!==el.value){const at=Math.max(0,(el.selectionStart||0)-(el.value.length-clean.length));el.value=clean;el.setSelectionRange(at,at);}});

@@ -10,18 +10,18 @@ WEBKIT_GOOD_DRIVERS = {'i915', 'xe', 'amdgpu', 'virtio_gpu', 'virtio-pci'}
 
 
 def webkit_safe_mode():
-    """The login screen stayed dark with only a text cursor on Axel's second pc (Gigabyte H310M, 13 Oct): WebKit's
-    DMA-BUF renderer draws nothing with some graphics (NVIDIA, nouveau, old Radeon, or no driver at all, only the
-    firmware framebuffer). On those WebKit uses its safe path (shared memory); without any GPU render node also no
-    accelerated compositing. Must run before the first WebKit page starts; a value set by hand wins."""
+    """One model for every pc (Axel, 13 Oct). The login screen stayed dark with only a text cursor on his Gigabyte pc
+    with an NVIDIA card (nouveau): WebKit could not share its graphics buffers (DMA-BUF) with that driver. With an
+    unknown or weak graphics driver WebKit now keeps its normal renderer but hands the picture over in shared memory.
+    Not the older renderer (WEBKIT_DISABLE_DMABUF_RENDERER) and not non-accelerated mode: with those the transparent bars
+    only repainted the part under the mouse, so the dock and top bar vanished (VM test, 13 Oct). Only WebKit reads this
+    variable, so programs started from the desktop are not affected. A value set by hand wins."""
     drivers = set()
     for link in glob.glob('/sys/class/drm/card[0-9]*/device/driver'):
         drivers.add(os.path.basename(os.path.realpath(link)))
     has_render_node = bool(glob.glob('/dev/dri/renderD*'))
     if not has_render_node or not (drivers & WEBKIT_GOOD_DRIVERS):
-        os.environ.setdefault('WEBKIT_DISABLE_DMABUF_RENDERER', '1')
-    if not has_render_node:
-        os.environ.setdefault('WEBKIT_DISABLE_COMPOSITING_MODE', '1')
+        os.environ.setdefault('WEBKIT_DMABUF_RENDERER_FORCE_SHM', '1')
     return sorted(drivers), has_render_node
 
 
