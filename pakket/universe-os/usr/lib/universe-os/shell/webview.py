@@ -1,8 +1,31 @@
 """A WebKit view that shows a Universe page and connects its JavaScript (api.js) to Python handlers."""
+import glob
 import json
 import os
 import threading
 import traceback
+
+# Graphics drivers with which WebKit's fast drawing path (DMA-BUF) is known to work: Intel, AMD and the VM.
+WEBKIT_GOOD_DRIVERS = {'i915', 'xe', 'amdgpu', 'virtio_gpu', 'virtio-pci'}
+
+
+def webkit_safe_mode():
+    """The login screen stayed dark with only a text cursor on Axel's second pc (Gigabyte H310M, 13 Oct): WebKit's
+    DMA-BUF renderer draws nothing with some graphics (NVIDIA, nouveau, old Radeon, or no driver at all, only the
+    firmware framebuffer). On those WebKit uses its safe path (shared memory); without any GPU render node also no
+    accelerated compositing. Must run before the first WebKit page starts; a value set by hand wins."""
+    drivers = set()
+    for link in glob.glob('/sys/class/drm/card[0-9]*/device/driver'):
+        drivers.add(os.path.basename(os.path.realpath(link)))
+    has_render_node = bool(glob.glob('/dev/dri/renderD*'))
+    if not has_render_node or not (drivers & WEBKIT_GOOD_DRIVERS):
+        os.environ.setdefault('WEBKIT_DISABLE_DMABUF_RENDERER', '1')
+    if not has_render_node:
+        os.environ.setdefault('WEBKIT_DISABLE_COMPOSITING_MODE', '1')
+    return sorted(drivers), has_render_node
+
+
+WEBKIT_GRAPHICS = webkit_safe_mode()
 
 import gi
 gi.require_version('Gtk', '3.0')

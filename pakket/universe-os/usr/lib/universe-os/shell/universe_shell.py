@@ -26,7 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import backend  # noqa: E402
 import config  # noqa: E402
 import session  # noqa: E402
-from webview import Bridge, emit, make_view  # noqa: E402
+from webview import WEBKIT_GRAPHICS, Bridge, emit, make_view  # noqa: E402
 
 SOCKET = os.path.join(os.environ.get('XDG_RUNTIME_DIR', '/tmp'), 'universe-shell.sock')
 # Page handlers that Claude Code may use through `universe-ctl call` (the universe-mcp tools): what a user does in the
@@ -912,7 +912,8 @@ def process_age():
 
 
 def main():
-    log('modules geladen na %.1f s' % process_age())
+    log('modules geladen na %.1f s; grafische drivers %s, render-node %s, WebKit veilig: %s' % (
+        process_age(), ','.join(WEBKIT_GRAPHICS[0]) or 'geen', WEBKIT_GRAPHICS[1], os.environ.get('WEBKIT_DISABLE_DMABUF_RENDERER') == '1'))
     Gtk.init(sys.argv)
     return Shell().run()
 
