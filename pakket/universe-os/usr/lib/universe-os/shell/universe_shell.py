@@ -883,6 +883,7 @@ class Shell:
         def send():
             self.apps_changed_timer = None
             self.__dict__.pop('app_cache', None)  # names and icons of windows may have changed
+            backend.apps_changed()  # the start menu search reads the programs again
             self.broadcast('apps-changed')
             return False
         self.apps_changed_timer = GLib.timeout_add(300, send)

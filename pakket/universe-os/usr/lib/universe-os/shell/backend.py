@@ -99,7 +99,24 @@ def icon_uri(icon, size=64):
 HIDDEN_APPS = {'universe-control-center.desktop', 'universe-install.desktop'}
 
 
-def apps():
+_apps_cache = (0.0, None)
+
+
+def apps(max_age=120):
+    """Installed programs. Cached: every keystroke in the start menu search read all .desktop files and looked up
+    256 px icons again. The shell calls apps_changed() when programs are installed or removed."""
+    global _apps_cache
+    if _apps_cache[1] is None or time.monotonic() - _apps_cache[0] > max_age:
+        _apps_cache = (time.monotonic(), _read_apps())
+    return _apps_cache[1]
+
+
+def apps_changed():
+    global _apps_cache
+    _apps_cache = (0.0, None)
+
+
+def _read_apps():
     result = []
     for app in Gio.AppInfo.get_all():
         if not isinstance(app, Gio.DesktopAppInfo) or not app.should_show() or app.get_id() in HIDDEN_APPS:
@@ -187,43 +204,123 @@ def open_path(path):
     spawn(['gio', 'open', path])
 
 
-def search_files(query, limit=30, budget=0.8):
-    """Searches the user's own home folder (names only). Respects file rights: only readable entries."""
-    q = query.lower()
+# ---------- search (start menu, Claude) ----------
+# Faster and more forgiving (Axel, 13 Oct: "finds things better"): one name index of the home folder that is reused for
+# a minute instead of a new walk on every keystroke (that walk stopped after 0.8 s, so deep files were never found);
+# accents do not matter (e = é), words may come in any order, and one typo in a longer word is still found.
+SKIP_DIRS = {'node_modules', '__pycache__', 'snap', 'site-packages', 'venv', '.venv'}
+_files_cache = (0.0, None)
+
+
+def fold(text):
+    """Lower case without accents: 'Café Ü' -> 'cafe u'."""
+    import unicodedata
+    return ''.join(c for c in unicodedata.normalize('NFKD', text.lower()) if not unicodedata.combining(c))
+
+
+def _file_index(max_entries=60000, budget=2.5):
+    global _files_cache
+    if _files_cache[1] is not None and time.monotonic() - _files_cache[0] < 60:
+        return _files_cache[1]
     home = os.path.expanduser('~')
-    found, queue, start = [], [(home, 0)], time.monotonic()
-    while queue and len(found) < limit and time.monotonic() - start < budget:
+    index, queue, start = [], [(home, 0)], time.monotonic()
+    while queue and len(index) < max_entries and time.monotonic() - start < budget:
         folder, depth = queue.pop(0)
         try:
             entries = list(os.scandir(folder))
         except OSError:
             continue
         for entry in entries:
-            if entry.name.startswith('.'):
+            if entry.name.startswith('.') or entry.name in SKIP_DIRS:
                 continue
             try:
                 is_dir = entry.is_dir(follow_symlinks=False)
             except OSError:
                 continue
-            if q in entry.name.lower() and os.access(entry.path, os.R_OK):
-                found.append({'name': entry.name, 'path': entry.path, 'dir': is_dir, 'display': '~' + entry.path[len(home):]})
-                if len(found) >= limit:
-                    break
-            if is_dir and depth < 6:
+            index.append((fold(entry.name), entry.name, entry.path, is_dir, depth))
+            if is_dir and depth < 8:
                 queue.append((entry.path, depth + 1))
+    _files_cache = (time.monotonic(), index)
+    return index
+
+
+def files_changed():
+    global _files_cache
+    _files_cache = (0.0, None)
+
+
+def _near(word, text):
+    """True if word occurs in text with at most one wrong, missing or extra letter (only for words of 5+ letters)."""
+    if word in text:
+        return True
+    if len(word) < 5:
+        return False
+    for token in re.split(r'[^a-z0-9]+', text):
+        if abs(len(token) - len(word)) > 1 or not token:
+            continue
+        if len(token) == len(word):
+            diff = [k for k in range(len(word)) if word[k] != token[k]]
+            if len(diff) == 2 and diff[1] == diff[0] + 1 and word[diff[0]] == token[diff[1]] and word[diff[1]] == token[diff[0]]:
+                return True  # two letters swapped: rekenmachien -> rekenmachine
+        a, b = (token, word) if len(token) >= len(word) else (word, token)
+        i = j = edits = 0
+        while i < len(a) and j < len(b):
+            if a[i] == b[j]:
+                i, j = i + 1, j + 1
+                continue
+            edits += 1
+            if edits > 1:
+                break
+            if len(a) == len(b):
+                j += 1
+            i += 1
+        if edits + (len(a) - i) + (len(b) - j) <= 1:
+            return True
+    return False
+
+
+def _score(words, name, extra='', typos=True):
+    """None when not all words match; lower is better (exact start of the name first)."""
+    full = name + ' ' + extra
+    if not all((_near(w, full) if typos else w in full) for w in words):
+        return None
+    joined = ' '.join(words)
+    return (0 if name.startswith(joined) else 1 if all(w in name for w in words) else 2 if all(w in full for w in words) else 3)
+
+
+def search_files(query, limit=30):
+    """Searches the user's own home folder by name. Only readable entries; hidden folders are skipped."""
+    words = fold(query).split()
+    if not words:
+        return []
+    home = os.path.expanduser('~')
+    hits = []
+    for folded, name, path, is_dir, depth in _file_index():
+        score = _score(words, folded, typos=False)  # tens of thousands of names: plain matching stays instant
+        if score is not None:
+            hits.append((score, depth, len(name), name, path, is_dir))
+    hits.sort()
+    found = []
+    for _s, _d, _l, name, path, is_dir in hits:
+        if os.access(path, os.R_OK):
+            found.append({'name': name, 'path': path, 'dir': is_dir, 'display': '~' + path[len(home):]})
+            if len(found) >= limit:
+                break
     return found
 
 
 def search(query):
-    q = (query or '').strip().lower()
-    if not q:
+    words = fold(query or '').split()
+    if not words:
         return {'apps': [], 'files': []}
-    matched = [a for a in apps() if q in (a['name'] + ' ' + a['comment'] + ' ' + a['keywords'] + ' ' + a['id']).lower()]
-    # Desktop settings launchers also match program names; prefer the program.
-    matched.sort(key=lambda a: ('Settings' in a['categories'],
-                               not a['name'].lower().startswith(q),
-                               q not in a['name'].lower(), a['name'].lower()))
-    return {'apps': matched[:12], 'files': search_files(q)}
+    ranked = []
+    for a in apps():
+        score = _score(words, fold(a['name']), fold(a['comment'] + ' ' + a['keywords'] + ' ' + a['id']))
+        if score is not None:
+            # Desktop settings launchers also match program names; prefer the program.
+            ranked.append(('Settings' in a['categories'], score, a['name'].lower(), a))
+    ranked.sort(key=lambda r: r[:3])
+    return {'apps': [r[3] for r in ranked[:12]], 'files': search_files(query)}
 
 
 # ---------- status ----------
