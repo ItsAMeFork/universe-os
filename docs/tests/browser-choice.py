@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 source = Path('pakket/universe-os/usr/lib/universe-os/shell/backend.py').read_text(encoding='utf-8')
 tree = ast.parse(source)
-functions = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name in ('browsers', 'browser_select')]
+functions = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name in ('desktop_app', 'browsers', 'browser_select')]
 
 class App:
     def __init__(self, name, category):
