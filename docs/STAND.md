@@ -2,7 +2,9 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
-## 13 oktober middag: versie 0.2.13 (ISO wordt gebouwd)
+## 13 oktober avond: versie 0.2.13 (ISO klaar; update nog NIET gepubliceerd, Axel doet dat thuis)
+- ISO: `D:\UniverseOS-VMs\iso\universe-os-0.2.13-amd64.iso`, SHA-256 8196828671…e747. Met WebKit-veilige modus voor NVIDIA/nouveau (H310M-pc).
+- ISO-bouw liep 4x vast: apt in de chroot tot 5,7 GB (OOM) terwijl de VM namen niet kon opzoeken. Opgelost met vaste DNS in de bouw-VM (`/etc/systemd/resolved.conf.d/universe-bouw.conf`), `live/config/apt/apt.conf`, verse VM-start en bouwen onder `systemd-run -p MemoryMax=5000M`.
 - polkit `60-universe-power.rules`: actieve lokale sessie mag zonder wachtwoord afsluiten/herstarten/slaapstand, ook met meerdere sessies (Axel: Claude kon de pc niet meer uitzetten). energie valt terug op een directe opdracht als de shell geen claude.power kent.
 - ISO voor Axels tweede pc (Gigabyte H310M S2H 2.0, BIOS F12): "boot niet correct", nog onbekend wat hij precies ziet.
 
