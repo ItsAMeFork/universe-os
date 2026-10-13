@@ -29,12 +29,16 @@ import session  # noqa: E402
 from webview import Bridge, emit, make_view  # noqa: E402
 
 SOCKET = os.path.join(os.environ.get('XDG_RUNTIME_DIR', '/tmp'), 'universe-shell.sock')
-# Page handlers that Claude Code may use through `universe-ctl call` (the universe-mcp tools). Logging out, power,
-# installing and updates are deliberately missing.
+# Page handlers that Claude Code may use through `universe-ctl call` (the universe-mcp tools): what a user does in the
+# desktop (Axel, 13 Oct: "Claude can do everything in the software, except security and the code itself"). Power goes
+# through claude.power, so locking and shutting down always play the same animations as the buttons. Missing on purpose:
+# installing software and the shell's own surfaces and layout internals.
 CLAUDE_CALLS = {'status', 'apps.list', 'apps.launch', 'windows.list', 'windows.activate', 'windows.close', 'windows.minimize',
                 'desktop.show', 'world.open', 'open.path', 'search', 'search.files', 'volume.set', 'volume.mute',
-                'notifications.clear', 'run', 'desktop.list', 'desktop.mkdir', 'browser.list', 'config.get', 'config.set',
-                'start.toggle', 'layout.get'}
+                'notifications.clear', 'run', 'desktop.list', 'desktop.mkdir', 'desktop.rename', 'desktop.trash',
+                'desktop.launch', 'browser.list', 'browser.select', 'audio.outputs', 'audio.select', 'config.get',
+                'config.set', 'start.toggle', 'layout.get', 'updates.status', 'updates.refresh', 'updates.install',
+                'claude.power'}
 CLAUDE_RUN = {'files', 'terminal', 'monitor', 'software', 'control', 'pavucontrol', 'wdisplays', 'blueman-manager', 'network-editor'}
 PANEL_CLOSED = (430, 44)
 PANEL_OPEN = (400, 700)
@@ -222,6 +226,8 @@ class Shell:
             return 'direct'
         if config.settings().get('animations') != 'full':
             return 'direct'
+        if self.claude:
+            self.claude.toggle(False)  # the Claude panel lies above the world: it would hide the animation
         for world in self.worlds:
             GtkLayerShell.set_layer(world.window, GtkLayerShell.Layer.OVERLAY)
             world.emit('lock-begin')
@@ -459,6 +465,7 @@ class Shell:
             'volume.ping': lambda a: backend.volume_ping(),
             'notifications.clear': lambda a: backend.clear_notifications(),
             'power': lambda a: self.power(a.get('action')),
+            'claude.power': lambda a: self.claude_power(a.get('action')),
             'logout.finish': lambda a: self.finish_logout(),
             'updates.status': lambda a: backend.updates_status(),
             'updates.refresh': lambda a: backend.updates.refresh(),
@@ -760,9 +767,30 @@ class Shell:
         GLib.idle_add(self.begin_logout, action)
         return True
 
+    def claude_power(self, action):
+        """Locking, logging out, restarting, shutting down or sleep on Claude's request (Axel, 13 Oct): exactly the
+        path of the buttons, so the animations always play. Claude gets its answer at once; running the lock command
+        itself, it waited until the screen was unlocked again (the panel hung, and there was no animation)."""
+        if action not in ('lock', 'logout', 'reboot', 'poweroff', 'suspend'):
+            raise ValueError('Onbekende actie: %s' % action)
+        def go():
+            if self.claude:
+                self.claude.toggle(False)  # the Claude panel lies above everything: first out of the way
+            if action == 'lock':
+                backend.power('lock')  # universe-lock: the desktop into the Earth, then the lock screen
+            elif action == 'suspend':
+                threading.Thread(target=backend.power, args=('suspend',), daemon=True).start()
+            else:
+                self.begin_logout(action)
+            return False
+        GLib.timeout_add(400, go)  # first the answer to Claude, then the animation
+        return True
+
     def begin_logout(self, action='logout', sound=None):
         if self.logout_pending:
             return False
+        if self.claude:
+            self.claude.toggle(False)
         self.logout_pending = action
         self.logout_started = time.monotonic()
         backend.sound(sound or ('afmelden' if action == 'logout' else 'afsluiten'))

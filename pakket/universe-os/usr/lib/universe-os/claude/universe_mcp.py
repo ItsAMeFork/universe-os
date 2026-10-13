@@ -168,7 +168,61 @@ def t_volume(a):
     return 'Volume: %d%%' % level
 
 
+POWER = {'vergrendelen': 'lock', 'afmelden': 'logout', 'opnieuw_opstarten': 'reboot', 'afsluiten': 'poweroff',
+         'slaapstand': 'suspend'}
+
+
+def t_power(a):
+    """Through the shell, exactly like the buttons: the lock and shutdown animations always play (Axel, 13 Oct). The
+    answer comes at once; the shell starts the animation a moment later and closes the Claude panel first."""
+    action = POWER.get(a.get('actie'))
+    if not action:
+        raise ToolError('actie moet een van deze zijn: ' + ', '.join(POWER))
+    shell('claude.power', {'action': action})
+    return {'lock': 'Het scherm wordt vergrendeld (met de animatie).', 'logout': 'Je wordt afgemeld.',
+            'reboot': 'De computer start opnieuw op.', 'poweroff': 'De computer wordt afgesloten.',
+            'suspend': 'De computer gaat in slaapstand.'}[action]
+
+
+def t_audio(a):
+    if a.get('id') is None:
+        return shell('audio.outputs')
+    return shell('audio.select', {'id': a.get('id'), 'name': a.get('naam')})
+
+
+def t_browser(a):
+    if not a.get('id'):
+        return shell('browser.list')
+    return shell('browser.select', {'id': a.get('id')})
+
+
+def t_updates(a):
+    name = {'status': 'updates.status', 'controleren': 'updates.refresh', 'installeren': 'updates.install'}.get(a.get('actie') or 'status')
+    if not name:
+        raise ToolError('actie moet status, controleren of installeren zijn')
+    return shell(name, timeout=60)
+
+
+def t_desktop_file(a):
+    action, path = a.get('actie'), str(a.get('pad') or '')
+    if action == 'hernoemen':
+        return shell('desktop.rename', {'path': path, 'name': a.get('naam')})
+    if action == 'prullenbak':
+        shell('desktop.trash', {'path': path})
+        return 'Naar de prullenbak verplaatst: %s' % path
+    if action == 'openen':
+        shell('desktop.launch', {'path': path})
+        return 'Geopend: %s' % path
+    raise ToolError('actie moet hernoemen, prullenbak of openen zijn')
+
+
+# Security stays with the user (Axel, 13 Oct): Claude may not switch the automatic lock off or make it longer.
+SECURITY_SETTINGS = {'lockMinutes'}
+
+
 def t_setting(a):
+    if a.get('sleutel') in SECURITY_SETTINGS:
+        raise ToolError('Dit is een beveiligingsinstelling; die verandert de gebruiker zelf in het Controlecentrum.')
     shell('config.set', {'key': a.get('sleutel'), 'value': a.get('waarde')})
     return 'Instelling %s = %s' % (a.get('sleutel'), json.dumps(a.get('waarde')))
 
@@ -255,8 +309,24 @@ TOOLS = {
     'volume': ('Set the volume (niveau 0-100) or toggle mute (dempen: true).',
                S({'niveau': {'type': 'integer', 'minimum': 0, 'maximum': 100}, 'dempen': {'type': 'boolean'}}), t_volume, False),
     'instelling': ('Change a Universe setting. Keys: animations (full/reduced/off), uiScale (50-300), textScale (75-250), '
-                   'lockMinutes, screenOffMinutes (0-240), naturalScroll, tapToClick, buddy (true/false), pointerSpeed (-1..1).',
+                   'screenOffMinutes (0-240), naturalScroll, tapToClick, buddy (true/false), sounds (true/false), '
+                   'pointerSpeed (-1..1). Security settings (automatic lock) are not allowed.',
                    S({'sleutel': STR, 'waarde': {}}, ['sleutel', 'waarde']), t_setting, False),
+    'energie': ('Lock the screen, log out, restart, shut down or sleep. ALWAYS use this tool for these, never a shell '
+                'command: it plays the Universe animations and returns at once. Lock and sleep need no confirmation; '
+                'ask before logout, restart or shutdown unless the user asked for exactly that.',
+                S({'actie': {'type': 'string', 'enum': list(POWER)}}, ['actie']), t_power, False),
+    'geluidsuitgang': ('Sound outputs (speakers, headphones, HDMI). Without id: list them; with id + naam: make it the default.',
+                       S({'id': {'type': 'integer'}, 'naam': STR}), t_audio, False),
+    'standaardbrowser': ('Web browsers. Without id: list them and the default; with id: make it the default browser.',
+                         S({'id': STR}), t_browser, False),
+    'updates': ('System updates: status, controleren (check now) or installeren (check + install; the computer then '
+                'restarts after 2 minutes, tell the user).', S({'actie': {'type': 'string', 'enum': ['status', 'controleren', 'installeren']}}),
+                t_updates, False),
+    'bureaublad_bestand': ('A file or shortcut on the desktop (pad from bureaublad_bestanden): hernoemen (with naam), '
+                           'prullenbak (move to trash; ask first) or openen.',
+                           S({'actie': {'type': 'string', 'enum': ['hernoemen', 'prullenbak', 'openen']}, 'pad': STR, 'naam': STR},
+                             ['actie', 'pad']), t_desktop_file, False),
     'schermafbeelding': ('Look at the screen: returns a half-size image of what the user sees now.', S({}), t_screenshot, True),
     'melding': ('Show a desktop notification.', S({'titel': STR, 'tekst': STR}, ['titel']), t_notify, False),
     'bureaublad_bestanden': ('Files and shortcuts on the desktop (Bureaublad folder).', S({}), t_desktop_files, True),
