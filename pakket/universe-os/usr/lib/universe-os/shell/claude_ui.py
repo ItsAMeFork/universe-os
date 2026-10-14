@@ -35,6 +35,13 @@ CSS = b"""
               padding: 4px 10px; box-shadow: none; text-shadow: none; }
 .claude-btn:hover { background: rgba(255, 158, 66, 0.22); }
 .claude-term { padding: 4px 10px 12px 14px; }
+.claude-tokens { padding: 2px 16px 10px 16px; }
+.claude-token-label { color: #e8fffa; font-weight: 700; font-size: 15px; }
+.claude-token-state { font-weight: 800; font-size: 14px; }
+.claude-token-state.on { color: #85ffe3; }
+.claude-token-state.off { color: #ffc98a; }
+.claude-token-note { color: rgba(232, 255, 250, 0.72); font-size: 12px; }
+switch.token-switch { min-width: 64px; min-height: 36px; }
 .buddy-hint { padding: 14px 16px 24px 16px; }
 .buddy-text { color: #e8fffa; font-size: 14px; }
 .buddy-main { background: rgba(255, 158, 66, 0.85); color: #1a0e02; font-weight: 700; }
@@ -136,6 +143,60 @@ class ClaudeUI:
             self.close()
         return True
 
+    def _headroom_on(self):
+        try:
+            return _ai().load().get('compressie') == 'headroom'
+        except Exception:
+            return False
+
+    def _token_row(self):
+        """Same switch as Controlecentrum → AI, one click away while the panel is open."""
+        on = self._headroom_on()
+        tokens = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        tokens.get_style_context().add_class('claude-tokens')
+        row = Gtk.Box(spacing=12)
+        switch = Gtk.Switch()
+        switch.set_active(on)
+        switch.set_valign(Gtk.Align.CENTER)
+        switch.get_style_context().add_class('token-switch')
+        switch.set_tooltip_text('Tokens besparen (Headroom). Staat uit tot je dit aanzet. Geldt bij de volgende start.')
+        label = Gtk.Label(label='Tokens besparen (Headroom)', xalign=0)
+        label.get_style_context().add_class('claude-token-label')
+        state = Gtk.Label(label='Aan' if on else 'Uit', xalign=0)
+        state.get_style_context().add_class('claude-token-state')
+        state.get_style_context().add_class('on' if on else 'off')
+        note = Gtk.Label(label='Minder tokens en goedkoper; de AI kan af en toe een detail missen.', xalign=0)
+        note.set_line_wrap(True)
+        note.set_max_width_chars(52)
+        note.get_style_context().add_class('claude-token-note')
+
+        def on_token(_widget, _param):
+            if getattr(self, '_token_busy', False):
+                return
+            want = switch.get_active()
+            try:
+                _ai().set_compressie('headroom' if want else 'geen')
+            except Exception as error:
+                self._token_busy = True
+                switch.set_active(not want)
+                self._token_busy = False
+                self.log('Tokens besparen niet gewijzigd: %s' % error)
+                return
+            active = switch.get_active()
+            state.set_text('Aan' if active else 'Uit')
+            ctx = state.get_style_context()
+            ctx.remove_class('on')
+            ctx.remove_class('off')
+            ctx.add_class('on' if active else 'off')
+
+        switch.connect('notify::active', on_token)
+        row.pack_start(switch, False, False, 0)
+        row.pack_start(label, False, False, 0)
+        row.pack_start(state, False, False, 0)
+        tokens.pack_start(row, False, False, 0)
+        tokens.pack_start(note, False, False, 0)
+        return tokens
+
     def build_panel(self):
         L, E, K = GtkLayerShell.Layer, GtkLayerShell.Edge, GtkLayerShell.KeyboardMode
         win = Gtk.Window()
@@ -187,9 +248,11 @@ class ClaudeUI:
         head.pack_start(titles, True, True, 0)
         head.pack_end(close, False, False, 0)
         head.pack_end(new, False, False, 0)
+        tokens = self._token_row()
         holder = Gtk.Box()
         holder.get_style_context().add_class('claude-term')
         box.pack_start(head, False, False, 0)
+        box.pack_start(tokens, False, False, 0)
         box.pack_start(holder, True, True, 0)
         win.add(box)
         win.connect('draw', self.draw_panel)

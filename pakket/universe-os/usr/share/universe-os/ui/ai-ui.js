@@ -60,8 +60,9 @@ export async function mountAi(root, api={}){
  const learn=h('input',{type:'checkbox'});
  learn.checked=status.leren!==false;
  learn.setAttribute('aria-label','Leren van taken');
- const saveTokens=h('input',{type:'checkbox'});
- saveTokens.setAttribute('aria-label','Tokens besparen');
+ const saveTokens=h('input',{type:'checkbox',role:'switch'});
+ saveTokens.setAttribute('aria-label','Tokens besparen (Headroom)');
+ const saveState=h('span',{class:'switch-state uit'},'Uit');
  const route=h('input',{type:'checkbox'});
  route.setAttribute('aria-label','Verkeer via OmniRoute');
  const squeeze=h('input',{type:'checkbox'});
@@ -73,7 +74,10 @@ export async function mountAi(root, api={}){
  function paintCompress(next){
   const modus=next.compressie||'geen';
   const providers=next.omniroute_providers||[];
-  saveTokens.checked=modus==='headroom';
+  const saving=modus==='headroom';
+  saveTokens.checked=saving;
+  saveState.textContent=saving?'Aan':'Uit';
+  saveState.className='switch-state '+(saving?'aan':'uit');
   squeeze.checked=modus==='omniroute';
   route.checked=!!next.omniroute_router;
   const locked=!providers.length;
@@ -131,7 +135,15 @@ export async function mountAi(root, api={}){
   }
  }
  drawPlugins(status.plugins||[]);
+ const tokenSwitch=h('section',{class:'card token-hero'},
+  h('label',{class:'switch-row'},
+   h('span',{class:'switch'},saveTokens,h('span',{class:'switch-track','aria-hidden':'true'})),
+   h('span',{class:'switch-copy'},
+    h('span',{class:'switch-title'},'Tokens besparen (Headroom)'),
+    saveState)),
+  note('Minder tokens en goedkoper; de AI kan af en toe een detail missen.'));
  root.append(
+  tokenSwitch,
   note('Kies wie antwoordt. Het personage, de herinneringen en de vragen op het scherm blijven hetzelfde. Welke AI je ook kiest: een e-mail, een afspraak en het scherm gaan alleen door als jij op Toestaan drukt.'),
   card('Gebruik',
    h('label',{class:'check'},learn,'Leren van taken (korte les, alleen als die minder kost dan de taak)'),
@@ -139,8 +151,6 @@ export async function mountAi(root, api={}){
     await call('ai.leren',{aan:learn.checked});
     return learn.checked?'Leren staat aan.':'Leren staat uit. Cijfers blijven wel bewaard.';
    }),
-   h('label',{class:'check'},saveTokens,'Tokens besparen (Headroom, alleen Claude, uit tot je dit aanzet)'),
-   note('Headroom start via universe-ai-headroom, met het baken uit. Niet tegelijk met de compressie van OmniRoute.'),
    trend),
   card('OmniRoute',
    note(status.omniroute_waarschuwing||'Gratis aanbieders kunnen je vragen lezen. Zet OmniRoute alleen aan als je dat wilt.'),

@@ -268,7 +268,13 @@ assert plan['env'].get('UNIVERSE_AI_REFLECT') == '1'
 ui = (UI / 'ai-ui.js').read_text(encoding='utf-8')
 nebula = (UI / 'brein-nevel.js').read_text(encoding='utf-8')
 assert 'ai.leren' in ui and 'ai.plugins' in ui and 'Leren van taken' in ui
-assert 'Tokens besparen' in ui and 'ai.compressie' in ui and 'ai.omniroute' in ui
+assert 'Tokens besparen (Headroom)' in ui and 'ai.compressie' in ui and 'ai.omniroute' in ui
+assert 'Minder tokens en goedkoper; de AI kan af en toe een detail missen.' in ui
+assert "saveState.textContent=saving?'Aan':'Uit'" in ui
+panel_ui = (ROOT / 'pakket/universe-os/usr/lib/universe-os/shell/claude_ui.py').read_text(encoding='utf-8')
+assert 'Tokens besparen (Headroom)' in panel_ui
+assert 'Minder tokens en goedkoper; de AI kan af en toe een detail missen.' in panel_ui
+assert "'Aan' if on else 'Uit'" in panel_ui
 assert 'Gratis aanbieders' in ui and 'ai.plugins.terminal' in ui
 assert "naam:'Les'" in nebula and "'lessen'" in nebula
 center = (ROOT / 'pakket/universe-os/usr/lib/universe-os/shell/control_center.py').read_text(encoding='utf-8')
