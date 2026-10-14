@@ -1,0 +1,16 @@
+#!/bin/sh
+# sudo asks for the password: a meteor shoots past (Axel, 12 Oct: everything that asks for administrator rights).
+# Called by PAM (/etc/pam.d/sudo: "auth optional pam_exec.so quiet ...", added by the package; optional, so it never
+# changes who gets in). sudo runs this as root: the sound is played as the user who typed sudo, in his own session.
+# polkit windows (software, settings) get the same sound from the shell.
+[ "$PAM_TYPE" = auth ] || exit 0
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+user=${PAM_RUSER:-$SUDO_USER}
+[ -n "$user" ] && [ "$user" != root ] || exit 0
+uid=$(id -u "$user" 2>/dev/null) || exit 0
+[ -d "/run/user/$uid" ] || exit 0
+home=$(getent passwd "$user" | cut -d: -f6)
+setpriv --reuid="$uid" --regid="$(id -g "$user")" --init-groups \
+    env -i PATH="$PATH" HOME="$home" XDG_RUNTIME_DIR="/run/user/$uid" universe-geluid meteoor </dev/null >/dev/null 2>&1 &
+exit 0

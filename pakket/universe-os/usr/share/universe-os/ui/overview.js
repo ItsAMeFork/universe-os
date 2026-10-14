@@ -71,8 +71,9 @@ addEventListener('keydown',e=>{
  // Typing anywhere goes to the search field.
  if(e.key.length===1&&!e.ctrlKey&&!e.altKey&&document.activeElement!==input){input.focus();}
 });
-on('windows',list=>{windows=list||[];if(!input.value.trim())render();});
-on('apps-changed',()=>{appsPromise=null;render();});
+// Hidden overview: no rebuild for every window change; 'shown' renders it fresh anyway.
+on('windows',list=>{windows=list||[];if(!document.hidden&&!input.value.trim())render();});
+on('apps-changed',()=>{appsPromise=null;if(!document.hidden)render();});
 on('shown',()=>{input.value='';render();input.focus();});
 on('config',c=>{config=c;applySettings({...c.settings,colors:c.world.colors});render();});
 (async()=>{

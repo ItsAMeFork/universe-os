@@ -2,9 +2,26 @@
 # Lock the screen (Windows+L, panel, idle, before sleep). swaylock uses PAM: the normal account password.
 # --indicator-idle-visible: without it swaylock shows only the dark colour until a key is pressed, which looks like a black,
 # frozen screen. The ring now always shows where the password goes; Caps Lock is shown too.
-# Background: planet-style picture with "Vergrendeld" (built from scripts/assets/vergrendeld.svg). swaylock stays the
+# Background: the Earth in space with "Vergrendeld" (scripts/assets/vergrendeld.png, like the login screen). swaylock stays the
 # secure lock (ext-session-lock) and keeps the session running; the ring sits on top of the planet.
+pgrep -u "$(id -u)" -x gtklock >/dev/null && exit 0
 pgrep -u "$(id -u)" -x swaylock >/dev/null && exit 0
+# Animation (Axel, 10 Oct): the desktop is first pulled into the Earth that the lock screen shows, then swaylock
+# starts; the shell brings the desktop back out after unlocking. --direct (before sleep): lock at once.
+[ "$1" != "--direct" ] && universe-geluid vergrendelen
+if [ "$1" != "--direct" ] && [ "$(universe-ctl lock 2>/dev/null)" = "ok anim" ]; then
+    sleep 1.9
+fi
+# gtklock (12 Oct, Axel: "like the login screen, with the user name, and the user types his password"): the Earth in
+# space, a glass card with the picture and name of the user, a real password field and the time (style.css). It is a
+# secure lock as well (ext-session-lock: if it crashed, the screen stays locked). swaylock below is the fallback.
+if command -v gtklock >/dev/null 2>&1; then
+    MOD=$(ls /usr/lib/*/gtklock/userinfo-module.so 2>/dev/null | head -1)
+    # Not exec: after unlocking the unlock sound plays (gtklock stays in the foreground until then).
+    gtklock -s /usr/share/universe-os/gtklock/style.css -x /usr/share/universe-os/gtklock/layout.ui ${MOD:+-m "$MOD"} \
+        -t "%H:%M" -D "%A %e %B" -H -T 30 && universe-geluid ontgrendelen
+    exit 0
+fi
 IMAGE=/usr/share/universe-os/backgrounds/vergrendeld.png
 set --
 [ -r "$IMAGE" ] && set -- --image "$IMAGE" --scaling fill

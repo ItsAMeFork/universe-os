@@ -40,15 +40,55 @@ kamer blijft Tab bij de bediening; achtergrondplaneten krijgen geen focus.
 
 Sneltoetsen kunnen worden aangepast in Controlecentrum > Sneltoetsen.
 
-## De zes werelden
+## De werelden
 
 Thuiswereld bevat je persoonlijke mappen en accountinstellingen. Applicaties
 bevat geïnstalleerde programma’s, zoeken en Windows-programmabeheer.
 Softwarewinkel opent de softwarebeheerder voor programma’s en updates.
 Controlecentrum bevat instellingen voor netwerk, geluid, beeldschermen, taal,
 energie, accounts, sneltoetsen en beveiliging. Gamehal toont geïnstalleerde games.
+Brein opent de nevel: herinneringen als sterren, verbanden als lijnen, en wat je
+opende als een komeetspoor. De lijst rechts toont dezelfde dingen plus Mail, Agenda
+en Acties. Onder Beveiliging zie je wat er lokaal bewaard wordt, met exporteren en
+alles vergeten.
 
-Communicatie toont geïnstalleerde chat/mailprogramma’s en de Chrome-tegel.
+## Accounts, mail en agenda
+
+Controlecentrum → Accounts koppelt Google of Microsoft (aanmelden in de browser of
+met een apparaatcode), of een gewone IMAP/SMTP- en CalDAV-server. Je vult zelf de
+OAuth-client-id in van een desktop-app die jij bij Google of Microsoft hebt
+aangemaakt; Universe OS neemt geen clientgeheim van iemand anders mee. Tokens en
+wachtwoorden gaan naar de sleutelbos (gnome-keyring, Secret Service). Ze staan
+niet in brein.db en niet in een tekstbestand.
+
+De assistent (Claude, ChatGPT, Gemini of een lokaal model, te kiezen onder Controlecentrum → AI)
+kan daarna zoeken, lezen en een concept bewaren. Versturen opent altijd een
+venster met ontvangers, onderwerp en tekst. Niets gaat de deur uit als je op
+Weigeren drukt. Een nieuwe afspraak vraagt hetzelfde.
+
+## Scherm bedienen
+
+Op dezelfde Accounts-pagina zet je **AI mag scherm bedienen** aan. Dat geldt alleen
+tot je afmeldt, en de assistent kan het niet zelf aanzetten (ook niet via een bestand of de terminal).
+Terwijl de assistent de muis of het toetsenbord stuurt, staat er een balk: "De assistent bedient het scherm".
+**Super+Escape** stopt dat meteen.
+
+labwc (de vensterbeheerder) heeft geen eigen afstandsbediening. Toetsen gaan via
+`wtype` (virtueel toetsenbord, meegeleverd). De muis gaat via `python3-evdev` en
+`/dev/uinput`, of via `ydotool` als je dat uit Debian-backports zet en je gebruiker
+in de groep `input` zit. Een klik op verwijderen, betalen of verzenden, en een
+toets als Delete of Alt+F4, vragen eerst om toestemming. Een wachtwoordveld ook;
+de tekst komt niet in het logboek.
+
+## Acties in het brein
+
+Alles wat de assistent deed staat bij Acties: tijdstip, wat het was, en of je het
+goedkeurde of weigerde. Mail en agenda in de lijst zijn een lokale samenvatting
+(onderwerp en de eerste regels), geen kopie van je hele postbus. Alles vergeten
+wist herinneringen, mail, agenda en het logboek. Gekoppelde accounts blijven staan
+tot je ze ontkoppelt.
+
+Internet opent je standaardbrowser direct. Zonder beschikbare standaardbrowser kies je eerst een browser; die keuze wordt voor jouw account opgeslagen. Gebruik **Browser kiezen** in Thuiswereld om te wisselen. In de Internet-kamer staan ook de Chrome-downloadstatus en geïnstalleerde chat/mailprogramma’s. Nieuwe programma’s verschijnen binnen Applicaties; er staat geen aparte programmabalk op het bureaublad.
 Universe OS heeft nog geen eigen chatdienst of chataccount; er wordt geen Space
 Chat of Matrix-dienst automatisch gekoppeld. Je kiest zelf een dienst via een
 geïnstalleerd programma of website. Een lege lijst betekent dat er nog geen
@@ -86,14 +126,17 @@ geen vast videokaartmodel in de interface ingesteld.
 Nu controleren ververst de echte pakketlijst via PackageKit. De interface
 onderscheidt geen updates, beschikbare updates, een oude lijst en een mislukte
 controle. Een softwarevenster openen is geen bewijs dat updates geïnstalleerd
-zijn. Gebruik de softwarebeheerder om beschikbare updates te installeren.
+zijn. Updates installeren start rechtstreeks de systeemtaak. De kaart toont
+ook downloaden, installeren, wachten en fouten. Het systeembeleid is dagelijks
+bij aanmelden controleren en gevonden updates automatisch installeren;
+dit vereist de bijbehorende installatieservice. Een herstart wordt gemeld.
 Zonder internet of met verkeerde tijd kan een controle mislukken. Een oude
 melding kan van de softwarebeheerder komen; controleer de laatste geslaagde
 verversing, verbinding en klok.
 
 Debian-pakketten komen uit Debian- en Debian Security-bronnen. Chrome gebruikt
-Google. Universe OS heeft nog geen eigen distributiebron voor nieuwe
-interfaceversies: die zijn niet automatisch gelijk aan Debian-updates.
+Google. Vrijgegeven Universe OS-interfaceversies komen uit de eigen
+ondertekende pakketbron. Er is geen testkanaalkeuze in de gebruikersinterface.
 
 ## Windows-programma’s
 

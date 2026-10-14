@@ -1,0 +1,52 @@
+#!/bin/sh
+# Speelt een systeemgeluid van Universe OS (eigen "chill reggae space"-geluiden, gemaakt met
+# scripts/assets/maak-geluiden.mjs). Niets als de instelling "Systeemgeluiden" uit staat.
+#   universe-geluid inloggen [--wacht]     --wacht: pas terugkomen als het geluid klaar is (vóór afsluiten)
+case "$1" in
+    opstarten|inloggen|afmelden|afsluiten|melding|fout|apparaat-in|apparaat-uit|vergrendelen|ontgrendelen|prullenbak|schermafbeelding|volume|waarschuwing|aftellen|lancering|meteoor) ;;
+    *) exit 0 ;;
+esac
+f=/usr/share/sounds/universe/$1.wav
+[ -f "$f" ] || exit 0
+# Laatste volumestand (Axel, 12 okt: het opstartgeluid volgt de laatste stand). De sessie bewaart hem bij elke
+# volumewijziging en bij afmelden/afsluiten; het inlogscherm (gebruiker lightdm, eigen PipeWire) zet zijn uitgang
+# daarop voordat het opstart- of afsluitgeluid speelt.
+STAND=/var/lib/universe-os/geluid/volume
+if [ "$(id -un)" = lightdm ]; then
+    if [ -r "$STAND" ]; then
+        read -r vol stil <"$STAND"
+        case "$vol" in [0-9].[0-9]*|[0-9]) ;; *) vol= ;; esac
+        [ "$stil" = gedempt ] && exit 0
+        [ -n "$vol" ] && wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ "$vol" >/dev/null 2>&1
+    fi
+else
+    grep -q '"sounds": *false' "${XDG_CONFIG_HOME:-$HOME/.config}/universe-os/settings.json" 2>/dev/null && exit 0
+    case "$1" in
+        volume|afmelden|afsluiten)
+            if [ -w "${STAND%/*}" ]; then
+                laatste=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null)
+                vol=$(echo "$laatste" | awk '{print $2}')
+                case "$laatste" in *MUTED*) stil=gedempt ;; *) stil= ;; esac
+                [ -n "$vol" ] && { echo "$vol $stil" >"$STAND.$$" && mv -f "$STAND.$$" "$STAND"; } 2>/dev/null
+            fi ;;
+    esac
+fi
+# Volumetik: het vorige tikje stoppen, zodat je steeds de nieuwste stand hoort (zoals Windows). Meldingen niet
+# opstapelen.
+if [ "$1" = volume ]; then
+    pkill -u "$(id -u)" -f "sounds/universe/volume.wav" 2>/dev/null
+elif [ "$1" = melding ]; then
+    pgrep -u "$(id -u)" -f "sounds/universe/melding.wav" >/dev/null 2>&1 && exit 0
+fi
+# Opstarten en afsluiten op 100 %, de rest iets zachter.
+case "$1" in opstarten|afsluiten) sterkte=1.0 ;; *) sterkte=0.8 ;; esac
+if command -v pw-play >/dev/null 2>&1; then speel="pw-play --volume=$sterkte"
+elif command -v paplay >/dev/null 2>&1; then speel=paplay
+elif command -v aplay >/dev/null 2>&1; then speel="aplay -q"
+else exit 0; fi
+if [ "$2" = "--wacht" ]; then
+    timeout 9 $speel "$f" >/dev/null 2>&1
+else
+    $speel "$f" >/dev/null 2>&1 &
+fi
+exit 0

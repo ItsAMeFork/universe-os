@@ -28,6 +28,8 @@ for devices, radio, connectivity, reason in [
     assert state['reason'] == reason, state
     if devices.startswith('wifi:connected:'):
         assert state['name'] == 'Naam:met:punt'
-with patch.object(module, 'query', side_effect=RuntimeError('offline')):
+# status() reads NetworkManager over D-Bus first (11 Oct) and only then via nmcli: both must fail here.
+with patch.object(module, 'dbus_status', side_effect=RuntimeError('geen D-Bus')), \
+        patch.object(module, 'query', side_effect=RuntimeError('offline')):
     assert module.status()['state'] == 'unavailable'
 print('PASS: network reasons, unknown connectivity, colon in name, wired precedence, manager failure')

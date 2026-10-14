@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": ["mcp__universe__overzicht", "mcp__universe__status", "mcp__universe__apps_lijst", "mcp__universe__vensters",
+              "mcp__universe__zoeken", "mcp__universe__bureaublad_bestanden",
+              "mcp__universe__brein_zoeken", "mcp__universe__bestanden_doorzoeken", "mcp__universe__tijdlijn",
+              "mcp__universe__energie", "mcp__universe__geluidsuitgang", "mcp__universe__standaardbrowser"],
+    "deny": ["Bash(gtklock:*)", "Bash(swaylock:*)", "Bash(universe-lock:*)", "Bash(loginctl lock-session:*)",
+             "Bash(loginctl terminate-session:*)", "Bash(systemctl poweroff:*)", "Bash(systemctl reboot:*)",
+             "Bash(systemctl suspend:*)", "Bash(systemctl hibernate:*)", "Bash(shutdown:*)", "Bash(reboot:*)",
+             "Bash(poweroff:*)", "Bash(labwc --exit:*)",
+             "Bash(ydotool:*)", "Bash(ydotoold:*)", "Bash(wtype:*)", "Bash(dotool:*)",
+             "Bash(secret-tool:*)", "Bash(busctl:*)", "Bash(gdbus:*)",
+             "Bash(sudo:*)", "Bash(pkexec:*)", "Bash(su:*)", "Bash(passwd:*)", "Bash(chpasswd:*)", "Bash(gpg:*)",
+             "Edit(//usr/**)", "Edit(//etc/**)", "Edit(//var/**)",
+             "Edit(~/.claude/**)", "Edit(~/.ssh/**)", "Read(~/.ssh/**)",
+             "Edit(~/.gnupg/**)", "Read(~/.gnupg/**)"]
+  },
+  "hooks": {
+    "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "/usr/lib/universe-os/claude/universe-claude-hook", "timeout": 3}]}],
+    "PreToolUse": [{"matcher": "*", "hooks": [{"type": "command", "command": "/usr/lib/universe-os/claude/universe-claude-hook", "timeout": 3}]}],
+    "PostToolUse": [{"matcher": "*", "hooks": [{"type": "command", "command": "/usr/lib/universe-os/claude/universe-claude-hook", "timeout": 3}]}],
+    "Notification": [{"hooks": [{"type": "command", "command": "/usr/lib/universe-os/claude/universe-claude-hook", "timeout": 3}]}],
+    "Stop": [{"hooks": [{"type": "command", "command": "/usr/lib/universe-os/claude/universe-claude-hook", "timeout": 3}]}]
+  }
+}

@@ -6,12 +6,14 @@
 # Vooraf: versienummer verhoogd in branding/universe.json en alles gecommit.
 param([ValidateSet('beide', 'test', 'stable')][string]$Kanaal = 'beide')
 $ErrorActionPreference = 'Stop'
+# ssh -n (stdin from nothing) for the calls without input: in a terminal tab Windows OpenSSH otherwise waited for
+# keyboard input after "true" and the script hung at the first step (12 Oct).
 $vm = 'D:\UniverseOS-VMs'
 $root = Split-Path $PSScriptRoot -Parent
 $opts = @('-o', "UserKnownHostsFile=$vm\known_hosts", '-o', 'StrictHostKeyChecking=accept-new', '-i', "$vm\keys\id_ed25519", '-p', '2222')
 $bron = 'https://itsamefork.github.io/universe-os-apt'
 
-function Bereikbaar { & ssh @opts -o BatchMode=yes -o ConnectTimeout=5 bouwer@127.0.0.1 true 2>$null; return $LASTEXITCODE -eq 0 }
+function Bereikbaar { & ssh -n @opts -o BatchMode=yes -o ConnectTimeout=5 bouwer@127.0.0.1 true 2>$null; return $LASTEXITCODE -eq 0 }
 
 $versie = (Get-Content "$root\branding\universe.json" -Raw | ConvertFrom-Json).version
 Write-Host "== Universe OS $versie publiceren (kanaal: $Kanaal)" -ForegroundColor Cyan
@@ -31,14 +33,14 @@ if (-not (Bereikbaar)) {
 
 # Na een slaapstand van de laptop loopt de VM-klok achter; gpg weigert dan een sleutel "uit de toekomst".
 $nu = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd HH:mm:ss')
-& ssh @opts -o BatchMode=yes bouwer@127.0.0.1 "sudo -n date -u -s '$nu' >/dev/null"
+& ssh -n @opts -o BatchMode=yes bouwer@127.0.0.1 "sudo -n date -u -s '$nu' >/dev/null"
 if ($LASTEXITCODE -ne 0) { Write-Host 'Let op: klok van de bouw-VM niet gelijkgezet.' -ForegroundColor Yellow }
 
 Write-Host '== Code naar de bouw-VM'
 & "$PSScriptRoot\sync-naar-vm.ps1"
 
 Write-Host '== Pakket bouwen'
-& ssh @opts -o BatchMode=yes bouwer@127.0.0.1 'cd ~/universe-os-claude && sh scripts/build-deb.sh >/tmp/build-deb.log 2>&1 || { tail -20 /tmp/build-deb.log; exit 1; }; tail -1 /tmp/build-deb.log'
+& ssh -n @opts -o BatchMode=yes bouwer@127.0.0.1 'cd ~/universe-os-claude && sh scripts/build-deb.sh >/tmp/build-deb.log 2>&1 || { tail -20 /tmp/build-deb.log; exit 1; }; tail -1 /tmp/build-deb.log'
 if ($LASTEXITCODE -ne 0) { throw 'Pakket bouwen mislukt (zie hierboven).' }
 
 $stappen = switch ($Kanaal) {
@@ -48,7 +50,10 @@ $stappen = switch ($Kanaal) {
 }
 Write-Host '== Ondertekenen en publiceren. Typ de wachtwoordzin van de updatesleutel (je ziet niet wat je typt).' -ForegroundColor Cyan
 $opdracht = 'umask 077; trap "rm -f /tmp/ww" EXIT; read -rs -p "Wachtwoordzin updatesleutel: " P; echo; printf %s "$P" > /tmp/ww; unset P; ' +
-            'export UNIVERSE_SLEUTEL_WACHTWOORDBESTAND=/tmp/ww; cd ~/universe-os-claude && ' + $stappen
+            'export UNIVERSE_SLEUTEL_WACHTWOORDBESTAND=/tmp/ww; cd ~/universe-os-claude && { ' + $stappen + '; } || ' +
+            # A typo in the passphrase left the new package half-added to the local source; the next attempt then refused
+            # it as "already published with different contents" (12 Oct). Undo everything that was not pushed.
+            '{ cd ~/universe-os-apt && git checkout -q -- . && git clean -fq -- pool; exit 1; }'
 & ssh @opts -t bouwer@127.0.0.1 $opdracht
 if ($LASTEXITCODE -ne 0) { throw 'Publiceren mislukt (verkeerde wachtwoordzin of versie al gepubliceerd? Zie hierboven).' }
 
@@ -57,7 +62,9 @@ $kanalen = if ($Kanaal -eq 'beide') { 'test', 'stable' } else { , $Kanaal }
 $tot = (Get-Date).AddMinutes(10)
 foreach ($k in $kanalen) {
     while ($true) {
-        $lijst = (Invoke-WebRequest "$bron/dists/$k/main/binary-amd64/Packages?t=$(Get-Random)" -UseBasicParsing).Content
+        # As text: GitHub Pages serves Packages without a text type, so .Content was bytes and never matched (12 Oct).
+        $antwoord = Invoke-WebRequest "$bron/dists/$k/main/binary-amd64/Packages?t=$(Get-Random)" -UseBasicParsing
+        $lijst = [Text.Encoding]::UTF8.GetString($antwoord.RawContentStream.ToArray())
         if ($lijst -match "(?m)^Version: $([regex]::Escape($versie))$") { Write-Host "  $k`: $versie staat online" -ForegroundColor Green; break }
         if ((Get-Date) -gt $tot) { Write-Host "  $k`: $versie nog niet zichtbaar; probeer later $bron" -ForegroundColor Yellow; break }
         Start-Sleep 20

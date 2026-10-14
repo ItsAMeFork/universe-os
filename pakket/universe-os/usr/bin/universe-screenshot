@@ -12,4 +12,4 @@ else
     grim "$FILE" || { notify-send "Schermafbeelding mislukt"; exit 1; }
 fi
 command -v wl-copy >/dev/null && wl-copy --type image/png <"$FILE"
-notify-send -i "$FILE" "Schermafbeelding opgeslagen" "$(basename "$FILE") — ook gekopieerd naar het klembord."
+notify-send -c universe.screenshot -i "$FILE" "Schermafbeelding opgeslagen" "$(basename "$FILE") — ook gekopieerd naar het klembord."

@@ -1,5 +1,5 @@
 #!/bin/sh
-# live-build configuratie voor het Universe OS live-ISO (Debian 13 trixie, amd64, UEFI).
+# live-build configuratie voor het Universe OS live-ISO (Debian 13 trixie, amd64, UEFI en oud BIOS).
 # Gebruik: scripts/build-iso.sh (roept lb config / lb build aan in live/).
 set -e
 
@@ -17,7 +17,7 @@ lb config noauto \
     --security true \
     --updates true \
     --binary-images iso-hybrid \
-    --bootloaders grub-efi \
+    --bootloaders "grub-efi,syslinux" \
     --debian-installer none \
     --firmware-binary true \
     --firmware-chroot true \

@@ -1,0 +1,95 @@
+#!/usr/bin/python3
+"""Claude Code hook (all events): tells the Universe shell what Claude is doing, so the buddy can show it.
+Must be fast and must never block or fail Claude Code: any problem is ignored and the exit code is always 0."""
+import json
+import os
+import socket
+import sys
+
+# Universe tools that happen somewhere visible: the buddy walks there.
+PLACES = {'app_openen': 'dock', 'venster': 'dock', 'vensters': 'dock', 'bureaublad_tonen': 'world',
+          'planeet_openen': 'world', 'hulpmiddel_openen': 'dock', 'pad_openen': 'dock', 'schermafbeelding': 'world'}
+
+
+def send(kind, info):
+    path = os.path.join(os.environ.get('XDG_RUNTIME_DIR', '/tmp'), 'universe-shell.sock')
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+        s.settimeout(1)
+        s.connect(path)
+        s.sendall(('claude-event %s %s\n' % (kind, json.dumps(info))).encode())
+        s.recv(64)
+
+
+def main():
+    try:
+        data = json.load(sys.stdin)
+    except ValueError:
+        return
+    event = data.get('hook_event_name', '')
+    tool = str(data.get('tool_name') or '')
+    info = {}
+    if event == 'UserPromptSubmit':
+        kind = 'think'
+    elif event == 'PreToolUse':
+        kind = 'tool'
+        short = tool.split('__')[-1] if tool.startswith('mcp__universe__') else ''
+        info = {'tool': tool, 'place': PLACES.get(short)}
+        try:
+            folder = os.path.dirname(os.path.abspath(__file__))
+            if folder not in sys.path:
+                sys.path.insert(0, folder)
+            import chrome_agent
+            decision, summary, detail = chrome_agent.judge_browser(tool, data.get('tool_input'))
+            if decision != 'vraag':
+                import brein
+                brein.log_actie('browser', summary, decision, detail)
+                if decision == 'wacht':
+                    sys.stdout.write(json.dumps({
+                        'decision': 'block',
+                        'reason': detail or 'Dit blijft een vraag.',
+                        'hookSpecificOutput': {
+                            'hookEventName': 'PreToolUse',
+                            'permissionDecision': 'deny',
+                            'permissionDecisionReason': detail or 'Dit blijft een vraag.',
+                        },
+                    }) + '\n')
+        except Exception:
+            pass
+    elif event == 'PostToolUse':
+        kind = 'tool-done'
+        short = tool.split('__')[-1] if tool.startswith('mcp__universe__') else ''
+        # A new memory: the shell flashes a star when the Brein nebula is open. The tool-done event still follows.
+        if short == 'brein_onthouden':
+            raw = data.get('tool_input') if isinstance(data.get('tool_input'), dict) else {}
+            try:
+                send('brein', {'tekst': str(raw.get('tekst') or '')[:500], 'soort': str(raw.get('soort') or '')[:40],
+                               'labels': str(raw.get('labels') or '')[:200]})
+            except Exception:
+                pass
+    elif event == 'Notification':
+        message = str(data.get('message') or '').lower()
+        if data.get('notification_type') == 'permission_prompt' or 'permission' in message:
+            kind = 'permission'
+        else:
+            return
+    elif event == 'Stop':
+        kind = 'done'
+        try:
+            folder = os.path.dirname(os.path.abspath(__file__))
+            if folder not in sys.path:
+                sys.path.insert(0, folder)
+            import efficientie
+            efficientie.capture_claude(data)
+        except Exception:
+            pass
+    else:
+        return
+    send(kind, info)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        pass
+    sys.exit(0)

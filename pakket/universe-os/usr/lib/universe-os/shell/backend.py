@@ -25,10 +25,29 @@ import chrome_status  # noqa: E402
 HELPER = '/usr/lib/universe-os/universe-admin-helper'
 
 
+def desktop_app(desktop_id):
+    """Gio.DesktopAppInfo.new raises TypeError ('constructor returned NULL') for an unknown id in this PyGObject
+    instead of returning None; every lookup goes through here so a missing program never breaks a page (10 Oct)."""
+    try:
+        return Gio.DesktopAppInfo.new(desktop_id)
+    except TypeError:
+        return None
+
+
+# Set by webview.webkit_safe_mode for the Universe pages only (software drawing on NVIDIA/unknown graphics).
+SOFTWARE_GL_VARS = ('LIBGL_ALWAYS_SOFTWARE', 'GALLIUM_DRIVER', 'WEBKIT_DMABUF_RENDERER_FORCE_SHM')
+
+
+def program_env():
+    """The environment for programs the user starts: with the normal graphics of this pc."""
+    return {k: v for k, v in os.environ.items() if k not in SOFTWARE_GL_VARS}
+
+
 def spawn(args, **kw):
     """Start a program detached from the shell: it keeps running when the shell restarts."""
     if not shutil.which(args[0]) and not os.path.exists(args[0]):
         raise RuntimeError('Programma niet gevonden: %s' % args[0])
+    kw.setdefault('env', program_env())
     subprocess.Popen(args, start_new_session=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **kw)
 
 
@@ -54,7 +73,7 @@ def user_info():
 
 
 def full_config():
-    return {'settings': config.settings(), 'world': config.world(), 'user': user_info()}
+    return {'settings': config.settings(), 'world': config.world(), 'layout': config.layout(), 'user': user_info()}
 
 
 # ---------- programs ----------
@@ -80,14 +99,31 @@ def icon_uri(icon, size=64):
 HIDDEN_APPS = {'universe-control-center.desktop', 'universe-install.desktop'}
 
 
-def apps():
+_apps_cache = (0.0, None)
+
+
+def apps(max_age=120):
+    """Installed programs. Cached: every keystroke in the start menu search read all .desktop files and looked up
+    256 px icons again. The shell calls apps_changed() when programs are installed or removed."""
+    global _apps_cache
+    if _apps_cache[1] is None or time.monotonic() - _apps_cache[0] > max_age:
+        _apps_cache = (time.monotonic(), _read_apps())
+    return _apps_cache[1]
+
+
+def apps_changed():
+    global _apps_cache
+    _apps_cache = (0.0, None)
+
+
+def _read_apps():
     result = []
     for app in Gio.AppInfo.get_all():
         if not isinstance(app, Gio.DesktopAppInfo) or not app.should_show() or app.get_id() in HIDDEN_APPS:
             continue
         cats = [c for c in (app.get_categories() or '').split(';') if c]
         result.append({'id': app.get_id(), 'name': app.get_display_name() or app.get_name(), 'comment': app.get_description() or '',
-                       'icon': icon_uri(app.get_icon()), 'categories': cats, 'game': 'Game' in cats,
+                       'icon': icon_uri(app.get_icon(), 256), 'categories': cats, 'game': 'Game' in cats,
                        'keywords': ' '.join(app.get_keywords() or [])})
     result.sort(key=lambda a: a['name'].lower())
     return result
@@ -96,13 +132,35 @@ def apps():
 def launch(app_id):
     if not re.fullmatch(r'[\w.+-]+\.desktop', app_id or ''):
         raise ValueError('Ongeldig programma')
-    if not Gio.DesktopAppInfo.new(app_id):
+    if not desktop_app(app_id):
         raise RuntimeError('Dit programma is niet (meer) geïnstalleerd.')
     spawn(['gtk-launch', app_id])
 
 
 def chrome():
-    return chrome_status.read(Gio.DesktopAppInfo.new('google-chrome.desktop') is not None)
+    return chrome_status.read(desktop_app('google-chrome.desktop') is not None)
+
+
+def browsers():
+    default = Gio.AppInfo.get_default_for_type('x-scheme-handler/https', False)
+    available = {app.get_id(): app for app in Gio.AppInfo.get_all()
+                 if isinstance(app, Gio.DesktopAppInfo) and app.should_show()
+                 and ('WebBrowser' in (app.get_categories() or '').split(';')
+                      or 'x-scheme-handler/https' in (app.get_supported_types() or []))}
+    default_id = default.get_id() if default and default.get_id() in available else None
+    return {'default': default_id, 'apps': [
+        {'id': key, 'name': app.get_display_name(), 'icon': icon_uri(app.get_icon())}
+        for key, app in sorted(available.items(), key=lambda item: item[1].get_display_name().lower())]}
+
+
+def browser_select(app_id):
+    if app_id not in {app['id'] for app in browsers()['apps']}:
+        raise ValueError('Deze browser is niet beschikbaar.')
+    app = desktop_app(app_id)
+    for mime in ('x-scheme-handler/http', 'x-scheme-handler/https', 'text/html'):
+        if not app.set_as_default_for_type(mime):
+            raise RuntimeError('De standaardbrowser kon niet worden opgeslagen.')
+    return browsers()
 
 
 def desktop_apps():
@@ -146,48 +204,136 @@ def open_path(path):
     spawn(['gio', 'open', path])
 
 
-def search_files(query, limit=30, budget=0.8):
-    """Searches the user's own home folder (names only). Respects file rights: only readable entries."""
-    q = query.lower()
+# ---------- search (start menu, Claude) ----------
+# Faster and more forgiving (Axel, 13 Oct: "finds things better"): one name index of the home folder that is reused for
+# a minute instead of a new walk on every keystroke (that walk stopped after 0.8 s, so deep files were never found);
+# accents do not matter (e = é), words may come in any order, and one typo in a longer word is still found.
+SKIP_DIRS = {'node_modules', '__pycache__', 'snap', 'site-packages', 'venv', '.venv'}
+_files_cache = (0.0, None)
+
+
+def fold(text):
+    """Lower case without accents: 'Café Ü' -> 'cafe u'."""
+    import unicodedata
+    return ''.join(c for c in unicodedata.normalize('NFKD', text.lower()) if not unicodedata.combining(c))
+
+
+def _file_index(max_entries=60000, budget=2.5):
+    global _files_cache
+    if _files_cache[1] is not None and time.monotonic() - _files_cache[0] < 60:
+        return _files_cache[1]
     home = os.path.expanduser('~')
-    found, queue, start = [], [(home, 0)], time.monotonic()
-    while queue and len(found) < limit and time.monotonic() - start < budget:
+    index, queue, start = [], [(home, 0)], time.monotonic()
+    while queue and len(index) < max_entries and time.monotonic() - start < budget:
         folder, depth = queue.pop(0)
         try:
             entries = list(os.scandir(folder))
         except OSError:
             continue
         for entry in entries:
-            if entry.name.startswith('.'):
+            if entry.name.startswith('.') or entry.name in SKIP_DIRS:
                 continue
             try:
                 is_dir = entry.is_dir(follow_symlinks=False)
             except OSError:
                 continue
-            if q in entry.name.lower() and os.access(entry.path, os.R_OK):
-                found.append({'name': entry.name, 'path': entry.path, 'dir': is_dir, 'display': '~' + entry.path[len(home):]})
-                if len(found) >= limit:
-                    break
-            if is_dir and depth < 6:
+            index.append((fold(entry.name), entry.name, entry.path, is_dir, depth))
+            if is_dir and depth < 8:
                 queue.append((entry.path, depth + 1))
+    _files_cache = (time.monotonic(), index)
+    return index
+
+
+def files_changed():
+    global _files_cache
+    _files_cache = (0.0, None)
+
+
+def _near(word, text):
+    """True if word occurs in text with at most one wrong, missing or extra letter (only for words of 5+ letters)."""
+    if word in text:
+        return True
+    if len(word) < 5:
+        return False
+    for token in re.split(r'[^a-z0-9]+', text):
+        if abs(len(token) - len(word)) > 1 or not token:
+            continue
+        if len(token) == len(word):
+            diff = [k for k in range(len(word)) if word[k] != token[k]]
+            if len(diff) == 2 and diff[1] == diff[0] + 1 and word[diff[0]] == token[diff[1]] and word[diff[1]] == token[diff[0]]:
+                return True  # two letters swapped: rekenmachien -> rekenmachine
+        a, b = (token, word) if len(token) >= len(word) else (word, token)
+        i = j = edits = 0
+        while i < len(a) and j < len(b):
+            if a[i] == b[j]:
+                i, j = i + 1, j + 1
+                continue
+            edits += 1
+            if edits > 1:
+                break
+            if len(a) == len(b):
+                j += 1
+            i += 1
+        if edits + (len(a) - i) + (len(b) - j) <= 1:
+            return True
+    return False
+
+
+def _score(words, name, extra='', typos=True):
+    """None when not all words match; lower is better (exact start of the name first)."""
+    full = name + ' ' + extra
+    if not all((_near(w, full) if typos else w in full) for w in words):
+        return None
+    joined = ' '.join(words)
+    return (0 if name.startswith(joined) else 1 if all(w in name for w in words) else 2 if all(w in full for w in words) else 3)
+
+
+def search_files(query, limit=30):
+    """Searches the user's own home folder by name. Only readable entries; hidden folders are skipped."""
+    words = fold(query).split()
+    if not words:
+        return []
+    home = os.path.expanduser('~')
+    hits = []
+    for folded, name, path, is_dir, depth in _file_index():
+        score = _score(words, folded, typos=False)  # tens of thousands of names: plain matching stays instant
+        if score is not None:
+            hits.append((score, depth, len(name), name, path, is_dir))
+    hits.sort()
+    found = []
+    for _s, _d, _l, name, path, is_dir in hits:
+        if os.access(path, os.R_OK):
+            found.append({'name': name, 'path': path, 'dir': is_dir, 'display': '~' + path[len(home):]})
+            if len(found) >= limit:
+                break
     return found
 
 
 def search(query):
-    q = (query or '').strip().lower()
-    if not q:
+    words = fold(query or '').split()
+    if not words:
         return {'apps': [], 'files': []}
-    matched = [a for a in apps() if q in (a['name'] + ' ' + a['comment'] + ' ' + a['keywords'] + ' ' + a['id']).lower()]
-    # Desktop settings launchers also match program names; prefer the program.
-    matched.sort(key=lambda a: ('Settings' in a['categories'],
-                               not a['name'].lower().startswith(q),
-                               q not in a['name'].lower(), a['name'].lower()))
-    return {'apps': matched[:12], 'files': search_files(q)}
+    ranked = []
+    for a in apps():
+        score = _score(words, fold(a['name']), fold(a['comment'] + ' ' + a['keywords'] + ' ' + a['id']))
+        if score is not None:
+            # Desktop settings launchers also match program names; prefer the program.
+            ranked.append(('Settings' in a['categories'], score, a['name'].lower(), a))
+    ranked.sort(key=lambda r: r[:3])
+    return {'apps': [r[3] for r in ranked[:12]], 'files': search_files(query)}
 
 
 # ---------- status ----------
-def network():
-    return network_status.status()
+_network = (0.0, None)
+
+
+def network(max_age=30):
+    """Network state, at most every 30 s: it costs three nmcli processes, and the panel asks every 10 s (in the VM
+    those spawns were a large part of the load of a quiet desktop)."""
+    global _network
+    if _network[1] is None or time.monotonic() - _network[0] > max_age:
+        _network = (time.monotonic(), network_status.status())
+    return _network[1]
 
 
 def volume():
@@ -273,16 +419,34 @@ def set_volume(level):
     subprocess.run(['wpctl', 'set-volume', '@DEFAULT_AUDIO_SINK@', '%d%%' % level], check=False)
 
 
+def volume_ping():
+    """Like Windows: when the slider is let go, a short tune at the new volume (also remembers the volume for the
+    login screen, see universe-geluid)."""
+    sound('volume')
+    return True
+
+
 def toggle_mute():
     subprocess.run(['wpctl', 'set-mute', '@DEFAULT_AUDIO_SINK@', 'toggle'], check=False)
+    sound('volume')
 
 
-def power(action):
+def sound(name):
+    """A Universe system sound (universe-geluid; silent when Systeemgeluiden is off). Never fails."""
+    try:
+        spawn(['universe-geluid', name])
+    except (OSError, RuntimeError):
+        pass
+
+
+def power(action, sound_first=True):
     if action == 'lock':
         return spawn(['universe-lock'])
     if action == 'logout':
         return spawn(['labwc', '--exit'])
     if action in ('reboot', 'poweroff', 'suspend'):
+        if action != 'suspend' and sound_first:
+            subprocess.run(['universe-geluid', 'afsluiten', '--wacht'], timeout=10, check=False)  # like Windows: first the sound
         r = subprocess.run(['systemctl', action], capture_output=True, text=True, timeout=30)
         if r.returncode != 0:
             raise RuntimeError('De energieactie is mislukt.' +
@@ -325,3 +489,147 @@ def run_tool(tool, args):
         cmd = {'network-editor': 'nm-connection-editor'}.get(tool, tool)
         return spawn([cmd])
     raise ValueError('Onbekend hulpmiddel: %s' % tool)
+
+
+def pick_path(kind):
+    """Lets the user choose a folder or file to put in the space world (native dialog via zenity). None = cancelled."""
+    cmd = ['zenity', '--file-selection', '--title', 'Map kiezen' if kind == 'folder' else 'Bestand kiezen',
+           '--filename', os.path.expanduser('~') + '/']
+    if kind == 'folder':
+        cmd.append('--directory')
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise RuntimeError('Kiezen lukt niet: %s' % error)
+    path = result.stdout.strip()
+    if result.returncode != 0 or not path:
+        return None
+    return {'path': path, 'name': os.path.basename(path.rstrip('/')) or path}
+
+
+# ---------- desktop (like Windows: the Bureaublad folder plus fixed icons and shortcuts) ----------
+def desktop_dir():
+    GLib.reload_user_special_dirs_cache()
+    return GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DESKTOP) or os.path.join(os.path.expanduser('~'), 'Bureaublad')
+
+
+def _themed(*names):
+    return icon_uri(Gio.ThemedIcon.new_from_names(list(names)))
+
+
+def _file_entry(path, key, source):
+    gfile = Gio.File.new_for_path(path)
+    try:
+        info = gfile.query_info('standard::icon,standard::display-name,standard::type', Gio.FileQueryInfoFlags.NONE, None)
+    except GLib.Error:
+        return None
+    folder = info.get_file_type() == Gio.FileType.DIRECTORY
+    entry = {'key': key, 'name': info.get_display_name(), 'kind': 'folder' if folder else 'file', 'target': path,
+             'icon': icon_uri(info.get_icon()), 'source': source}
+    if not folder and path.endswith('.desktop'):
+        app = Gio.DesktopAppInfo.new_from_filename(path)
+        if app:
+            entry.update(kind='launcher', name=app.get_display_name(), icon=icon_uri(app.get_icon(), 256))
+    return entry
+
+
+def _trash_full():
+    try:
+        info = Gio.File.new_for_uri('trash:///').query_info('trash::item-count', Gio.FileQueryInfoFlags.NONE, None)
+        return info.get_attribute_uint32('trash::item-count') > 0
+    except GLib.Error:
+        return False
+
+
+def desktop_list():
+    """Everything on the desktop: fixed icons, the files in the Bureaublad folder and the user's shortcuts."""
+    lay = config.layout()
+    hidden = set(lay.get('hiddenIcons') or [])
+    home = os.path.expanduser('~')
+    entries = []
+    if is_live():
+        entries.append({'key': 'sys:install', 'name': 'Universe OS installeren', 'kind': 'install', 'target': '', 'icon': _themed('system-software-install', 'system-installer'), 'source': 'system'})
+    if 'sys:home' not in hidden:
+        entries.append({'key': 'sys:home', 'name': 'Persoonlijke map', 'kind': 'folder', 'target': home, 'icon': _themed('user-home', 'folder'), 'source': 'system'})
+    if 'sys:trash' not in hidden:
+        entries.append({'key': 'sys:trash', 'name': 'Prullenbak', 'kind': 'folder', 'target': 'trash:///',
+                        'icon': _themed('user-trash-full' if _trash_full() else 'user-trash', 'user-trash'), 'source': 'system'})
+    folder = desktop_dir()
+    if os.path.isdir(folder):
+        for name in sorted(os.listdir(folder), key=str.lower)[:300]:
+            if name.startswith('.'):
+                continue
+            entry = _file_entry(os.path.join(folder, name), 'f:' + name, 'desktop')
+            if entry:
+                entries.append(entry)
+    for item in lay.get('items') or []:
+        if item['kind'] == 'app':
+            app = desktop_app(item['target'])
+            if not app:
+                continue
+            entries.append({'key': item['id'], 'name': app.get_display_name(), 'kind': 'app', 'target': item['target'],
+                            'icon': icon_uri(app.get_icon(), 256), 'source': 'shortcut'})
+        elif os.path.exists(item['target']):
+            entry = _file_entry(item['target'], item['id'], 'shortcut')
+            if entry:
+                entries.append(entry)
+    return {'dir': folder, 'entries': entries}
+
+
+def _in_desktop(path):
+    folder = os.path.realpath(desktop_dir())
+    real = os.path.realpath(os.path.dirname(path.rstrip('/')))
+    if real != folder:
+        raise PermissionError('Dit kan alleen voor bestanden op het bureaublad.')
+    return path
+
+
+def _valid_name(name):
+    name = (name or '').strip()
+    if not name or name in ('.', '..') or '/' in name or '\0' in name or len(name.encode()) > 255:
+        raise ValueError('Deze naam kan niet: geen / gebruiken en niet leeg laten.')
+    return name
+
+
+def desktop_mkdir():
+    folder = desktop_dir()
+    os.makedirs(folder, exist_ok=True)
+    name, n = 'Nieuwe map', 1
+    while os.path.exists(os.path.join(folder, name)):
+        n += 1
+        name = 'Nieuwe map (%d)' % n
+    os.mkdir(os.path.join(folder, name))
+    return {'key': 'f:' + name, 'path': os.path.join(folder, name)}
+
+
+def desktop_rename(path, name):
+    path = _in_desktop(path)
+    name = _valid_name(name)
+    target = os.path.join(os.path.dirname(path), name)
+    if os.path.exists(target):
+        raise FileExistsError('Er staat al iets met de naam "%s" op het bureaublad.' % name)
+    os.rename(path, target)
+    return {'key': 'f:' + name}
+
+
+def desktop_trash(path):
+    Gio.File.new_for_path(_in_desktop(path)).trash(None)
+    sound('prullenbak')
+    return True
+
+
+def desktop_launch(path):
+    """Starts a .desktop launcher that lies on the desktop (like a shortcut on the Windows desktop)."""
+    path = _in_desktop(path)
+    if not os.access(path, os.X_OK):
+        # Like GNOME: a launcher only runs when the user marked it as trusted (executable), so a downloaded file
+        # cannot start a program by itself.
+        raise PermissionError('Deze snelkoppeling is niet vertrouwd. Maak haar uitvoerbaar in Bestanden (Eigenschappen > Rechten).')
+    app = Gio.DesktopAppInfo.new_from_filename(path)
+    if not app:
+        raise RuntimeError('Deze snelkoppeling werkt niet.')
+    context = Gio.AppLaunchContext()
+    for name in SOFTWARE_GL_VARS:
+        context.unsetenv(name)
+    app.launch([], context)
+    return True

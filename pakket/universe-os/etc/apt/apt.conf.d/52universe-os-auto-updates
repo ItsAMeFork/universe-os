@@ -1,0 +1,6 @@
+// Universe OS: updates installeert universe-updates.service (timer: 3 min na opstarten en elke 24 uur, en bij inloggen),
+// zie /usr/lib/universe-os/universe-updates-run. Debians eigen automatische taken staan uit, zodat er nooit twee
+// installaties tegelijk lopen.
+APT::Periodic::Update-Package-Lists "0";
+APT::Periodic::Unattended-Upgrade "0";
+APT::Periodic::AutocleanInterval "7";

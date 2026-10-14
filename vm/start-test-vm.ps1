@@ -3,7 +3,9 @@
 #   vm\start-test-vm.ps1                                                                (opstarten zonder ISO)
 # Beheerkanaal QMP op 127.0.0.1:4445:  node vm\qmp.mjs 4445 status|scherm|typ|toets
 param([string]$Iso, [switch]$Nieuw, [int]$GeheugenMB = 4096, [int]$Cpus = 2, [switch]$SecureBoot, [switch]$ZonderVenster,
-      [ValidateSet('gtk', 'sdl')][string]$Venster = 'gtk', [string]$Resolutie = '1920x1080', [switch]$VolledigScherm)
+      [ValidateSet('gtk', 'sdl')][string]$Venster = 'gtk', [string]$Resolutie = '1920x1080', [switch]$VolledigScherm,
+      [string]$Processor = 'qemu64,+ssse3,+sse4.1,+sse4.2,+popcnt', [ValidateSet('VGA', 'virtio-vga')][string]$Videokaart = 'virtio-vga',
+      [ValidateSet('none', 'dsound')][string]$Geluid = 'none')
 $ErrorActionPreference = 'Stop'
 $qemu = 'C:\Program Files\qemu'
 $vm = 'D:\UniverseOS-VMs'
@@ -27,17 +29,28 @@ $display = if ($ZonderVenster) { 'none' } elseif ($Venster -eq 'gtk') { 'gtk,zoo
 $qargs = @(
     '-name', '"Universe OS test"',
     '-accel', 'whpx', '-machine', $machine, '-smp', "$Cpus", '-m', "$GeheugenMB",
+    # Without -cpu QEMU gives an old 'QEMU Virtual CPU 2.5' with only the oldest instructions: the Claude Code installer
+    # hung for 15 minutes (11 Oct). 'max' and 'host' crash the UEFI firmware under WHPX, and WHPX does not pass on AVX;
+    # with the flags below Claude Code runs. Do not add bmi/movbe/aes: WHPX announces them but the login screen then
+    # crashed with 'invalid opcode' in libatomic (black screen, 11 Oct).
+    '-cpu', $Processor,
     # Quoted: Start-Process joins arguments with spaces, and the firmware lives under "C:\Program Files".
     '-drive', "`"if=pflash,format=raw,unit=0,readonly=on,file=$code`"",
     '-drive', "if=pflash,format=raw,unit=1,file=$vars",
     '-drive', "file=$disk,if=none,id=schijf,discard=unmap", '-device', 'virtio-blk-pci,drive=schijf,bootindex=1',
-    '-nic', 'user,model=virtio-net-pci',
+    # SSH alleen vanaf deze pc (127.0.0.1:2223). In de test-VM staat ontwikkeltoegang voor `tester` (sleutel uit keys\).
+    '-nic', 'user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:2223-:22',
+    # virtio-vga (default since 11 Oct): with the standard VGA every screen change (even the mouse pointer) copied the
+    # whole screen through emulated video memory: 30-90 % CPU in kernel workers and a laggy desktop. virtio-gpu has a
+    # cursor plane and sends only changed areas (kworker + labwc ~2 % at rest). It follows the window size (1920x962 in
+    # a window) instead of xres/yres. -Videokaart VGA gives the old fixed size back.
     # Fixed screen size (default: the Windows screen, 1920x1080) for greeter and session alike. Standard VGA with EDID does
     # not follow the window size (virtio-gpu did: the session fell back to 640x480); GTK scales the picture to the window.
-    '-display', $display, '-vga', 'none', '-device', "VGA,edid=on,xres=$(($Resolutie -split 'x')[0]),yres=$(($Resolutie -split 'x')[1])",
+    '-display', $display, '-vga', 'none', '-device', "$Videokaart,edid=on,$(if ($Videokaart -eq 'VGA') { 'vgamem_mb=64,' })xres=$(($Resolutie -split 'x')[0]),yres=$(($Resolutie -split 'x')[1])",
     # usb-tablet: absolute muispositie, nodig om via QMP precies te klikken.
     '-device', 'qemu-xhci', '-device', 'usb-tablet',
-    '-audiodev', 'none,id=geluid', '-device', 'ich9-intel-hda', '-device', 'hda-duplex,audiodev=geluid',
+    # -Geluid dsound: hear the VM on this pc. (The wav backend paused the VM at a reboot, 12 Oct.)
+    '-audiodev', "$Geluid,id=geluid", '-device', 'ich9-intel-hda', '-device', 'hda-duplex,audiodev=geluid',
     '-serial', "file:$vm\test-vm-serial.log",
     '-qmp', 'tcp:127.0.0.1:4445,server,nowait'
 )

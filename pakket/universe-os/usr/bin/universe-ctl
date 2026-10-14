@@ -16,9 +16,11 @@ def main():
         print(__doc__.strip())
         return 1
     line = ' '.join(sys.argv[1:])
+    # scherm-aan waits for the on-screen question. A short timeout made the switch look failed.
+    timeout = 190 if sys.argv[1] == 'scherm-aan' else 5
     try:
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
-            s.settimeout(5)
+            s.settimeout(timeout)
             s.connect(SOCKET)
             s.sendall((line + '\n').encode())
             answer = s.makefile().readline().strip()

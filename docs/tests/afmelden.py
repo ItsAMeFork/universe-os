@@ -7,13 +7,14 @@ from unittest.mock import Mock
 path = Path(__file__).resolve().parents[2] / 'pakket/universe-os/usr/lib/universe-os/shell/universe_shell.py'
 tree = ast.parse(path.read_text(encoding='utf-8'))
 shell = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == 'Shell')
-shell.body = [node for node in shell.body if isinstance(node, ast.FunctionDef) and node.name in ('power', 'begin_logout', 'finish_logout')]
-namespace = {'GLib': Mock(), 'backend': Mock(), 'GtkLayerShell': Mock()}
+shell.body = [node for node in shell.body if isinstance(node, ast.FunctionDef) and node.name in ('power', 'begin_logout', 'finish_logout', 'power_failed')]
+namespace = {'GLib': Mock(), 'backend': Mock(), 'GtkLayerShell': Mock(), 'time': __import__('time')}
 namespace['GLib'].timeout_add.return_value = 42
 exec(compile(ast.Module(body=[shell], type_ignores=[]), str(path), 'exec'), namespace)
 obj = namespace['Shell']()
 obj.logout_pending = False
 obj.logout_timer = None
+obj.claude = None  # begin_logout closes the Claude panel when present
 obj.worlds = [SimpleNamespace(window=Mock(), emit=Mock())]
 obj.panel = Mock()
 obj.hide_overview = Mock()

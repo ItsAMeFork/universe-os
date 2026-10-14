@@ -1,4 +1,7 @@
 """Universe planet greeter. Authentication belongs exclusively to LightDM/PAM."""
+import os
+import subprocess
+
 import gi
 import config
 
@@ -7,6 +10,31 @@ gi.require_version('Gdk', '3.0')
 gi.require_version('LightDM', '1')
 from gi.repository import Gtk, Gdk, GLib, LightDM  # noqa: E402
 from webview import Bridge, make_view, emit  # noqa: E402
+
+
+def play(name, wait=False):
+    """System sound on the login screen (universe-geluid; the greeter runs as the lightdm user with its own PipeWire)."""
+    try:
+        if wait:
+            subprocess.run(['universe-geluid', name, '--wacht'], timeout=10, check=False)
+        else:
+            subprocess.Popen(['universe-geluid', name], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL, start_new_session=True)
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+
+def startup_sound():
+    """The startup sound (Axel, 12 Oct: like Windows, but chill reggae space), once per boot: not again after logging
+    out. The marker carries the boot id, so a /tmp that survives a restart does not silence the next boot."""
+    try:
+        with open('/proc/sys/kernel/random/boot_id') as f:
+            boot = f.read().strip()
+        fd = os.open('/tmp/.universe-opstart-' + boot, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
+        os.close(fd)
+    except OSError:
+        return  # already played this boot (or /tmp unusable)
+    play('opstarten')
 
 
 class PlanetGreeter:
@@ -58,6 +86,7 @@ class PlanetGreeter:
         window.get_window().set_cursor(cursor)
 
     def ready(self, _):
+        startup_sound()  # with the planet forming on the login screen
         return {'user': self.dm.get_select_user_hint() or '', 'prompt': self.prompt,
                 'animations': config.settings().get('animations', 'full')}
 
@@ -78,6 +107,8 @@ class PlanetGreeter:
             raise RuntimeError('Universe OS wordt al gestart.')
         if not can():
             raise RuntimeError('%s is op deze computer niet mogelijk.' % name)
+        if action != 'suspend':
+            play('afsluiten', wait=True)
         try:
             do()
         except GLib.Error:

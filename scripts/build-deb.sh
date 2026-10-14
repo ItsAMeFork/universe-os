@@ -50,8 +50,14 @@ Signed-By: /usr/share/keyrings/universe-os-updates.gpg
 SRC
 fi
 
-# Vergrendelscherm (swaylock --image): planeetstijl met "Vergrendeld". swaylock schaalt het per scherm.
-rsvg-convert -w 2560 -h 1440 "$ROOT/scripts/assets/vergrendeld.svg" -o "$STAGE/usr/share/universe-os/backgrounds/vergrendeld.png"
+# Vergrendelscherm (swaylock --image): de aarde in de ruimte, net als het inlogscherm (2560x1440, gemaakt met
+# scripts/assets/maak-vergrendeld.html). swaylock schaalt het per scherm.
+install -Dm644 "$ROOT/scripts/assets/vergrendeld.png" "$STAGE/usr/share/universe-os/backgrounds/vergrendeld.png"
+# De gloeiende kern tussen inlogscherm en bureaublad (swaybg, achtergrond van world.html en van het inlogscherm na
+# afmelden): het laatste beeld van inloggen en afmelden, zodat beide één animatie zijn. Gemaakt met maak-kern.mjs.
+install -Dm644 "$ROOT/scripts/assets/kern.png" "$STAGE/usr/share/universe-os/backgrounds/kern.png"
+# Sterrenhemel achter de aarde op het vergrendelscherm (gtklock), ook gemaakt met maak-kern.mjs.
+install -Dm644 "$ROOT/scripts/assets/sterren.png" "$STAGE/usr/share/universe-os/backgrounds/sterren.png"
 
 # Python-bindingen voor wlr-foreign-toplevel (vensteroverzicht), gegenereerd met de pywayland-scanner.
 PROTO="$STAGE/usr/lib/universe-os/shell/protocols"
@@ -70,7 +76,8 @@ while read -r f; do [ -f "$STAGE$f" ] || { echo "conffile $f bestaat niet in het
 # Rechten: alles van root, programma's uitvoerbaar, de rest leesbaar.
 find "$STAGE" -type d -exec chmod 0755 {} +
 find "$STAGE" -type f -exec chmod 0644 {} +
-for f in "$STAGE"/usr/bin/* "$STAGE"/usr/lib/universe-os/universe-* "$STAGE"/DEBIAN/postinst "$STAGE"/DEBIAN/postrm \
+for f in "$STAGE"/usr/bin/* "$STAGE"/usr/lib/universe-os/universe-* "$STAGE"/usr/lib/universe-os/claude/universe-* \
+         "$STAGE"/usr/lib/universe-os/claude/universe_mcp.py "$STAGE"/DEBIAN/postinst "$STAGE"/DEBIAN/postrm \
          "$STAGE"/DEBIAN/preinst "$STAGE"/DEBIAN/prerm; do
     [ -f "$f" ] && chmod 0755 "$f"
 done
@@ -80,8 +87,10 @@ SIZE=$(du -sk --exclude=DEBIAN "$STAGE" | cut -f1)
 sed -i "/^Version:/a Installed-Size: $SIZE" "$STAGE/DEBIAN/control"
 
 # Syntaxcontrole vóór het inpakken: kapotte Python of shellscripts komen niet in het pakket.
-python3 -m py_compile "$STAGE"/usr/lib/universe-os/shell/*.py
-for f in "$STAGE"/usr/bin/* "$STAGE"/usr/lib/universe-os/universe-*; do
+python3 -m py_compile "$STAGE"/usr/lib/universe-os/shell/*.py "$STAGE"/usr/lib/universe-os/claude/*.py
+python3 -m json.tool "$STAGE"/usr/lib/universe-os/claude/settings.json >/dev/null
+python3 -m json.tool "$STAGE"/usr/lib/universe-os/claude/mcp.json >/dev/null
+for f in "$STAGE"/usr/bin/* "$STAGE"/usr/lib/universe-os/universe-* "$STAGE"/usr/lib/universe-os/claude/universe-*; do
     case "$(head -c 40 "$f")" in
         '#!/bin/sh'*) sh -n "$f" ;;
         '#!/usr/bin/python3'*) python3 -m py_compile "$f" ;;

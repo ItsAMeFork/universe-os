@@ -37,11 +37,44 @@ if [ "$1" = "configure" ]; then
         systemctl enable ufw.service >/dev/null 2>&1 || true
     fi
 
+    # Updates: één taak (universe-updates.service) voor de knop, het inloggen en de timer. Alleen het stabiele kanaal:
+    # een oude testbron verdwijnt (geïnstalleerde versies blijven, geen downgrade).
+    rm -f /etc/apt/sources.list.d/universe-os-test.sources
+    systemctl enable universe-updates.timer >/dev/null 2>&1 || true
+    if [ -d /run/systemd/system ] && ! systemd-detect-virt --quiet --chroot 2>/dev/null; then
+        systemctl daemon-reload >/dev/null 2>&1 || true
+        systemctl start universe-updates.timer >/dev/null 2>&1 || true
+    fi
+
     # Google Chrome on the first start with internet (installed system only; the unit skips the live session).
     systemctl enable universe-chrome-install.timer >/dev/null 2>&1 || true
 
     command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database -q /usr/share/applications || true
     command -v glib-compile-schemas >/dev/null 2>&1 && glib-compile-schemas /usr/share/glib-2.0/schemas || true
+
+    # Bytecode for the shell, greeter and session: users cannot write __pycache__ here, so without this every login
+    # compiled all modules again (part of the black screen after login). prerm removes it again.
+    python3 -m compileall -q /usr/lib/universe-os/shell /usr/lib/universe-os/claude >/dev/null 2>&1 || true
+    # Google Chrome natively on Wayland for every user (torn text through Xwayland on some graphics cards).
+    /usr/lib/universe-os/universe-chrome-wayland || true
+    # Last volume for the login screen (universe-geluid): every user may write the one number, the greeter checks it.
+    install -d -m 0777 /var/lib/universe-os/geluid  # not sticky: another user may replace the file
+    # sudo in a terminal: a meteor shoots past when it asks for the password (universe-admin-geluid; optional line).
+    if [ -f /etc/pam.d/sudo ] && ! grep -q universe-admin-geluid /etc/pam.d/sudo; then
+        sed -i '/^@include common-auth/i auth optional pam_exec.so quiet /usr/lib/universe-os/universe-admin-geluid' /etc/pam.d/sudo || true
+    fi
+    # Sleutelbos voor gekoppelde accounts (Secret Service). Alleen onze eigen regel, zodat verwijderen hem weer weghaalt.
+    if [ -f /etc/pam.d/lightdm ] && ! grep -q universe-os-keyring /etc/pam.d/lightdm; then
+        printf '\n# universe-os-keyring\nauth optional pam_gnome_keyring.so # universe-os-keyring\nsession optional pam_gnome_keyring.so auto_start # universe-os-keyring\n' >> /etc/pam.d/lightdm
+    fi
+    # ydotoold (aanbevolen, Debian-backports): start per gebruiker als het programma er is.
+    mkdir -p /etc/systemd/user/default.target.wants
+    ln -sfn /usr/lib/systemd/user/universe-ydotoold.service /etc/systemd/user/default.target.wants/universe-ydotoold.service
+
+    # Lock screen: a soft sound after a wrong password (universe-lock-poging). Optional line before the normal stack.
+    if [ -f /etc/pam.d/gtklock ] && ! grep -q universe-lock-poging /etc/pam.d/gtklock; then
+        sed -i '1i auth optional pam_exec.so quiet /usr/lib/universe-os/universe-lock-poging' /etc/pam.d/gtklock || true
+    fi
 fi
 
 exit 0

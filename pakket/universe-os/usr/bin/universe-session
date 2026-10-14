@@ -18,4 +18,11 @@ export XDG_SESSION_TYPE=wayland
 
 CONFIG_DIR=$(python3 /usr/lib/universe-os/shell/session.py) || {
     echo "Kon de sessieconfiguratie niet schrijven; herstelmodus."; exec /usr/bin/universe-recovery-session; }
-exec labwc -C "$CONFIG_DIR"
+labwc -C "$CONFIG_DIR"
+code=$?
+echo "labwc gestopt met code $code ($(date)); de sessie wordt afgesloten."
+# Everything of this session stops with it (shell guard, background tasks, programs). Otherwise the shell guard kept
+# restarting the shell for 15 s after logging out, and could attach to the NEXT login: two shells on one screen
+# froze the computer (Axel, 12 Oct, real pc).
+[ -n "$XDG_SESSION_ID" ] && loginctl terminate-session "$XDG_SESSION_ID"
+exit $code

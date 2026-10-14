@@ -27,12 +27,16 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .note b{display:block}
 .small{font-size:.8em;color:var(--muted)}
 .confirm{display:flex;flex-direction:column;gap:8px}
+.scherm-banner{position:absolute;top:42px;left:50%;translate:-50% 0;z-index:6;max-width:calc(100% - 24px);background:#3a1020;color:#ffd0dc;border:1px solid #ff8aa8;border-radius:999px;padding:6px 14px;font-weight:650}
+.scherm-banner[hidden]{display:none}
+.pill.scherm-aan{border-color:#ff8aa888}
 .panel-heading{font-size:.85em;color:var(--accent);margin:4px 0 0;letter-spacing:.5px}
 summary{cursor:pointer;padding:6px 0;font-weight:600}details>div{padding-top:10px}
 .card select{max-width:100%;width:100%}.note,.card{overflow-wrap:anywhere}
 </style>
 </head>
 <body>
+<script src="load-guard.js" data-page="panel"></script>
 <script type="module" src="panel.js"></script>
 </body>
 </html>

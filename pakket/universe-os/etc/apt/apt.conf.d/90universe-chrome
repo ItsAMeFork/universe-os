@@ -1,0 +1,2 @@
+// Universe OS: after every package change, keep Google Chrome a native Wayland program (see universe-chrome-wayland).
+DPkg::Post-Invoke { "[ -x /usr/lib/universe-os/universe-chrome-wayland ] && /usr/lib/universe-os/universe-chrome-wayland || true"; };

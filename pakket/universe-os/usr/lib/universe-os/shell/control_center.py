@@ -21,6 +21,99 @@ import config  # noqa: E402
 import session  # noqa: E402
 from webview import Bridge, emit, make_view  # noqa: E402
 
+def _claude():
+    folder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'claude')
+    if folder not in sys.path:
+        sys.path.insert(0, folder)
+    return folder
+
+
+def _brein():
+    _claude()
+    import brein
+    return brein
+
+
+def _accounts():
+    _claude()
+    import accounts
+    return accounts
+
+
+def _screen():
+    _claude()
+    import screen
+    return screen
+
+
+def _ai():
+    _claude()
+    import ai_provider
+    return ai_provider
+
+
+def _auto():
+    _claude()
+    import auto_accept
+    return auto_accept
+
+
+def _plugins():
+    _claude()
+    import plugins
+    return plugins
+
+
+def _shell_json(command, timeout=8):
+    """Ask the running shell. Screen control lives there, not in a file this process could write."""
+    done = subprocess.run(['universe-ctl', command], capture_output=True, text=True, timeout=timeout)
+    text = (done.stdout or '').strip()
+    if text.startswith('ok '):
+        try:
+            data = json.loads(text[3:])
+        except ValueError:
+            data = None
+        if isinstance(data, dict):
+            return data
+    if text == 'ok':
+        return _screen().status()
+    message = text[6:] if text.startswith('fout: ') else text
+    raise RuntimeError(message or 'De shell gaf geen antwoord.')
+
+
+def _grant_screen(on):
+    # Turning it on shows a dialog in the shell. This process must not flip the switch itself.
+    return _shell_json('scherm-aan' if on else 'scherm-uit', timeout=200)
+
+
+def _screen_status_for_ui():
+    try:
+        return _shell_json('scherm')
+    except (RuntimeError, OSError, subprocess.SubprocessError):
+        state = _screen().status()
+        state['toegestaan'] = False
+        return state
+
+
+def _oauth_start(args):
+    result = _accounts().start_oauth(args.get('provider'), args.get('methode') or 'loopback', args.get('client_id') or '', args.get('client_secret') or None)
+    url = result.get('url') or result.get('verificatie') or ''
+    if str(url).startswith('http'):
+        backend.spawn(['xdg-open', url])
+    return result
+
+
+def _download_dir():
+    try:
+        out = subprocess.run(['xdg-user-dir', 'DOWNLOAD'], capture_output=True, text=True, timeout=2)
+        folder = out.stdout.strip()
+        if out.returncode == 0 and folder and os.path.isdir(os.path.dirname(folder) or folder):
+            return folder
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return os.path.join(os.path.expanduser('~'), 'Downloads')
+
+
 HELPER = '/usr/lib/universe-os/universe-admin-helper'
 LANGUAGES = [('nl_NL.UTF-8', 'Nederlands (Nederland)'), ('nl_BE.UTF-8', 'Nederlands (België)'), ('en_US.UTF-8', 'English (United States)'),
              ('en_GB.UTF-8', 'English (United Kingdom)'), ('de_DE.UTF-8', 'Deutsch'), ('fr_FR.UTF-8', 'Français'), ('es_ES.UTF-8', 'Español')]
@@ -152,6 +245,67 @@ def secure_boot():
     return 'aan' if 'enabled' in text else 'uit' if 'disabled' in text else 'onbekend'
 
 
+def claude_path():
+    """Same lookup as the AI page (also when ~/.local/bin is not on PATH)."""
+    return _ai().bin_for('claude')
+
+
+def ai_install(provider):
+    """Opens a terminal with the official install command. Universe OS does not ship the CLIs."""
+    if not shutil.which('xfce4-terminal'):
+        raise RuntimeError('Er is geen terminal beschikbaar om de installatie te starten.')
+    script = _ai().install_script(provider or 'claude')
+    backend.spawn(['xfce4-terminal', '--title', 'AI installeren', '-x', 'bash', '-c', script])
+    return True
+
+
+def chrome_setup():
+    """One button: confirm, install Chrome from Google's apt repo if needed, open the extension page."""
+    import confirm
+    agent = _chrome_agent()
+    info = agent.status()
+    if not confirm.ask(
+            'Chrome en Claude in Chrome',
+            'Chrome wordt, als het er nog niet is, geïnstalleerd uit de officiële apt-bron van Google. '
+            'Daarna opent de pagina van de officiële Claude-extensie. Je logt zelf in.'):
+        raise PermissionError('Geannuleerd. Er is niets geïnstalleerd.')
+    plan = agent.plan_setup(info['chrome'])
+    if plan['script']:
+        if not shutil.which('xfce4-terminal'):
+            raise RuntimeError('Er is geen terminal beschikbaar om Chrome te installeren.')
+        backend.spawn(['xfce4-terminal', '--title', 'Chrome installeren', '-x', 'bash', '-c', plan['script']])
+    elif plan['open']:
+        backend.spawn(plan['open'])
+    return agent.status()
+
+
+def _chrome_agent():
+    _claude()
+    import chrome_agent
+    return chrome_agent
+
+
+def plugin_terminal(plugin_id):
+    """User-started install. Rules are not copied; the script itself refuses a copy."""
+    if not shutil.which('xfce4-terminal'):
+        raise RuntimeError('Er is geen terminal beschikbaar om de installatie te starten.')
+    script = _plugins().install_script(plugin_id)
+    backend.spawn(['xfce4-terminal', '--title', 'Plugin installeren', '-x', 'bash', '-c', script])
+    return True
+
+
+def claude_status():
+    path = claude_path()
+    if not path:
+        return {'installed': False, 'version': ''}
+    return {'installed': True, 'version': backend.out([path, '--version'], timeout=5).strip()}
+
+
+def claude_install():
+    """Runs Anthropic's official installer in a terminal, so the user sees what happens."""
+    return ai_install('claude')
+
+
 def handlers(app):
     def set_config(a):
         config.set_setting(a['key'], a['value'])
@@ -264,8 +418,48 @@ def handlers(app):
         'updates.channel.get': lambda a: backend.update_channel.get(),
         'updates.channel.set': lambda a: backend.update_channel.set_channel(a),
         'updates.refresh': lambda a: backend.updates.refresh(),
+        'updates.install': lambda a: backend.updates.install(),
         'about': lambda a: about(),
+        'claude.status': lambda a: claude_status(),
+        'claude.install': lambda a: claude_install(),
+        'claude.open': lambda a: backend.spawn(['universe-ctl', 'claude']),
+        'ai.status': lambda a: _ai().public_status(),
+        'ai.set': lambda a: _ai().set_choice(a.get('provider'), a.get('model') or '', a.get('ollama_url')),
+        'ai.key': lambda a: _ai().set_key(a.get('provider'), a.get('sleutel') if 'sleutel' in a else a.get('key')),
+        'ai.open': lambda a: backend.spawn(['universe-ctl', 'claude']),
+        'ai.install': lambda a: ai_install(a.get('provider') or 'claude'),
+        'ai.leren': lambda a: _ai().set_leren(a.get('aan')),
+        'ai.compressie': lambda a: _ai().set_compressie(a.get('modus') or a.get('compressie') or 'geen'),
+        'ai.omniroute.add': lambda a: _ai().add_upstream(a.get('naam') or a.get('name')),
+        'ai.omniroute.remove': lambda a: _ai().remove_upstream(a.get('naam') or a.get('name')),
+        'ai.omniroute.router': lambda a: _ai().set_router(a.get('aan')),
+        'ai.plugins': lambda a: _plugins().public_list(),
+        'ai.plugins.set': lambda a: _plugins().set_enabled(a.get('id'), a.get('aan')),
+        'ai.plugins.install': lambda a: _plugins().ensure(),
+        'ai.plugins.terminal': lambda a: plugin_terminal(a.get('id')),
+        'ai.sessie': lambda a: _ai().set_sessie(a.get('route') or a.get('sessie') or 'claude'),
+        'ai.litellm': lambda a: _ai().set_litellm_url(a.get('url') or ''),
+        'auto.status': lambda a: _auto().public(),
+        'auto.set': lambda a: _auto().set_choice(bool(a.get('aan')), a.get('duur') or '30m'),
+        'auto.regels': lambda a: _auto().set_regels(a.get('regels') if 'regels' in a else a.get('lijst') or ''),
+        'chrome.status': lambda a: _chrome_agent().status(),
+        'chrome.setup': lambda a: chrome_setup(),
+        'ai.mail': lambda a: _ai().set_mail_via(a.get('via') or a.get('route') or 'browser'),
         'window.page': lambda a: app.pending_page,
+        'brein.summary': lambda a: _brein().summary(),
+        'brein.export': lambda a: _brein().write_export(_download_dir()),
+        'brein.forget_all': lambda a: _brein().forget_all(a.get('bevestig') if 'bevestig' in a else a.get('confirm', '')) or {'vergeten': 'alles'},
+        'accounts.list': lambda a: _accounts().list_public(),
+        'accounts.clients': lambda a: _accounts().clients_public(),
+        'accounts.client': lambda a: _accounts().save_client(a.get('provider'), a.get('client_id'), a.get('client_secret') or None),
+        'accounts.oauth_start': _oauth_start,
+        'accounts.oauth_poll': lambda a: _accounts().poll_oauth(a.get('flow')),
+        'accounts.imap': lambda a: _accounts().add_imap(a.get('naam'), a.get('adres'), a.get('imap_host'), a.get('smtp_host'), a.get('user'), a.get('password'), a.get('imap_port'), a.get('smtp_port')),
+        'accounts.caldav': lambda a: _accounts().add_caldav(a.get('naam'), a.get('adres'), a.get('url'), a.get('user'), a.get('password')),
+        'accounts.disconnect': lambda a: _accounts().disconnect(a.get('id')),
+        'scherm.status': lambda a: _screen_status_for_ui(),
+        'scherm.toestaan': lambda a: _grant_screen(True),
+        'scherm.intrekken': lambda a: _grant_screen(False),
     }
 
 
@@ -279,6 +473,8 @@ class ControlCenter(Gtk.Application):
         args = command_line.get_arguments()[1:]
         if '--pagina' in args and args.index('--pagina') + 1 < len(args):
             self.pending_page = args[args.index('--pagina') + 1]
+            if self.pending_page == 'claude':
+                self.pending_page = 'ai'
         self.activate()
         if self.window and self.view:
             emit(self.view, 'page', self.pending_page)
@@ -290,7 +486,15 @@ class ControlCenter(Gtk.Application):
             return
         bridge = Bridge(handlers(self), threaded={'updates.channel.set', 'network.status', 'status', 'audio.outputs', 'audio.select', 'wifi.list', 'wifi.connect', 'users.add', 'users.remove', 'users.admin',
                                                    'users.password', 'account.password', 'timezone.set', 'updates.status', 'keyboard.set',
-                                                   'locale.set', 'bluetooth.get', 'updates.refresh'}, log=lambda *args: None)
+                                                   'locale.set', 'bluetooth.get', 'updates.refresh', 'updates.install', 'claude.status',
+                                                   'ai.status', 'ai.set', 'ai.key', 'ai.install', 'ai.leren',
+                                                   'ai.compressie', 'ai.omniroute.add', 'ai.omniroute.remove', 'ai.omniroute.router',
+                                                   'ai.plugins', 'ai.plugins.set', 'ai.plugins.install', 'ai.plugins.terminal',
+                                                   'ai.sessie', 'ai.litellm', 'ai.mail', 'auto.status', 'auto.set', 'auto.regels',
+                                                   'chrome.status', 'chrome.setup',
+                                                   'accounts.list', 'accounts.clients', 'accounts.client', 'accounts.oauth_start',
+                                                   'accounts.oauth_poll', 'accounts.imap', 'accounts.caldav', 'accounts.disconnect',
+                                                   'scherm.status', 'scherm.toestaan', 'scherm.intrekken'}, log=lambda *args: None)
         self.window = Gtk.ApplicationWindow(application=self, title='Controlecentrum')
         self.window.set_default_size(1040, 720)
         self.window.set_icon_name('preferences-system')
