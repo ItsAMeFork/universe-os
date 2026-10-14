@@ -142,8 +142,10 @@ html.reduce-motion .folder-orbit,html.no-motion .folder-orbit{transform:none}
   radial-gradient(ellipse 38% 46% at 88% 22%,#ff8a3d2e,transparent 70%),
   radial-gradient(ellipse 30% 34% at 96% 60%,#ff6a2a1c,transparent 70%),
   radial-gradient(ellipse 60% 22% at 40% 70%,#7a5cff1f,transparent 70%),
-  radial-gradient(ellipse 45% 30% at 18% 28%,#3d6bff17,transparent 70%);
- transform:translate(calc(var(--px)*.25),calc(var(--py)*.25))}
+  radial-gradient(ellipse 45% 30% at 18% 28%,#3d6bff17,transparent 70%)}
+/* No transform on .nebula (14 Oct): --px/--py are never set in the 3D world, but the transform still made it a separate
+   full-screen layer. Without a GPU every frame then blended one extra 1920x1080 layer: 3-4 instead of 9-10 frames/s
+   while dragging in the test VM. */
 .scene{z-index:1;pointer-events:none}
 .bg-planet{position:absolute;translate:-50% -50%;pointer-events:none;
  transform:translate(calc(var(--px)*var(--depth)*1.6),calc(var(--py)*var(--depth)*1.6))}
