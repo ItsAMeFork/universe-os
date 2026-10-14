@@ -2,6 +2,12 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
+## 14 oktober: alles in main, ISO 0.2.15 klaar (update NIET gepubliceerd; online 0.2.12)
+- PR #39-#44 (GitHub-assistent Henk: tests, Claude-harness, brein-nevel, AI-assistent, AI wisselen, Claude in Chrome) nagekeken
+  en op volgorde samengevoegd in spoor-a; daarna spoor-a -> main (#38). Alle 20 tests (16 py, 4 js) slagen.
+- ISO: `D:\UniverseOS-VMs\iso\universe-os-0.2.15-amd64.iso`, SHA-256 04cef4f0…3a93 (commit fa5e391).
+- Kanttekeningen: "leren" staat standaard aan (alleen met eigen API-sleutel); oude modelnaam claude-haiku-4-5 in efficientie.py.
+
 ## 13 oktober 21:35: versie 0.2.14 (ISO klaar, update nog NIET gepubliceerd)
 - ISO: `D:\UniverseOS-VMs\iso\universe-os-0.2.14-amd64.iso`, SHA-256 f5181cf8…277c.
 - Grafisch model voor elke pc (`webview.webkit_safe_mode`): onbekende/zwakke kaart -> `WEBKIT_DMABUF_RENDERER_FORCE_SHM=1`.
