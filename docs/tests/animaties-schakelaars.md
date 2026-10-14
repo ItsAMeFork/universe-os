@@ -14,6 +14,8 @@ Vanaf main 92e9511, op expliciete opdracht Axel beide problemen onderzocht.
 
 De inline span negeerde breedte/hoogte; display:inline-block en display:flex op het label werken ook buiten Controlecentrum. Klik op checkbox en 400px breed viewport slagen. Planeten zijn buttons en erfden de generieke transform-overgang, ondanks framegestuurde JS-projectie. Dit voegde visuele achterstand toe, geen gemeten FPS-cijfer.
 
+Vervolgmeting: dezelfde browser verplaatst een planeet 12 frames met 15px per frame. Gemiddelde afwijking van de gevraagde positie vóór de fix 54,1 CSS px; erna 0. Dit bevestigt de CSS-achterstand in Chrome; native WebKit-frametijd blijft apart te meten. Op de host waren bouw- en test-VM op dat moment uit; Claude is gevraagd om een vrij testmoment.
+
 ## Kosten van schermvullende canvassen
 
 Hemel en login-effecten tekenden tot DPR2, ook bij software-rendering. Nieuwe grens: software maximaal Full-HD-pixels; hardware maximaal 4K-pixels. CSS-geometrie, teksten en planeettexturen behouden hun eigen resolutie. Alleen effecten kunnen bij grote schermen zachter zijn.
