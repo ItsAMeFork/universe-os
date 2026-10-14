@@ -253,6 +253,15 @@ def ai_install(provider):
     return True
 
 
+def plugin_terminal(plugin_id):
+    """User-started install. Rules are not copied; the script itself refuses a copy."""
+    if not shutil.which('xfce4-terminal'):
+        raise RuntimeError('Er is geen terminal beschikbaar om de installatie te starten.')
+    script = _plugins().install_script(plugin_id)
+    backend.spawn(['xfce4-terminal', '--title', 'Plugin installeren', '-x', 'bash', '-c', script])
+    return True
+
+
 def claude_status():
     path = claude_path()
     if not path:
@@ -388,9 +397,14 @@ def handlers(app):
         'ai.open': lambda a: backend.spawn(['universe-ctl', 'claude']),
         'ai.install': lambda a: ai_install(a.get('provider') or 'claude'),
         'ai.leren': lambda a: _ai().set_leren(a.get('aan')),
+        'ai.compressie': lambda a: _ai().set_compressie(a.get('modus') or a.get('compressie') or 'geen'),
+        'ai.omniroute.add': lambda a: _ai().add_upstream(a.get('naam') or a.get('name')),
+        'ai.omniroute.remove': lambda a: _ai().remove_upstream(a.get('naam') or a.get('name')),
+        'ai.omniroute.router': lambda a: _ai().set_router(a.get('aan')),
         'ai.plugins': lambda a: _plugins().public_list(),
         'ai.plugins.set': lambda a: _plugins().set_enabled(a.get('id'), a.get('aan')),
         'ai.plugins.install': lambda a: _plugins().ensure(),
+        'ai.plugins.terminal': lambda a: plugin_terminal(a.get('id')),
         'window.page': lambda a: app.pending_page,
         'brein.summary': lambda a: _brein().summary(),
         'brein.export': lambda a: _brein().write_export(_download_dir()),
@@ -434,7 +448,8 @@ class ControlCenter(Gtk.Application):
                                                    'users.password', 'account.password', 'timezone.set', 'updates.status', 'keyboard.set',
                                                    'locale.set', 'bluetooth.get', 'updates.refresh', 'updates.install', 'claude.status',
                                                    'ai.status', 'ai.set', 'ai.key', 'ai.install', 'ai.leren',
-                                                   'ai.plugins', 'ai.plugins.set', 'ai.plugins.install',
+                                                   'ai.compressie', 'ai.omniroute.add', 'ai.omniroute.remove', 'ai.omniroute.router',
+                                                   'ai.plugins', 'ai.plugins.set', 'ai.plugins.install', 'ai.plugins.terminal',
                                                    'accounts.list', 'accounts.clients', 'accounts.client', 'accounts.oauth_start',
                                                    'accounts.oauth_poll', 'accounts.imap', 'accounts.caldav', 'accounts.disconnect',
                                                    'scherm.status', 'scherm.toestaan', 'scherm.intrekken'}, log=lambda *args: None)

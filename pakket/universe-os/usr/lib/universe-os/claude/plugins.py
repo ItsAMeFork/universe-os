@@ -18,7 +18,10 @@ SUPERPOWERS = (
 )
 COMMIT = {
     'superpowers': 'bb92a77741419a4ab5f06e711a283343f1ada0c3',
-    'ecc': 'b92f181b3b748d1abbc2afd94af6aa7d8c8fca29',
+    'ecc': 'c05b2d6614f62f6db0047669aa4eefb223d478f9',
+    'frontend-design': 'b0b7bed9820350bb0942e32c7f00752a99ea3555',
+    'headroom': '855390d6110e0bbb199d9b97025baac16c2f5cf3',
+    'omniroute': 'c1e30b7676975feb298b49eff6ff58923c04b89e',
     'impeccable': '2f98774f86bc05563876643db37e6c37c322850f',
     'design-taste-frontend': 'a60a36dc2bb3bb77ccf17f2f62041f5ca8a458b9',
     'chrome-devtools': 'bdc7e243a8d3397e871607fdb5c56cc7115ec5ae',
@@ -38,6 +41,8 @@ def _files():
                  'skill/SKILL.src.md', 'impeccable/SKILL.md'))
     rows.append(('design-taste-frontend', 'https://github.com/Leonxlnx/taste-skill',
                  'skills/taste-skill/SKILL.md', 'design-taste-frontend/SKILL.md'))
+    rows.append(('frontend-design', 'https://github.com/anthropics/claude-code',
+                 'plugins/frontend-design/skills/frontend-design/SKILL.md', 'frontend-design/SKILL.md'))
     return rows
 
 
@@ -52,7 +57,49 @@ CATALOG = (
     {
         'id': 'ecc', 'naam': 'Everything Claude Code', 'maker': 'affaan-m', 'licentie': 'MIT',
         'soort': 'vaardigheden', 'standaard': True, 'providers': ('claude', 'codex', 'gemini'),
-        'review': 'claude plugin install ecc@ecc zet ook hooks aan (scripts uit de repo bij elke tool) en de regels horen niet bij de plugin. Beide blijven uit. Drie vaardigheden, commit %s.' % COMMIT['ecc'][:12],
+        'versie': '2.2.3',
+        'review': 'Versie 2.2.3, tag-commit %s. Installeren: claude plugin marketplace add affaan-m/everything-claude-code en daarna claude plugin install ecc@ecc. Regels worden niet aangezet en niet gekopieerd. De hooks uit de repo schrijven we niet in settings.json. Drie vaardigheden komen uit die tag.' % COMMIT['ecc'][:12],
+        'opdracht': (
+            'claude plugin marketplace add affaan-m/everything-claude-code\n'
+            'claude plugin install ecc@ecc\n'
+            'rm -rf "${HOME}/.claude/rules/ecc"\n'
+            'echo "ECC 2.2.3 staat er. Regels zijn niet aangezet."\n'
+            'echo "Druk op Enter."; read -r _\n'
+        ),
+    },
+    {
+        'id': 'frontend-design', 'naam': 'Frontend design', 'maker': 'Anthropic', 'licentie': 'Apache-2.0',
+        'soort': 'vaardigheden', 'standaard': True, 'providers': ('claude',),
+        'review': 'Officieel, uit anthropics/claude-code op %s. Installeren: claude plugin install frontend-design@anthropic-plugin-directory. Alleen de vaardigheid; geen extra hook.' % COMMIT['frontend-design'][:12],
+        'opdracht': (
+            'claude plugin install frontend-design@anthropic-plugin-directory\n'
+            'echo "Druk op Enter."; read -r _\n'
+        ),
+    },
+    {
+        'id': 'headroom', 'naam': 'Headroom', 'maker': 'headroomlabs-ai', 'licentie': 'Apache-2.0',
+        'soort': 'programma', 'standaard': False, 'providers': ('claude',),
+        'pakket': 'headroom-ai[all]==0.40.0',
+        'review': 'Versie 0.40.0, commit %s. Het anonieme baken staat bij Headroom aan. universe-ai-headroom zet HEADROOM_BEACON=off en DO_NOT_TRACK=1 en start daarna headroom wrap claude. Serena (code-memory) wordt niet mee geïnstalleerd. Tokens besparen staat uit tot je het aanzet, en nooit tegelijk met de compressie van OmniRoute.' % COMMIT['headroom'][:12],
+        'opdracht': (
+            'if ! command -v uv >/dev/null 2>&1; then echo "uv ontbreekt. Headroom installeer je daarmee, niet via apt."; echo; echo "Druk op Enter."; read -r _; exit 1; fi\n'
+            'uv tool install "headroom-ai[all]==0.40.0"\n'
+            'echo "Headroom 0.40.0 staat er. Tokens besparen zet je apart aan op de pagina AI. Het baken blijft uit."\n'
+            'echo "Druk op Enter."; read -r _\n'
+        ),
+    },
+    {
+        'id': 'omniroute', 'naam': 'OmniRoute', 'maker': 'diegosouzapw', 'licentie': 'MIT',
+        'soort': 'programma', 'standaard': False, 'providers': ('claude', 'codex'),
+        'pakket': 'omniroute@3.8.51',
+        'review': 'Versie 3.8.51, commit %s. Alleen op deze computer, poort 20128. Blijft uit tot je zelf aanbieders toevoegt. Gratis aanbieders kunnen je vragen lezen. De compressie van OmniRoute en die van Headroom gaan niet samen.' % COMMIT['omniroute'][:12],
+        'opdracht': (
+            'if ! command -v npm >/dev/null 2>&1; then echo "Node.js (npm) ontbreekt."; echo; echo "Druk op Enter."; read -r _; exit 1; fi\n'
+            'npm i -g omniroute@3.8.51\n'
+            'echo "Start daarna zelf: omniroute"\n'
+            'echo "Het paneel luistert op http://127.0.0.1:20128 . Gratis aanbieders kunnen je vragen lezen."\n'
+            'echo "Druk op Enter."; read -r _\n'
+        ),
     },
     {
         'id': 'impeccable', 'naam': 'Impeccable', 'maker': 'pbakaus', 'licentie': 'Apache-2.0',
@@ -161,6 +208,8 @@ def public_list():
             'id': row['id'], 'naam': row['naam'], 'licentie': row['licentie'], 'soort': row['soort'],
             'aan': enabled(row['id']), 'status': saved.get('status') or 'nog',
             'review': row['review'], 'commit': COMMIT.get(row['id'], ''),
+            'versie': row.get('versie') or '',
+            'installeren': bool(row.get('opdracht')),
         })
     return rows
 
@@ -226,6 +275,21 @@ def link_skills(home=None):
             os.symlink(folder, link)
 
 
+def _copies_rules(script):
+    """Deleting ~/.claude/rules/ecc is allowed. Copying a rules tree in is not."""
+    without_delete = str(script or '').replace('rm -rf "${HOME}/.claude/rules/ecc"', '')
+    return 'cp ' in without_delete or 'rules/' in without_delete
+
+
+def install_script(plugin_id):
+    row = _item(plugin_id)
+    if not row or not row.get('opdracht'):
+        raise ValueError('Dit onderdeel heeft geen installatieprogramma.')
+    if _copies_rules(row['opdracht']):
+        raise ValueError('Het installatieprogramma mag geen regels kopiëren.')
+    return row['opdracht']
+
+
 def install_files(plugin_id, files):
     """files maps a relative destination to bytes. Paths outside the allow list are refused."""
     row = _item(plugin_id)
@@ -284,6 +348,10 @@ def ensure(opener=None, home=None, budget=12):
     for row in CATALOG:
         if row['soort'] == 'mcp':
             _mark(row['id'], 'klaar' if enabled(row['id']) else 'uit')
+        elif row['soort'] == 'programma':
+            saved = _saved(row['id'])
+            if saved.get('status') not in ('klaar', 'later'):
+                _mark(row['id'], 'uit' if not enabled(row['id']) else 'nog')
     probe = _url('https://github.com/obra/superpowers', COMMIT['superpowers'], 'LICENSE')
     started = time.monotonic()
     try:

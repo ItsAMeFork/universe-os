@@ -118,7 +118,7 @@ niet in `ai.json`.
 ## Lessen en plugins
 Na een taak schrijft de shell het tokengebruik in `brein.db` (tabel `efficientie`). Een korte les (soort `les`) komt er alleen als die goedkoper is dan de taak en het weekbudget nog ruimte heeft. Dat gaat via de goedkoopste API van het gekozen programma, nooit via `claude -p`. Zonder API-sleutel slaat Claude, Codex en Gemini de les over; het gebruik blijft wel bewaard. Ollama kan lokaal reflecteren. De pagina AI toont een trend en een schakelaar. Lessen zijn sterren in het brein, te filteren, te bewerken en te verwijderen.
 
-Plugins zijn een vastgezette, bekeken set. Hooks en regelpakketten van derden gaan niet aan. Chrome DevTools en Context7 staan uit tot de gebruiker ze aanzet, omdat de een een browser bestuurt en de ander vragen naar context7.com stuurt. Zie `docs/AI-PLUGINS-EN-LESSEN.md`.
+Plugins zijn een vastgezette, bekeken set. Hooks en regelpakketten van derden gaan niet aan. Chrome DevTools en Context7 staan uit tot de gebruiker ze aanzet, omdat de een een browser bestuurt en de ander vragen naar context7.com stuurt. Frontend design (officieel, Apache-2.0) staat aan als vaardigheid. Everything Claude Code 2.2.3 installeer je met de marketplace-opdracht; regels worden daarna niet aangezet. Headroom (tokens besparen, baken uit) en OmniRoute (lokale router op poort 20128) staan uit. Van die twee comprimeert er hoogstens één, en gratis aanbieders via OmniRoute kunnen je vragen lezen. Zie `docs/AI-PLUGINS-EN-LESSEN.md`.
 
 ## Fasen
 1. **Deze stap:** starter, MCP-server met hulpmiddelen en brein (notities en voorkeuren), hooks, socketopdrachten,

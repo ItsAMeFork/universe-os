@@ -60,6 +60,49 @@ export async function mountAi(root, api={}){
  const learn=h('input',{type:'checkbox'});
  learn.checked=status.leren!==false;
  learn.setAttribute('aria-label','Leren van taken');
+ const saveTokens=h('input',{type:'checkbox'});
+ saveTokens.setAttribute('aria-label','Tokens besparen');
+ const route=h('input',{type:'checkbox'});
+ route.setAttribute('aria-label','Verkeer via OmniRoute');
+ const squeeze=h('input',{type:'checkbox'});
+ squeeze.setAttribute('aria-label','Comprimeren via OmniRoute');
+ const upstreams=h('div');
+ const upstreamName=h('input',{type:'text',autocomplete:'off'});
+ upstreamName.setAttribute('aria-label','Naam van de aanbieder');
+ upstreamName.placeholder='Naam, geen adres';
+ function paintCompress(next){
+  const modus=next.compressie||'geen';
+  const providers=next.omniroute_providers||[];
+  saveTokens.checked=modus==='headroom';
+  squeeze.checked=modus==='omniroute';
+  route.checked=!!next.omniroute_router;
+  const locked=!providers.length;
+  route.disabled=locked;
+  squeeze.disabled=locked;
+  upstreams.replaceChildren();
+  if(!providers.length) upstreams.append(note('Nog geen aanbieder. De router en de compressie blijven uit.'));
+  for(const item of providers){
+   const drop=h('button',{type:'button'},'Weg');
+   drop.addEventListener('click',async()=>{
+    try{paintCompress(await call('ai.omniroute.remove',{naam:item}));}
+    catch(e){upstreams.append(note(e.message||'Mislukt.'));}
+   });
+   upstreams.append(h('p',{},item+' ',drop));
+  }
+ }
+ saveTokens.addEventListener('change',async()=>{
+  try{paintCompress(await call('ai.compressie',{modus:saveTokens.checked?'headroom':'geen'}));}
+  catch(e){saveTokens.checked=!saveTokens.checked;}
+ });
+ route.addEventListener('change',async()=>{
+  try{paintCompress(await call('ai.omniroute.router',{aan:route.checked}));}
+  catch(e){route.checked=!route.checked;}
+ });
+ squeeze.addEventListener('change',async()=>{
+  try{paintCompress(await call('ai.compressie',{modus:squeeze.checked?'omniroute':'geen'}));}
+  catch(e){squeeze.checked=!squeeze.checked;}
+ });
+ paintCompress(status);
  const trend=h('div');
  for(const row of (status.trend||[]).slice(0,6)){
   const tokens=Number(row.tokens)||0;
@@ -77,7 +120,14 @@ export async function mountAi(root, api={}){
     try{const next=await call('ai.plugins.set',{id:item.id,aan:box.checked});drawPlugins(next);}
     catch(e){box.checked=!box.checked;}
    });
-   plugins.append(h('label',{class:'check'},box,item.naam+' · '+item.licentie+' · '+(item.status||'nog')),note(item.review||''));
+   const row=h('div',{},h('label',{class:'check'},box,item.naam+' · '+item.licentie+' · '+(item.status||'nog')),note(item.review||''));
+   if(item.installeren){
+    row.append(button('Installeren',async()=>{
+     await call('ai.plugins.terminal',{id:item.id});
+     return 'Er opent een terminal. Universe OS installeert dit niet stilletjes.';
+    }));
+   }
+   plugins.append(row);
   }
  }
  drawPlugins(status.plugins||[]);
@@ -89,9 +139,24 @@ export async function mountAi(root, api={}){
     await call('ai.leren',{aan:learn.checked});
     return learn.checked?'Leren staat aan.':'Leren staat uit. Cijfers blijven wel bewaard.';
    }),
+   h('label',{class:'check'},saveTokens,'Tokens besparen (Headroom, alleen Claude, uit tot je dit aanzet)'),
+   note('Headroom start via universe-ai-headroom, met het baken uit. Niet tegelijk met de compressie van OmniRoute.'),
    trend),
+  card('OmniRoute',
+   note(status.omniroute_waarschuwing||'Gratis aanbieders kunnen je vragen lezen. Zet OmniRoute alleen aan als je dat wilt.'),
+   note('Lokale router op http://127.0.0.1:20128. Blijft uit tot je zelf een aanbieder toevoegt. Gemini en Ollama gaan hier niet heen.'),
+   field('Aanbieder',upstreamName),
+   button('Aanbieder toevoegen',async()=>{
+    const fresh=await call('ai.omniroute.add',{naam:upstreamName.value.trim()});
+    upstreamName.value='';
+    paintCompress(fresh);
+    return 'Aanbieder toegevoegd. Gratis aanbieders kunnen je vragen lezen.';
+   }),
+   upstreams,
+   h('label',{class:'check'},route,'Verkeer via OmniRoute sturen'),
+   h('label',{class:'check'},squeeze,'Comprimeren via OmniRoute (niet tegelijk met Headroom)')),
   card('Plugins',
-   note('Vaste, bekeken set. Hooks en regels van derden gaan niet aan. Zonder netwerk probeert Universe OS het later opnieuw.'),
+   note('Vaste, bekeken set. Hooks en regels van derden gaan niet aan. Zonder netwerk probeert Universe OS het later opnieuw. Installeren opent een terminal; dat gebeurt niet vanzelf.'),
    plugins,
    button('Plugins ophalen',async()=>{
     const outcome=await call('ai.plugins.install');

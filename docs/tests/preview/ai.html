@@ -40,13 +40,19 @@ const status = {
  regel: 'Claude Code · haiku',
  sandbox: true,
  leren: true,
+ compressie: 'geen',
+ omniroute_providers: [],
+ omniroute_router: false,
+ omniroute_waarschuwing: 'Gratis aanbieders kunnen je vragen lezen. Zet OmniRoute alleen aan als je dat wilt.',
  trend: [
   {tokens: 4200, gereedschap: 6, schatting: false, taak: 'Agenda nakijken'},
   {tokens: 900, gereedschap: 1, schatting: true, taak: 'Korte vraag'}
  ],
  plugins: [
   {id:'superpowers', naam:'Superpowers', licentie:'MIT', aan:true, status:'klaar', review:'Vaardigheden aan, hook uit.'},
-  {id:'ecc', naam:'Everything Claude Code', licentie:'MIT', aan:true, status:'later', review:'Regels en hooks blijven uit.'},
+  {id:'ecc', naam:'Everything Claude Code', licentie:'MIT', aan:true, status:'later', review:'Regels en hooks blijven uit.', installeren:true, versie:'2.2.3'},
+  {id:'frontend-design', naam:'Frontend design', licentie:'Apache-2.0', aan:true, status:'klaar', review:'Officiële vaardigheid, geen extra hook.', installeren:true},
+  {id:'headroom', naam:'Headroom', licentie:'Apache-2.0', aan:false, status:'uit', review:'Tokens besparen staat uit. Het baken blijft uit.', installeren:true},
   {id:'chrome-devtools', naam:'Chrome DevTools', licentie:'Apache-2.0', aan:false, status:'uit', review:'Uit tot je hem aanzet.'}
  ],
  providers: [
@@ -62,6 +68,18 @@ const call = async (cmd, args) => {
  if (cmd === 'ai.key') return {bewaard: !!args.sleutel};
  if (cmd === 'ai.open' || cmd === 'ai.install') return true;
  if (cmd === 'ai.leren') return {leren: !!args.aan};
+ if (cmd === 'ai.compressie') { status.compressie = args.modus; return status; }
+ if (cmd === 'ai.omniroute.add') {
+  status.omniroute_providers = [...(status.omniroute_providers||[]), args.naam];
+  return status;
+ }
+ if (cmd === 'ai.omniroute.remove') {
+  status.omniroute_providers = (status.omniroute_providers||[]).filter(item => item !== args.naam);
+  if (!status.omniroute_providers.length) { status.omniroute_router = false; if (status.compressie === 'omniroute') status.compressie = 'geen'; }
+  return status;
+ }
+ if (cmd === 'ai.omniroute.router') { status.omniroute_router = !!args.aan; return status; }
+ if (cmd === 'ai.plugins.terminal') return true;
  if (cmd === 'ai.plugins.set') {
   status.plugins = status.plugins.map(item => item.id === args.id ? {...item, aan: !!args.aan} : item);
   return status.plugins;

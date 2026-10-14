@@ -14,6 +14,10 @@ import urllib.parse
 
 SERVICE = 'universe-os'
 MODEL_RE = re.compile(r'[A-Za-z0-9._:+/-]{1,80}')
+UPSTREAM_RE = re.compile(r'[A-Za-z0-9][A-Za-z0-9._+-]{0,39}')
+COMPRESSIE = ('geen', 'headroom', 'omniroute')
+OMNIROUTE_BASE = 'http://127.0.0.1:20128'
+WAARSCHUWING_GRATIS = 'Gratis aanbieders kunnen je vragen lezen. Zet OmniRoute alleen aan als je dat wilt.'
 PROVIDERS = {
     'claude': {
         'naam': 'Claude Code',
@@ -146,6 +150,31 @@ def clean_ollama_url(url):
     return 'http://127.0.0.1:%d' % port
 
 
+def clean_upstream(name):
+    text = str(name or '').strip()
+    if not UPSTREAM_RE.fullmatch(text):
+        raise ValueError('De naam van een aanbieder mag alleen letters, cijfers, punt, streepje en plus bevatten. Geen adres.')
+    return text
+
+
+def _compressie_fields(raw):
+    modus = raw.get('compressie') if raw.get('compressie') in COMPRESSIE else 'geen'
+    names = []
+    for item in raw.get('omniroute_providers') or []:
+        try:
+            clean = clean_upstream(item)
+        except ValueError:
+            continue
+        if clean not in names:
+            names.append(clean)
+        if len(names) >= 12:
+            break
+    router = bool(raw.get('omniroute_router')) and bool(names)
+    if modus == 'omniroute' and not names:
+        modus = 'geen'
+    return modus, names, router
+
+
 def load():
     raw = _read()
     provider = raw.get('provider') if raw.get('provider') in PROVIDERS else 'claude'
@@ -160,7 +189,11 @@ def load():
     leren = True
     if 'leren' in raw:
         leren = bool(raw.get('leren'))
-    return {'provider': provider, 'model': model, 'ollama_url': url, 'leren': leren}
+    compressie, upstreams, router = _compressie_fields(raw)
+    return {
+        'provider': provider, 'model': model, 'ollama_url': url, 'leren': leren,
+        'compressie': compressie, 'omniroute_providers': upstreams, 'omniroute_router': router,
+    }
 
 
 def set_choice(provider, model='', ollama_url=None):
@@ -178,6 +211,53 @@ def set_choice(provider, model='', ollama_url=None):
 def set_leren(on):
     data = load()
     data['leren'] = bool(on)
+    _write(data)
+    return public_status()
+
+
+def set_compressie(modus):
+    """One compressor at a time. OmniRoute compression needs a provider the user added."""
+    if modus not in COMPRESSIE:
+        raise ValueError('Kies geen compressie, Headroom of OmniRoute.')
+    data = load()
+    if modus == 'omniroute' and not data['omniroute_providers']:
+        raise ValueError('Voeg eerst een aanbieder toe. OmniRoute comprimeert pas daarna.')
+    data['compressie'] = modus
+    _write(data)
+    return public_status()
+
+
+def add_upstream(name):
+    clean = clean_upstream(name)
+    data = load()
+    names = list(data['omniroute_providers'])
+    if clean not in names:
+        if len(names) >= 12:
+            raise ValueError('Hoogstens twaalf aanbieders.')
+        names.append(clean)
+    data['omniroute_providers'] = names
+    _write(data)
+    return public_status()
+
+
+def remove_upstream(name):
+    clean = clean_upstream(name)
+    data = load()
+    names = [item for item in data['omniroute_providers'] if item != clean]
+    data['omniroute_providers'] = names
+    if not names:
+        data['omniroute_router'] = False
+        if data['compressie'] == 'omniroute':
+            data['compressie'] = 'geen'
+    _write(data)
+    return public_status()
+
+
+def set_router(on):
+    data = load()
+    if on and not data['omniroute_providers']:
+        raise ValueError('Voeg eerst een aanbieder toe. De router blijft uit tot die er is.')
+    data['omniroute_router'] = bool(on) and bool(data['omniroute_providers'])
     _write(data)
     return public_status()
 
@@ -278,6 +358,10 @@ def public_status(which=None, access=None, sandbox_on=None):
         'model_effectief': effective_model(cfg),
         'ollama_url': cfg['ollama_url'],
         'leren': cfg.get('leren', True),
+        'compressie': cfg.get('compressie') or 'geen',
+        'omniroute_providers': list(cfg.get('omniroute_providers') or []),
+        'omniroute_router': bool(cfg.get('omniroute_router')),
+        'omniroute_waarschuwing': WAARSCHUWING_GRATIS,
         'trend': trend,
         'plugins': plugins,
         'naam': naam,
@@ -496,6 +580,17 @@ def launch_plan(fresh=False, env=None, which=None, access=None):
         extra = {}
     if extra:
         _attach_mcp(provider, writes, argv, here, work, extra)
+    # Headroom wraps Claude only. OmniRoute compression is the other choice, never both.
+    if cfg.get('compressie') == 'headroom' and provider == 'claude':
+        argv = ['/usr/bin/universe-ai-headroom'] + argv[1:]
+        env['HEADROOM_BEACON'] = 'off'
+        env['DO_NOT_TRACK'] = '1'
+    if cfg.get('omniroute_router') and provider in ('claude', 'codex'):
+        if provider == 'claude':
+            env['ANTHROPIC_BASE_URL'] = OMNIROUTE_BASE
+        else:
+            env['OPENAI_BASE_URL'] = OMNIROUTE_BASE + '/v1'
+        env['OMNIROUTE_COMPRESSION'] = 'standard' if cfg.get('compressie') == 'omniroute' else 'off'
     if spec['key_env']:
         if key:
             env[spec['key_env']] = key

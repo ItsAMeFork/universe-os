@@ -119,6 +119,97 @@ assert by_id['chrome-devtools']['standaard'] is False
 assert by_id['context7']['standaard'] is False
 assert by_id['filesystem']['standaard'] is True
 assert 'hooks' in by_id['ecc']['review'] and 'regels' in by_id['ecc']['review'].lower()
+assert by_id['ecc']['versie'] == '2.2.3'
+assert plugins.COMMIT['ecc'] == 'c05b2d6614f62f6db0047669aa4eefb223d478f9'
+assert by_id['frontend-design']['standaard'] is True
+assert by_id['frontend-design']['licentie'] == 'Apache-2.0'
+assert plugins.COMMIT['frontend-design'] == 'b0b7bed9820350bb0942e32c7f00752a99ea3555'
+assert 'frontend-design@anthropic-plugin-directory' in by_id['frontend-design']['opdracht']
+assert by_id['headroom']['standaard'] is False
+assert by_id['headroom']['licentie'] == 'Apache-2.0'
+assert 'headroom-ai[all]==0.40.0' in by_id['headroom']['opdracht']
+assert 'HEADROOM_BEACON' in by_id['headroom']['review']
+assert plugins.COMMIT['headroom'] == '855390d6110e0bbb199d9b97025baac16c2f5cf3'
+assert by_id['omniroute']['standaard'] is False
+assert by_id['omniroute']['licentie'] == 'MIT'
+assert 'omniroute@3.8.51' in by_id['omniroute']['opdracht']
+assert '20128' in by_id['omniroute']['review']
+assert plugins.COMMIT['omniroute'] == 'c1e30b7676975feb298b49eff6ff58923c04b89e'
+ecc_script = plugins.install_script('ecc')
+assert 'claude plugin marketplace add affaan-m/everything-claude-code' in ecc_script
+assert 'claude plugin install ecc@ecc' in ecc_script
+assert 'rm -rf "${HOME}/.claude/rules/ecc"' in ecc_script
+assert 'cp ' not in ecc_script
+assert plugins._copies_rules('rm -rf "${HOME}/.claude/rules/ecc"\necho klaar\n') is False
+assert plugins._copies_rules('cp -R rules/ecc "$HOME/.claude/rules"\n') is True
+assert plugins._copies_rules('cp skills/x "$HOME"\n') is True
+wrapper = (ROOT / 'pakket/universe-os/usr/bin/universe-ai-headroom').read_text(encoding='utf-8')
+assert 'HEADROOM_BEACON=off' in wrapper and 'DO_NOT_TRACK=1' in wrapper
+assert 'headroom wrap --code-memory none claude' in wrapper
+assert ai_provider.load()['compressie'] == 'geen'
+assert ai_provider.public_status()['omniroute_router'] is False
+try:
+    ai_provider.set_compressie('omniroute')
+    raise SystemExit('omniroute zonder aanbieder')
+except ValueError:
+    pass
+try:
+    ai_provider.add_upstream('http://evil.example')
+    raise SystemExit('adres als aanbieder')
+except ValueError:
+    pass
+try:
+    ai_provider.set_router(True)
+    raise SystemExit('router zonder aanbieder')
+except ValueError:
+    pass
+ai_provider.add_upstream('openrouter')
+assert ai_provider.load()['omniroute_providers'] == ['openrouter']
+assert ai_provider.load()['omniroute_router'] is False
+ai_provider.set_router(True)
+ai_provider.set_compressie('omniroute')
+which = lambda name: {'claude': '/usr/bin/claude'}.get(name)
+routed = ai_provider.launch_plan(fresh=True, which=which, access=lambda *_a: True)
+assert routed['argv'][0] == '/usr/bin/claude'
+assert '/usr/bin/universe-ai-headroom' not in routed['argv']
+assert routed['env'].get('ANTHROPIC_BASE_URL') == 'http://127.0.0.1:20128'
+assert routed['env'].get('OMNIROUTE_COMPRESSION') == 'standard'
+ai_provider.set_compressie('headroom')
+wrapped = ai_provider.launch_plan(fresh=True, which=which, access=lambda *_a: True)
+assert wrapped['argv'][0] == '/usr/bin/universe-ai-headroom'
+assert wrapped['argv'][1:] == routed['argv'][1:]
+assert wrapped['env'].get('HEADROOM_BEACON') == 'off'
+assert wrapped['env'].get('DO_NOT_TRACK') == '1'
+assert wrapped['env'].get('OMNIROUTE_COMPRESSION') == 'off'
+assert wrapped['env'].get('ANTHROPIC_BASE_URL') == 'http://127.0.0.1:20128'
+assert ai_provider.load()['compressie'] == 'headroom'
+ai_provider.set_choice('codex', 'gpt-test')
+codex_plan = ai_provider.launch_plan(which=lambda name: '/opt/codex/codex' if name == 'codex' else None, access=lambda *_a: True)
+assert codex_plan['argv'][0] == '/opt/codex/codex'
+assert codex_plan['env'].get('OPENAI_BASE_URL') == 'http://127.0.0.1:20128/v1'
+assert 'ANTHROPIC_BASE_URL' not in codex_plan['env']
+ai_provider.set_choice('gemini', '')
+gemini_plan = ai_provider.launch_plan(which=lambda name: '/usr/bin/gemini' if name == 'gemini' else None, access=lambda *_a: True)
+assert gemini_plan['ok'] is True
+assert gemini_plan['env'].get('ANTHROPIC_BASE_URL') is None
+assert gemini_plan['env'].get('OPENAI_BASE_URL') is None
+assert '20128' not in ' '.join(gemini_plan['argv'])
+ai_provider.set_choice('ollama', 'qwen2.5:3b')
+local = ai_provider.launch_plan(
+    which=lambda name: '/usr/bin/python3' if name == 'python3' else ('/usr/local/bin/ollama' if name == 'ollama' else None),
+    access=lambda *_a: True)
+assert '20128' not in ' '.join(local['argv'])
+assert local['env'].get('ANTHROPIC_BASE_URL') is None
+assert local['env'].get('OPENAI_BASE_URL') is None
+assert local['env'].get('OMNIROUTE_COMPRESSION') is None
+ai_provider.set_choice('claude', '')
+ai_provider.set_compressie('omniroute')
+ai_provider.remove_upstream('openrouter')
+assert ai_provider.load()['omniroute_providers'] == []
+assert ai_provider.load()['omniroute_router'] is False
+assert ai_provider.load()['compressie'] == 'geen'
+warn = ai_provider.public_status()['omniroute_waarschuwing']
+assert 'Gratis aanbieders' in warn
 
 
 class _Boom(Exception):
@@ -177,9 +268,15 @@ assert plan['env'].get('UNIVERSE_AI_REFLECT') == '1'
 ui = (UI / 'ai-ui.js').read_text(encoding='utf-8')
 nebula = (UI / 'brein-nevel.js').read_text(encoding='utf-8')
 assert 'ai.leren' in ui and 'ai.plugins' in ui and 'Leren van taken' in ui
+assert 'Tokens besparen' in ui and 'ai.compressie' in ui and 'ai.omniroute' in ui
+assert 'Gratis aanbieders' in ui and 'ai.plugins.terminal' in ui
 assert "naam:'Les'" in nebula and "'lessen'" in nebula
 center = (ROOT / 'pakket/universe-os/usr/lib/universe-os/shell/control_center.py').read_text(encoding='utf-8')
 assert 'ai.plugins.install' in center and 'ai.leren' in center
+assert 'ai.compressie' in center and 'ai.plugins.terminal' in center and 'ai.omniroute.router' in center
+doc = (ROOT / 'docs/AI-PLUGINS-EN-LESSEN.md').read_text(encoding='utf-8')
+assert 'c05b2d6614f6' in doc and '855390d6110e' in doc and 'c1e30b767697' in doc and 'b0b7bed98203' in doc
+assert 'HEADROOM_BEACON' in doc and '20128' in doc
 import subprocess
 for script in ('ai-ui.js', 'brein-nevel.js', 'control.js'):
     checked = subprocess.run(['node', '--check', str(UI / script)], capture_output=True, text=True)
