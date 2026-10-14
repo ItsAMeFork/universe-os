@@ -39,6 +39,16 @@ const status = {
  naam: 'Claude Code',
  regel: 'Claude Code · haiku',
  sandbox: true,
+ leren: true,
+ trend: [
+  {tokens: 4200, gereedschap: 6, schatting: false, taak: 'Agenda nakijken'},
+  {tokens: 900, gereedschap: 1, schatting: true, taak: 'Korte vraag'}
+ ],
+ plugins: [
+  {id:'superpowers', naam:'Superpowers', licentie:'MIT', aan:true, status:'klaar', review:'Vaardigheden aan, hook uit.'},
+  {id:'ecc', naam:'Everything Claude Code', licentie:'MIT', aan:true, status:'later', review:'Regels en hooks blijven uit.'},
+  {id:'chrome-devtools', naam:'Chrome DevTools', licentie:'Apache-2.0', aan:false, status:'uit', review:'Uit tot je hem aanzet.'}
+ ],
  providers: [
   {id:'claude', naam:'Claude Code', uitleg:'Standaard. Je meldt je aan met je eigen Claude-account in het paneel.', geinstalleerd:true, sleutel_mogelijk:true, sleutel_bewaard:false, model_leeg:'Haiku (snel, licht)'},
   {id:'codex', naam:'ChatGPT', uitleg:'Het Codex-programma van OpenAI. Aanmelden doe je in het paneel, of je bewaart hier een sleutel.', geinstalleerd:false, sleutel_mogelijk:true, sleutel_bewaard:false, model_leeg:'het model van Codex'},
@@ -51,6 +61,12 @@ const call = async (cmd, args) => {
  if (cmd === 'ai.set') return {naam: args.provider};
  if (cmd === 'ai.key') return {bewaard: !!args.sleutel};
  if (cmd === 'ai.open' || cmd === 'ai.install') return true;
+ if (cmd === 'ai.leren') return {leren: !!args.aan};
+ if (cmd === 'ai.plugins.set') {
+  status.plugins = status.plugins.map(item => item.id === args.id ? {...item, aan: !!args.aan} : item);
+  return status.plugins;
+ }
+ if (cmd === 'ai.plugins.install') return {tekst: 'Plugins bijgewerkt.'};
  return {};
 };
 const buddy = document.createElement('p');

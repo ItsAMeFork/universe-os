@@ -57,8 +57,48 @@ export async function mountAi(root, api={}){
  const sandbox=status.sandbox
   ? note('Afscherming aan (bubblewrap). Het programma kan de sleutelbos en de muis niet zelf pakken. Versturen vraagt nog steeds een venster.')
   : h('p',{class:'message error',role:'alert'},'Afscherming uit. Zonder bubblewrap kan een opdracht in de terminal de bevestiging omzeilen. Installeer bubblewrap.');
+ const learn=h('input',{type:'checkbox'});
+ learn.checked=status.leren!==false;
+ learn.setAttribute('aria-label','Leren van taken');
+ const trend=h('div');
+ for(const row of (status.trend||[]).slice(0,6)){
+  const tokens=Number(row.tokens)||0;
+  trend.append(note((row.schatting?'ongeveer ':'')+tokens+' tokens · '+(row.gereedschap||0)+' stappen'+(row.taak?' · '+row.taak:'')));
+ }
+ if(!(status.trend||[]).length) trend.append(note('Nog geen afgeronde taak. Het gebruik verschijnt hier na een sessie.'));
+ const plugins=h('div');
+ function drawPlugins(list){
+  plugins.replaceChildren();
+  for(const item of list||[]){
+   const box=h('input',{type:'checkbox'});
+   box.checked=!!item.aan;
+   box.setAttribute('aria-label',item.naam);
+   box.addEventListener('change',async()=>{
+    try{const next=await call('ai.plugins.set',{id:item.id,aan:box.checked});drawPlugins(next);}
+    catch(e){box.checked=!box.checked;}
+   });
+   plugins.append(h('label',{class:'check'},box,item.naam+' · '+item.licentie+' · '+(item.status||'nog')),note(item.review||''));
+  }
+ }
+ drawPlugins(status.plugins||[]);
  root.append(
   note('Kies wie antwoordt. Het personage, de herinneringen en de vragen op het scherm blijven hetzelfde. Welke AI je ook kiest: een e-mail, een afspraak en het scherm gaan alleen door als jij op Toestaan drukt.'),
+  card('Gebruik',
+   h('label',{class:'check'},learn,'Leren van taken (korte les, alleen als die minder kost dan de taak)'),
+   button('Leervoorkeur bewaren',async()=>{
+    await call('ai.leren',{aan:learn.checked});
+    return learn.checked?'Leren staat aan.':'Leren staat uit. Cijfers blijven wel bewaard.';
+   }),
+   trend),
+  card('Plugins',
+   note('Vaste, bekeken set. Hooks en regels van derden gaan niet aan. Zonder netwerk probeert Universe OS het later opnieuw.'),
+   plugins,
+   button('Plugins ophalen',async()=>{
+    const outcome=await call('ai.plugins.install');
+    const fresh=await call('ai.status');
+    drawPlugins(fresh.plugins||[]);
+    return outcome.tekst||'Klaar.';
+   })),
   picks,
   card('Model',
    note('Laat dit leeg voor de standaard. Bij Claude is dat Haiku, licht genoeg voor een trage computer. Bij Ollama is een klein model (qwen2.5:3b) het enige dat zo’n computer aankan.'),

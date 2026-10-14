@@ -115,6 +115,11 @@ MCP-server de seintjes voor hulpmiddelen (`UNIVERSE_AI_EVENTS`); luisteren en kl
 Codex en Gemini hebben dat begin- en eindseintje niet. Sleutels staan in de sleutelbos (`ai-sleutel:<programma>`),
 niet in `ai.json`.
 
+## Lessen en plugins
+Na een taak schrijft de shell het tokengebruik in `brein.db` (tabel `efficientie`). Een korte les (soort `les`) komt er alleen als die goedkoper is dan de taak en het weekbudget nog ruimte heeft. Dat gaat via de goedkoopste API van het gekozen programma, nooit via `claude -p`. Zonder API-sleutel slaat Claude, Codex en Gemini de les over; het gebruik blijft wel bewaard. Ollama kan lokaal reflecteren. De pagina AI toont een trend en een schakelaar. Lessen zijn sterren in het brein, te filteren, te bewerken en te verwijderen.
+
+Plugins zijn een vastgezette, bekeken set. Hooks en regelpakketten van derden gaan niet aan. Chrome DevTools en Context7 staan uit tot de gebruiker ze aanzet, omdat de een een browser bestuurt en de ander vragen naar context7.com stuurt. Zie `docs/AI-PLUGINS-EN-LESSEN.md`.
+
 ## Fasen
 1. **Deze stap:** starter, MCP-server met hulpmiddelen en brein (notities en voorkeuren), hooks, socketopdrachten,
    paneel met terminal, eenvoudig tijdelijk personage. Testen in de VM.

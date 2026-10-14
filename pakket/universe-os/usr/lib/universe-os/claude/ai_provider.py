@@ -157,7 +157,10 @@ def load():
         url = clean_ollama_url(raw.get('ollama_url') or '')
     except ValueError:
         url = 'http://127.0.0.1:11434'
-    return {'provider': provider, 'model': model, 'ollama_url': url}
+    leren = True
+    if 'leren' in raw:
+        leren = bool(raw.get('leren'))
+    return {'provider': provider, 'model': model, 'ollama_url': url, 'leren': leren}
 
 
 def set_choice(provider, model='', ollama_url=None):
@@ -168,6 +171,13 @@ def set_choice(provider, model='', ollama_url=None):
     data['model'] = clean_model(model)
     if ollama_url is not None:
         data['ollama_url'] = clean_ollama_url(ollama_url)
+    _write(data)
+    return public_status()
+
+
+def set_leren(on):
+    data = load()
+    data['leren'] = bool(on)
     _write(data)
     return public_status()
 
@@ -251,11 +261,25 @@ def public_status(which=None, access=None, sandbox_on=None):
             'model_leeg': spec['model_leeg'],
         })
     naam, regel = panel_title()
+    trend, plugins = [], []
+    try:
+        import efficientie
+        trend = efficientie.trend()
+    except Exception:
+        trend = []
+    try:
+        import plugins as plugin_catalog
+        plugins = plugin_catalog.public_list()
+    except Exception:
+        plugins = []
     return {
         'provider': cfg['provider'],
         'model': cfg['model'],
         'model_effectief': effective_model(cfg),
         'ollama_url': cfg['ollama_url'],
+        'leren': cfg.get('leren', True),
+        'trend': trend,
+        'plugins': plugins,
         'naam': naam,
         'regel': regel,
         'sandbox': bool(sandbox_on) if sandbox_on is not None else _sandbox_on(),
@@ -310,9 +334,22 @@ def instructions():
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uitleg.md')
     try:
         with open(path, encoding='utf-8') as handle:
-            return handle.read()
+            text = handle.read()
     except OSError:
-        return ''
+        text = ''
+    if not load().get('leren', True):
+        return text
+    try:
+        import efficientie
+        text += efficientie.lesson_block()
+    except Exception:
+        pass
+    try:
+        import plugins as plugin_catalog
+        text += plugin_catalog.skill_line()
+    except Exception:
+        pass
+    return text
 
 
 def _toml_string(value):
@@ -369,6 +406,38 @@ def install_script(provider):
     )
 
 
+def _attach_mcp(provider, writes, argv, here, work, extra):
+    """Adds reviewed MCP servers next to universe. No keys in the written file."""
+    if provider == 'claude':
+        base = os.path.join(here, 'mcp.json')
+        try:
+            with open(base, encoding='utf-8') as handle:
+                data = json.load(handle)
+        except (OSError, ValueError):
+            data = {'mcpServers': {}}
+        data.setdefault('mcpServers', {}).update(extra)
+        path = os.path.join(work, 'mcp.json')
+        writes.append({'path': path, 'text': json.dumps(data, ensure_ascii=False, indent=2) + '\n'})
+        if '--mcp-config' in argv:
+            argv[argv.index('--mcp-config') + 1] = path
+        return
+    if provider == 'codex':
+        for item in writes:
+            if item['path'].endswith('config.toml'):
+                for name, spec in extra.items():
+                    safe = ''.join(ch if ch.isalnum() else '_' for ch in name)
+                    args = ', '.join(_toml_string(part) for part in spec['args'])
+                    item['text'] += '\n[mcp_servers.%s]\ncommand = %s\nargs = [%s]\n' % (
+                        safe, _toml_string(spec['command']), args)
+        return
+    if provider == 'gemini':
+        for item in writes:
+            if item['path'].endswith('settings.json') and '.gemini' in item['path']:
+                data = json.loads(item['text'])
+                data.setdefault('mcpServers', {}).update(extra)
+                item['text'] = json.dumps(data, ensure_ascii=False, indent=2) + '\n'
+
+
 def launch_plan(fresh=False, env=None, which=None, access=None):
     """How to start the selected CLI. Writes contain no API keys. The key is only in env."""
     env = dict(os.environ if env is None else env)
@@ -415,6 +484,18 @@ def launch_plan(fresh=False, env=None, which=None, access=None):
         env['UNIVERSE_AI_EVENTS'] = '1'
     else:
         env.pop('UNIVERSE_AI_EVENTS', None)
+    if cfg.get('leren', True):
+        env['UNIVERSE_AI_REFLECT'] = '1'
+    else:
+        env.pop('UNIVERSE_AI_REFLECT', None)
+    extra = {}
+    try:
+        import plugins as plugin_catalog
+        extra = plugin_catalog.mcp_servers(env.get('HOME') or os.path.expanduser('~'))
+    except Exception:
+        extra = {}
+    if extra:
+        _attach_mcp(provider, writes, argv, here, work, extra)
     if spec['key_env']:
         if key:
             env[spec['key_env']] = key

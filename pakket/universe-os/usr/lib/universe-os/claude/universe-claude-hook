@@ -53,6 +53,14 @@ def main():
             return
     elif event == 'Stop':
         kind = 'done'
+        try:
+            folder = os.path.dirname(os.path.abspath(__file__))
+            if folder not in sys.path:
+                sys.path.insert(0, folder)
+            import efficientie
+            efficientie.capture_claude(data)
+        except Exception:
+            pass
     else:
         return
     send(kind, info)

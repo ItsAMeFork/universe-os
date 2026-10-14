@@ -52,6 +52,12 @@ def _ai():
     return ai_provider
 
 
+def _plugins():
+    _claude()
+    import plugins
+    return plugins
+
+
 def _shell_json(command, timeout=8):
     """Ask the running shell. Screen control lives there, not in a file this process could write."""
     done = subprocess.run(['universe-ctl', command], capture_output=True, text=True, timeout=timeout)
@@ -381,6 +387,10 @@ def handlers(app):
         'ai.key': lambda a: _ai().set_key(a.get('provider'), a.get('sleutel') if 'sleutel' in a else a.get('key')),
         'ai.open': lambda a: backend.spawn(['universe-ctl', 'claude']),
         'ai.install': lambda a: ai_install(a.get('provider') or 'claude'),
+        'ai.leren': lambda a: _ai().set_leren(a.get('aan')),
+        'ai.plugins': lambda a: _plugins().public_list(),
+        'ai.plugins.set': lambda a: _plugins().set_enabled(a.get('id'), a.get('aan')),
+        'ai.plugins.install': lambda a: _plugins().ensure(),
         'window.page': lambda a: app.pending_page,
         'brein.summary': lambda a: _brein().summary(),
         'brein.export': lambda a: _brein().write_export(_download_dir()),
@@ -423,7 +433,8 @@ class ControlCenter(Gtk.Application):
         bridge = Bridge(handlers(self), threaded={'updates.channel.set', 'network.status', 'status', 'audio.outputs', 'audio.select', 'wifi.list', 'wifi.connect', 'users.add', 'users.remove', 'users.admin',
                                                    'users.password', 'account.password', 'timezone.set', 'updates.status', 'keyboard.set',
                                                    'locale.set', 'bluetooth.get', 'updates.refresh', 'updates.install', 'claude.status',
-                                                   'ai.status', 'ai.set', 'ai.key', 'ai.install',
+                                                   'ai.status', 'ai.set', 'ai.key', 'ai.install', 'ai.leren',
+                                                   'ai.plugins', 'ai.plugins.set', 'ai.plugins.install',
                                                    'accounts.list', 'accounts.clients', 'accounts.client', 'accounts.oauth_start',
                                                    'accounts.oauth_poll', 'accounts.imap', 'accounts.caldav', 'accounts.disconnect',
                                                    'scherm.status', 'scherm.toestaan', 'scherm.intrekken'}, log=lambda *args: None)

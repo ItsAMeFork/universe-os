@@ -10,6 +10,7 @@ import os
 import socket
 import subprocess
 import sys
+import time
 import urllib.request
 
 
@@ -22,6 +23,8 @@ def ollama_message(url, model, messages, tools, opener=None, timeout=180):
     message = data.get('message') if isinstance(data, dict) else None
     if not isinstance(message, dict):
         raise RuntimeError('Ollama gaf geen antwoord. Draait het programma, en is het model binnengehaald?')
+    message['_prompt_eval'] = int(data.get('prompt_eval_count') or 0)
+    message['_eval'] = int(data.get('eval_count') or 0)
     return message
 
 
@@ -160,11 +163,17 @@ def main(argv=None):
                 break
             emit('think', {})
             messages.append({'role': 'user', 'content': question})
+            started = time.monotonic()
 
             def ask(transcript, tool_list, _url=url, _model=model):
                 return ollama_message(_url, _model, transcript, tool_list)
 
             answer, messages = run_turn(messages, tools, ask, client.call_tool)
+            try:
+                import efficientie
+                efficientie.capture_ollama(model, messages, started)
+            except Exception:
+                pass
             print(answer)
             print()
             sys.stdout.flush()

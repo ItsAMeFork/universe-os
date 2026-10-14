@@ -10,7 +10,7 @@ import os
 import sqlite3
 import time
 
-KINDS = ('voorkeur', 'notitie', 'feit')
+KINDS = ('voorkeur', 'notitie', 'feit', 'les')
 # The nebula draws one star per memory. Past this, older rows stay in the database but not on the canvas.
 STAR_CAP = 160
 TRAIL_CAP = 36
@@ -61,6 +61,12 @@ def connect():
         CREATE TABLE IF NOT EXISTS acties (id INTEGER PRIMARY KEY, op REAL NOT NULL, hulpmiddel TEXT NOT NULL,
             samenvatting TEXT NOT NULL, status TEXT NOT NULL, detail TEXT NOT NULL DEFAULT '');
         CREATE INDEX IF NOT EXISTS acties_op ON acties(op);
+        CREATE TABLE IF NOT EXISTS efficientie (id INTEGER PRIMARY KEY, op REAL NOT NULL, provider TEXT NOT NULL,
+            model TEXT NOT NULL DEFAULT '', tokens_in INTEGER NOT NULL DEFAULT 0, tokens_out INTEGER NOT NULL DEFAULT 0,
+            kosten REAL, schatting INTEGER NOT NULL DEFAULT 0, gereedschap INTEGER NOT NULL DEFAULT 0,
+            duur REAL NOT NULL DEFAULT 0, taak TEXT NOT NULL DEFAULT '', soort TEXT NOT NULL DEFAULT 'sessie',
+            les_id INTEGER, overgeslagen TEXT NOT NULL DEFAULT '');
+        CREATE INDEX IF NOT EXISTS efficientie_op ON efficientie(op);
     """)
     return db
 
@@ -256,6 +262,7 @@ def forget_all(confirm):
         db.execute('DELETE FROM mail_items')
         db.execute('DELETE FROM agenda_items')
         db.execute('DELETE FROM acties')
+        db.execute('DELETE FROM efficientie')
     return True
 
 
@@ -376,7 +383,7 @@ ACTIE_STATUS = ('goedgekeurd', 'geweigerd', 'uitgevoerd', 'mislukt')
 MAIL_STAR = 1_000_000_000
 AGENDA_STAR = 2_000_000_000
 ACTIE_STAR = 3_000_000_000
-LIST_FILTERS = ('alles', 'herinneringen', 'mail', 'agenda', 'acties')
+LIST_FILTERS = ('alles', 'herinneringen', 'lessen', 'mail', 'agenda', 'acties')
 
 
 def _check_public(obj):
@@ -587,10 +594,16 @@ def lijst(soort='alles', zoek='', limit=40):
             return
         rows.append(row)
 
-    if soort in ('alles', 'herinneringen'):
+    if soort in ('alles', 'herinneringen', 'lessen'):
         memories = search_memories(query, limit) if query else list_memories(limit)
         for item in memories:
-            add({'soort': 'herinnering', 'id': item['id'], 'titel': item['soort'], 'tekst': item['tekst'],
+            lesson = item['soort'] == 'les'
+            if lesson and soort == 'herinneringen':
+                continue
+            if not lesson and soort == 'lessen':
+                continue
+            add({'soort': 'les' if lesson else 'herinnering', 'id': item['id'],
+                 'titel': 'Les' if lesson else item['soort'], 'tekst': item['tekst'],
                  'wanneer': item['bijgewerkt'], 'tijd': _clock(item['bijgewerkt']), 'status': ''})
     if soort in ('alles', 'mail'):
         for item in list_mail(limit, query):
@@ -606,3 +619,45 @@ def lijst(soort='alles', zoek='', limit=40):
                  'wanneer': item['op'], 'tijd': item['tijd'], 'status': item['status']})
     rows.sort(key=lambda row: row.get('wanneer') or 0, reverse=True)
     return {'rijen': rows[:limit], 'sterren': sterren_extra(limit)}
+
+
+def log_efficientie(provider, model, tokens_in, tokens_out, schatting, gereedschap, duur, taak,
+                    soort='sessie', kosten=None, overgeslagen=''):
+    """One finished task or one reflection. taak is a short scrubbed title, never a secret."""
+    if soort not in ('sessie', 'reflectie'):
+        raise ValueError('Soort moet sessie of reflectie zijn')
+    with connect() as db:
+        cur = db.execute(
+            '''INSERT INTO efficientie(op, provider, model, tokens_in, tokens_out, kosten, schatting, gereedschap,
+               duur, taak, soort, overgeslagen) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+            (time.time(), str(provider or '')[:40], str(model or '')[:80], int(tokens_in or 0), int(tokens_out or 0),
+             kosten, 1 if schatting else 0, int(gereedschap or 0), float(duur or 0), str(taak or '')[:160],
+             soort, str(overgeslagen or '')[:80]))
+        return cur.lastrowid
+
+
+def mark_efficientie(row_id, overgeslagen='', les_id=None):
+    with connect() as db:
+        db.execute('UPDATE efficientie SET overgeslagen = ?, les_id = COALESCE(?, les_id) WHERE id = ?',
+                   (str(overgeslagen or '')[:80], les_id, int(row_id)))
+
+
+def recent_efficientie(limit=8, soort='sessie'):
+    limit = max(1, min(int(limit or 8), 40))
+    with connect() as db:
+        rows = db.execute(
+            'SELECT * FROM efficientie WHERE soort = ? ORDER BY op DESC, id DESC LIMIT ?', (soort, limit))
+        return [{
+            'id': r['id'], 'op': r['op'], 'provider': r['provider'], 'model': r['model'],
+            'tokens_in': r['tokens_in'], 'tokens_out': r['tokens_out'], 'schatting': bool(r['schatting']),
+            'gereedschap': r['gereedschap'], 'duur': r['duur'], 'taak': r['taak'],
+            'overgeslagen': r['overgeslagen'], 'les_id': r['les_id'],
+        } for r in rows]
+
+
+def reflectie_tokens_since(since):
+    with connect() as db:
+        row = db.execute(
+            'SELECT COALESCE(SUM(tokens_in + tokens_out), 0) FROM efficientie WHERE soort = ? AND op >= ?',
+            ('reflectie', float(since))).fetchone()
+        return int(row[0] or 0)

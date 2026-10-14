@@ -40,6 +40,13 @@ def prepare(fresh=False, env=None):
 
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
+    try:
+        import plugins
+        outcome = plugins.ensure()
+        if outcome.get('later'):
+            print(outcome.get('tekst') or 'Plugins later opnieuw.')
+    except Exception:
+        pass
     plan = prepare(fresh='--nieuw' in argv)
     if not plan['ok']:
         print(plan['fout'])
