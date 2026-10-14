@@ -15,7 +15,7 @@ const KIND={
  agenda:{naam:'Agenda',kleur:'#ffe08a'},
  actie:{naam:'Actie',kleur:'#ff9ec8'},
 };
-const STATUS={goedgekeurd:'Goedgekeurd',geweigerd:'Geweigerd',uitgevoerd:'Uitgevoerd',mislukt:'Mislukt'};
+const STATUS={goedgekeurd:'Goedgekeurd',geweigerd:'Geweigerd',uitgevoerd:'Uitgevoerd',mislukt:'Mislukt',automatisch:'Automatisch',wacht:'Wacht',ongedaan:'Ongedaan'};
 const FILTERS=[['alles','Alles'],['herinneringen','Herinneringen'],['lessen','Lessen'],['mail','Mail'],['agenda','Agenda'],['acties','Acties']];
 
 const hash=n=>{let x=(2166136261^n)>>>0;x=Math.imul(x^(n&255),16777619);x=Math.imul(x^((n>>>8)&255),16777619);return x>>>0;};
@@ -150,6 +150,14 @@ export function mountNebula(parent,api={}){
    }
    if(row.van) article.append(h('p',{class:'muted'},row.van));
    if(row.status) article.append(h('span',{class:'badge'},STATUS[row.status]||row.status));
+   if(row.soort==='actie'&&row.ongedaan&&row.status!=='ongedaan'){
+    const undo=h('button',{type:'button'},'Ongedaan maken');
+    undo.addEventListener('click',async()=>{
+     try{await call('brein.ongedaan',{id:row.id});await loadList();}
+     catch(e){status.textContent=e.message||'Ongedaan maken mislukt.';}
+    });
+    article.append(undo);
+   }
    list.append(article);
   }
  }

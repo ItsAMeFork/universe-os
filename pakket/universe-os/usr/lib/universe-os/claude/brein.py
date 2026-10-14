@@ -68,6 +68,9 @@ def connect():
             les_id INTEGER, overgeslagen TEXT NOT NULL DEFAULT '');
         CREATE INDEX IF NOT EXISTS efficientie_op ON efficientie(op);
     """)
+    columns = [row['name'] for row in db.execute('PRAGMA table_info(acties)')]
+    if 'ongedaan' not in columns:
+        db.execute("ALTER TABLE acties ADD COLUMN ongedaan TEXT NOT NULL DEFAULT ''")
     return db
 
 
@@ -379,7 +382,7 @@ BANNED_ACCOUNT_KEYS = frozenset({
     'password', 'wachtwoord', 'token', 'secret', 'geheim', 'refresh_token', 'access_token',
     'client_secret', 'device_code', 'authorization',
 })
-ACTIE_STATUS = ('goedgekeurd', 'geweigerd', 'uitgevoerd', 'mislukt')
+ACTIE_STATUS = ('goedgekeurd', 'geweigerd', 'uitgevoerd', 'mislukt', 'automatisch', 'wacht', 'ongedaan')
 MAIL_STAR = 1_000_000_000
 AGENDA_STAR = 2_000_000_000
 ACTIE_STAR = 3_000_000_000
@@ -517,19 +520,60 @@ def list_agenda(limit=12, query='', now=None):
         return [_agenda_row(r) for r in rows]
 
 
-def log_actie(hulpmiddel, samenvatting, status, detail=''):
+def log_actie(hulpmiddel, samenvatting, status, detail='', ongedaan=''):
     """Audit row. Callers must not put passwords or tokens in samenvatting or detail."""
     if status not in ACTIE_STATUS:
         raise ValueError('Status moet een van %s zijn' % ', '.join(ACTIE_STATUS))
     with connect() as db:
-        cur = db.execute('INSERT INTO acties(op, hulpmiddel, samenvatting, status, detail) VALUES (?, ?, ?, ?, ?)',
-                         (time.time(), str(hulpmiddel or '')[:80], str(samenvatting or '')[:400], status, str(detail or '')[:400]))
+        cur = db.execute(
+            'INSERT INTO acties(op, hulpmiddel, samenvatting, status, detail, ongedaan) VALUES (?, ?, ?, ?, ?, ?)',
+            (time.time(), str(hulpmiddel or '')[:80], str(samenvatting or '')[:400], status,
+             str(detail or '')[:400], str(ongedaan or '')[:400]))
         return cur.lastrowid
+
+
+def undo_actie(actie_id):
+    """Reverses a logged action when it names a file under the home directory or a memory."""
+    with connect() as db:
+        row = db.execute('SELECT * FROM acties WHERE id = ?', (int(actie_id),)).fetchone()
+    if not row:
+        raise ValueError('Actie niet gevonden')
+    try:
+        payload = json.loads(row['ongedaan'] or '{}')
+    except ValueError:
+        payload = {}
+    if not isinstance(payload, dict) or not payload.get('soort'):
+        raise ValueError('Dit kan niet ongedaan worden gemaakt.')
+    if payload.get('soort') == 'herinnering':
+        forget(payload.get('id'))
+    elif payload.get('soort') == 'bestand':
+        _trash_file(payload.get('pad'))
+    else:
+        raise ValueError('Dit kan niet ongedaan worden gemaakt.')
+    with connect() as db:
+        db.execute('UPDATE acties SET status = ? WHERE id = ?', ('ongedaan', int(actie_id)))
+    return {'ongedaan': True, 'id': int(actie_id)}
+
+
+def _trash_file(raw):
+    path = os.path.realpath(str(raw or ''))
+    home = os.path.realpath(os.path.expanduser('~'))
+    if not path or path == home or not path.startswith(home + os.sep) or os.path.islink(str(raw or '')):
+        raise ValueError('Dit bestand kan niet ongedaan worden gemaakt.')
+    if not os.path.isfile(path):
+        raise ValueError('Het bestand staat er niet meer.')
+    trash = os.path.join(home, '.local', 'share', 'Trash', 'files')
+    os.makedirs(trash, mode=0o700, exist_ok=True)
+    dest = os.path.join(trash, os.path.basename(path))
+    if os.path.exists(dest):
+        dest = dest + '-%d' % int(time.time())
+    os.replace(path, dest)
 
 
 def _actie_row(r):
     return {'id': r['id'], 'op': r['op'], 'tijd': _clock(r['op']), 'hulpmiddel': r['hulpmiddel'],
-            'samenvatting': r['samenvatting'], 'status': r['status'], 'detail': r['detail']}
+            'samenvatting': r['samenvatting'], 'status': r['status'], 'detail': r['detail'],
+            'ongedaan': r['ongedaan'] if 'ongedaan' in r.keys() else ''}
 
 
 def list_acties(limit=80, query='', status=None):
@@ -616,7 +660,8 @@ def lijst(soort='alles', zoek='', limit=40):
     if soort in ('alles', 'acties'):
         for item in list_acties(limit, query):
             add({'soort': 'actie', 'id': item['id'], 'titel': item['hulpmiddel'], 'tekst': item['samenvatting'],
-                 'wanneer': item['op'], 'tijd': item['tijd'], 'status': item['status']})
+                 'wanneer': item['op'], 'tijd': item['tijd'], 'status': item['status'],
+                 'ongedaan': item.get('ongedaan') or ''})
     rows.sort(key=lambda row: row.get('wanneer') or 0, reverse=True)
     return {'rijen': rows[:limit], 'sterren': sterren_extra(limit)}
 

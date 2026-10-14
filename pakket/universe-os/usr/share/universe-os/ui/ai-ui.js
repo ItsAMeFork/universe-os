@@ -135,6 +135,39 @@ export async function mountAi(root, api={}){
   }
  }
  drawPlugins(status.plugins||[]);
+ const autoBox=h('input',{type:'checkbox',role:'switch'});
+ autoBox.setAttribute('aria-label','Automatisch toestaan');
+ const autoState=h('span',{class:'switch-state uit'},'Uit');
+ const autoDuur=h('select',{'aria-label':'Duur automatisch toestaan'});
+ for(const [id,label] of [['30m','30 minuten'],['1u','1 uur'],['2u','2 uur'],['tot-uit','Tot je het uitzet']]){
+  autoDuur.append(h('option',{value:id},label));
+ }
+ autoDuur.value='30m';
+ function paintAuto(next){
+  const on=!!(next&&next.aan);
+  autoBox.checked=on;
+  autoState.textContent=on?(next.tekst||'Aan'):'Uit';
+  autoState.className='switch-state '+(on?'aan':'uit');
+  if(next&&next.duur) autoDuur.value=next.duur;
+ }
+ autoBox.addEventListener('change',async()=>{
+  try{paintAuto(await call('auto.set',{aan:autoBox.checked,duur:autoDuur.value}));}
+  catch(e){autoBox.checked=!autoBox.checked;}
+ });
+ autoDuur.addEventListener('change',async()=>{
+  if(!autoBox.checked) return;
+  try{paintAuto(await call('auto.set',{aan:true,duur:autoDuur.value}));}
+  catch(e){autoState.textContent=e.message||'Mislukt.';}
+ });
+ const routeName=h('input',{type:'text',value:status.litellm_url||'http://127.0.0.1:4000',autocomplete:'off'});
+ routeName.setAttribute('aria-label','Adres van LiteLLM');
+ const routeState=h('p',{class:'switch-state uit'});
+ function paintRoute(next){
+  const route=next.sessie_route||'claude';
+  routeState.textContent=route==='claude'?'Claude':route==='omniroute'?'OmniRoute':'LiteLLM';
+  routeState.className='switch-state '+(route==='claude'?'uit':'aan');
+  for(const input of root.querySelectorAll('input[name=ai-route]')) input.checked=input.value===route;
+ }
  const tokenSwitch=h('section',{class:'card token-hero'},
   h('label',{class:'switch-row'},
    h('span',{class:'switch'},saveTokens,h('span',{class:'switch-track','aria-hidden':'true'})),
@@ -142,8 +175,50 @@ export async function mountAi(root, api={}){
     h('span',{class:'switch-title'},'Tokens besparen (Headroom)'),
     saveState)),
   note('Minder tokens en goedkoper; de AI kan af en toe een detail missen.'));
+ const autoSwitch=h('section',{class:'card token-hero'},
+  h('label',{class:'switch-row'},
+   h('span',{class:'switch'},autoBox,h('span',{class:'switch-track','aria-hidden':'true'})),
+   h('span',{class:'switch-copy'},
+    h('span',{class:'switch-title'},'Automatisch toestaan'),
+    autoState)),
+  note('Voor als je weg bent. Gewone stappen gaan door; betalen, wissen, versturen, wachtwoorden en systeemwijzigingen blijven wachten.'),
+  field('Duur',autoDuur));
+ const routes=h('div');
+ for(const item of [
+  ['claude','Claude (direct)'],
+  ['omniroute','OmniRoute op deze computer'],
+  ['litellm','LiteLLM op deze computer']]){
+  const input=h('input',{type:'radio',name:'ai-route',value:item[0]});
+  input.checked=item[0]===(status.sessie_route||'claude');
+  if(item[0]==='omniroute'&&!(status.omniroute_providers||[]).length) input.disabled=true;
+  input.addEventListener('change',async()=>{
+   if(!input.checked) return;
+   try{paintRoute(await call('ai.sessie',{route:item[0]}));}
+   catch(e){paintRoute(status); routeState.textContent=e.message||'Mislukt.';}
+  });
+  routes.append(h('label',{class:'check'},input,item[1]));
+ }
+ const modelCard=h('section',{class:'card'},
+  h('h3',{},'Model deze sessie'),
+  note('Geen OpenClaude. Dat is een ongeautoriseerde afgeleide, met standaard een betaalde gateway en zoeken via Exa.'),
+  note('Deze sessie wijst Claude naar OmniRoute of LiteLLM. Terug naar Claude haalt dat adres weer weg. Een andere agent, als je die wilt, is OpenCode (MIT) of Goose (Apache-2.0).'),
+  routes,
+  routeState,
+  field('LiteLLM-adres (alleen deze computer)',routeName),
+  button('LiteLLM-adres bewaren',async()=>{
+   const saved=await call('ai.litellm',{url:routeName.value.trim()});
+   paintRoute(saved);
+   return 'Adres bewaard.';
+  }),
+  button('Terug naar Claude',async()=>{
+   const saved=await call('ai.sessie',{route:'claude'});
+   paintRoute(saved);
+   return 'Deze sessie gaat weer naar Claude.';
+  }));
  root.append(
+  autoSwitch,
   tokenSwitch,
+  modelCard,
   note('Kies wie antwoordt. Het personage, de herinneringen en de vragen op het scherm blijven hetzelfde. Welke AI je ook kiest: een e-mail, een afspraak en het scherm gaan alleen door als jij op Toestaan drukt.'),
   card('Gebruik',
    h('label',{class:'check'},learn,'Leren van taken (korte les, alleen als die minder kost dan de taak)'),
@@ -204,5 +279,7 @@ export async function mountAi(root, api={}){
    await call('ai.install',{provider:chosen});
    return 'Er opent een terminal met het installatieprogramma. Universe OS downloadt de AI niet zelf in de achtergrond.';
   }));
+ paintRoute(status);
+ try{paintAuto(await call('auto.status'));}catch(e){paintAuto({aan:false,tekst:'Uit'});}
  root.dataset.ai='ready';
 }

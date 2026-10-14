@@ -171,6 +171,12 @@ def _peer():
     return peer
 
 
+def _auto():
+    _claude_dir()
+    import auto_accept
+    return auto_accept
+
+
 def _confirm(title, text):
     """Dialog on the user's screen. A missing zenity counts as no. Arguments from Claude are never a yes."""
     _claude_dir()
@@ -642,6 +648,9 @@ class Shell:
             'brein.search': _brein_search,
             'brein.forget_all': _brein_forget_all,
             'brein.lijst': lambda a: _brein().lijst(a.get('soort') or a.get('filter') or 'alles', a.get('q') if 'q' in a else a.get('zoek') or '', a.get('max') or 40),
+            'brein.ongedaan': lambda a: _brein().undo_actie(a.get('id')),
+            'auto.status': lambda a: _auto().public(),
+            'auto.set': lambda a: self._auto_set(a),
             'mail.search': lambda a: _accounts().search_mail(a.get('q') if 'q' in a else a.get('zoek') or '', a.get('account'), a.get('max') or 8),
             'mail.read': lambda a: _accounts().read_mail(a.get('account'), a.get('id')),
             'mail.draft': lambda a: _accounts().draft_mail(**_mail_kwargs(a)),
@@ -704,6 +713,11 @@ class Shell:
             return {'gelukt': True}
         finally:
             self.broadcast('scherm', screen.status())
+
+    def _auto_set(self, args):
+        info = _auto().set_choice(bool(args.get('aan')), args.get('duur') or '30m')
+        self.broadcast('auto', info)
+        return info
 
     def _screen_grant(self, on):
         screen = _screen()
@@ -813,7 +827,10 @@ class Shell:
             elif cmd == 'logout':  # the same animated logout as the start menu (also for scripts and tests)
                 GLib.idle_add(self.begin_logout)
             elif cmd == 'scherm-stop':
-                # Panic hotkey (Super+Escape). Drops the session grant before the next input event.
+                # Panic hotkey (Super+Escape). Drops screen control and auto-accept before the next action.
+                _claude_dir()
+                import auto_accept
+                self.broadcast('auto', auto_accept.stop())
                 self.broadcast('scherm', _screen().revoke())
             elif cmd == 'scherm-aan':
                 import json
@@ -986,6 +1003,10 @@ class Shell:
                     log('status: %s' % error)
                     return
                 GLib.idle_add(self.panel.emit, 'status', data)
+                try:
+                    GLib.idle_add(self.panel.emit, 'auto', _auto().public())
+                except Exception:
+                    pass
             import threading
             threading.Thread(target=work, daemon=True).start()
         return True

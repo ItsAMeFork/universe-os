@@ -117,7 +117,8 @@ status = ai_provider.public_status(which=which, access=access, sandbox_on=False)
 assert status['provider'] == 'ollama'
 assert KEY not in json.dumps(status)
 names = [row['id'] for row in status['providers']]
-assert names == ['claude', 'codex', 'gemini', 'ollama']
+assert names == ['claude', 'codex', 'gemini', 'ollama', 'opencode', 'goose']
+assert 'openclaude' not in names
 assert status['sandbox'] is False
 
 # --- sandbox argv hides the bus, the wayland socket and uinput; the key stays out of argv ---

@@ -3,8 +3,9 @@
 Claude Code, the OpenAI Codex CLI and the Gemini CLI all speak MCP. universe_mcp.py stays
 the only tool server, so mail, calendar and screen confirmation stay in the shell no matter
 which program is in the panel. Ollama is a model server, not an MCP client; ollama_host.py
-is the small client that talks to it. Goose and OpenCode were not used: they bring a second
-permission system and a second runtime, and they are not in Debian. See docs/REVIEW-AI-STACK.md.
+is the small client that talks to it. OpenCode (MIT) and Goose (Apache-2.0) are optional
+extra agents, not the default. Their own permission system is not the confirmation boundary.
+OpenClaude is refused. See docs/REVIEW-AI-STACK.md.
 """
 import json
 import os
@@ -16,8 +17,11 @@ SERVICE = 'universe-os'
 MODEL_RE = re.compile(r'[A-Za-z0-9._:+/-]{1,80}')
 UPSTREAM_RE = re.compile(r'[A-Za-z0-9][A-Za-z0-9._+-]{0,39}')
 COMPRESSIE = ('geen', 'headroom', 'omniroute')
+ROUTES = ('claude', 'omniroute', 'litellm')
 OMNIROUTE_BASE = 'http://127.0.0.1:20128'
+LITELLM_DEFAULT = 'http://127.0.0.1:4000'
 WAARSCHUWING_GRATIS = 'Gratis aanbieders kunnen je vragen lezen. Zet OmniRoute alleen aan als je dat wilt.'
+GATEWAY_KEYS = {'litellm': 'ANTHROPIC_AUTH_TOKEN'}
 PROVIDERS = {
     'claude': {
         'naam': 'Claude Code',
@@ -62,6 +66,28 @@ PROVIDERS = {
         'key_env': '',
         'sleutel': False,
         'uitleg': 'Ollama draait het model hier. Niets gaat naar een wolk. Een klein model is het enige dat een trage computer aankan. Grote modellen maken zo’n pc onbruikbaar. Een klein model volgt hulpmiddelen minder goed; de bevestiging op het scherm blijft wel.',
+    },
+    'opencode': {
+        'naam': 'OpenCode',
+        'kort': 'OpenCode',
+        'bins': ('opencode',),
+        'extra': ('~/.local/bin/opencode', '~/.opencode/bin/opencode'),
+        'default_model': '',
+        'model_leeg': 'het model van OpenCode',
+        'key_env': '',
+        'sleutel': False,
+        'uitleg': 'MIT. Alleen als je een andere agent dan Claude wilt. Niet OpenClaude. Universe koppelt alleen zijn eigen hulpmiddelen; zet de computer-besturing van OpenCode niet aan.',
+    },
+    'goose': {
+        'naam': 'Goose',
+        'kort': 'Goose',
+        'bins': ('goose',),
+        'extra': ('~/.local/bin/goose',),
+        'default_model': '',
+        'model_leeg': 'het model van Goose',
+        'key_env': '',
+        'sleutel': False,
+        'uitleg': 'Apache-2.0. Alleen als je een andere agent dan Claude wilt. Niet OpenClaude. Alleen de Universe-hulpmiddelen worden aangezet.',
     },
 }
 _store = None
@@ -150,6 +176,23 @@ def clean_ollama_url(url):
     return 'http://127.0.0.1:%d' % port
 
 
+def refuse_openclaude(name):
+    if 'openclaude' in str(name or '').lower():
+        raise ValueError('OpenClaude wordt niet gebruikt. Het is een ongeautoriseerde afgeleide en stuurt standaard via een betaalde gateway. Kies Claude, OmniRoute of LiteLLM.')
+
+
+def clean_local_url(url, default, label):
+    text = str(url or '').strip() or default
+    parsed = urllib.parse.urlparse(text)
+    host = (parsed.hostname or '').lower()
+    if parsed.scheme != 'http' or host not in ('127.0.0.1', 'localhost'):
+        raise ValueError('%s moet op deze computer draaien (127.0.0.1).' % label)
+    port = parsed.port or urllib.parse.urlparse(default).port
+    if not (1 <= port <= 65535):
+        raise ValueError('Poort van %s klopt niet.' % label)
+    return 'http://127.0.0.1:%d' % port
+
+
 def clean_upstream(name):
     text = str(name or '').strip()
     if not UPSTREAM_RE.fullmatch(text):
@@ -190,15 +233,24 @@ def load():
     if 'leren' in raw:
         leren = bool(raw.get('leren'))
     compressie, upstreams, router = _compressie_fields(raw)
+    route = raw.get('sessie_route') if raw.get('sessie_route') in ROUTES else 'claude'
+    if route == 'omniroute' and not upstreams:
+        route = 'claude'
+    try:
+        litellm = clean_local_url(raw.get('litellm_url') or '', LITELLM_DEFAULT, 'LiteLLM')
+    except ValueError:
+        litellm = LITELLM_DEFAULT
     return {
         'provider': provider, 'model': model, 'ollama_url': url, 'leren': leren,
         'compressie': compressie, 'omniroute_providers': upstreams, 'omniroute_router': router,
+        'sessie_route': route, 'litellm_url': litellm,
     }
 
 
 def set_choice(provider, model='', ollama_url=None):
+    refuse_openclaude(provider)
     if provider not in PROVIDERS:
-        raise ValueError('Kies Claude Code, ChatGPT, Gemini of Ollama.')
+        raise ValueError('Kies Claude Code, ChatGPT, Gemini, Ollama, OpenCode of Goose.')
     data = load()
     data['provider'] = provider
     data['model'] = clean_model(model)
@@ -262,8 +314,29 @@ def set_router(on):
     return public_status()
 
 
+def set_sessie(route):
+    """Which model endpoint this Claude session uses. claude means Anthropic directly."""
+    refuse_openclaude(route)
+    if route not in ROUTES:
+        raise ValueError('Kies Claude, OmniRoute of LiteLLM.')
+    data = load()
+    if route == 'omniroute' and not data['omniroute_providers']:
+        raise ValueError('Voeg eerst een aanbieder toe. OmniRoute blijft uit tot die er is.')
+    data['sessie_route'] = route
+    _write(data)
+    return public_status()
+
+
+def set_litellm_url(url):
+    data = load()
+    data['litellm_url'] = clean_local_url(url, LITELLM_DEFAULT, 'LiteLLM')
+    _write(data)
+    return public_status()
+
+
 def set_key(provider, key):
-    if provider not in PROVIDERS or not PROVIDERS[provider]['key_env']:
+    refuse_openclaude(provider)
+    if provider not in GATEWAY_KEYS and (provider not in PROVIDERS or not PROVIDERS[provider]['key_env']):
         raise ValueError('Deze assistent gebruikt geen sleutel. Aanmelden doe je in het paneel.')
     key = str(key or '')
     if any(ch in key for ch in '\r\n'):
@@ -279,7 +352,7 @@ def set_key(provider, key):
 
 
 def key_for(provider):
-    if provider not in PROVIDERS or not PROVIDERS[provider]['key_env']:
+    if provider not in GATEWAY_KEYS and (provider not in PROVIDERS or not PROVIDERS[provider]['key_env']):
         return ''
     try:
         value = _backend().get_password(SERVICE, _key_user(provider))
@@ -300,11 +373,11 @@ def bin_for(provider, which=None, access=None):
         return None
     for name in spec['bins']:
         found = which(name)
-        if found and access(found, os.X_OK):
+        if found and access(found, os.X_OK) and 'openclaude' not in found.lower():
             return found
     for extra in spec['extra']:
         path = os.path.expanduser(extra)
-        if access(path, os.X_OK):
+        if access(path, os.X_OK) and 'openclaude' not in path.lower():
             return path
     return None
 
@@ -324,7 +397,13 @@ def panel_title():
     cfg = load()
     spec = PROVIDERS[cfg['provider']]
     model = cfg['model'] or spec['model_leeg']
-    return spec['naam'], '%s · %s' % (spec['kort'], model)
+    route = cfg.get('sessie_route') or 'claude'
+    via = ''
+    if cfg['provider'] == 'claude' and route == 'omniroute':
+        via = ' · via OmniRoute'
+    elif cfg['provider'] == 'claude' and route == 'litellm':
+        via = ' · via LiteLLM'
+    return spec['naam'], '%s · %s%s' % (spec['kort'], model, via)
 
 
 def public_status(which=None, access=None, sandbox_on=None):
@@ -362,6 +441,9 @@ def public_status(which=None, access=None, sandbox_on=None):
         'omniroute_providers': list(cfg.get('omniroute_providers') or []),
         'omniroute_router': bool(cfg.get('omniroute_router')),
         'omniroute_waarschuwing': WAARSCHUWING_GRATIS,
+        'sessie_route': cfg.get('sessie_route') or 'claude',
+        'litellm_url': cfg.get('litellm_url') or LITELLM_DEFAULT,
+        'litellm_sleutel': has_key('litellm'),
         'trend': trend,
         'plugins': plugins,
         'naam': naam,
@@ -482,6 +564,13 @@ def install_script(provider):
     elif provider == 'ollama':
         return ('echo "Ollama staat niet in Debian 13. Installeer het van https://ollama.com en haal daarna een klein model op, bijvoorbeeld: ollama pull qwen2.5:3b"; '
                 'echo; echo "Druk op Enter om dit venster te sluiten."; read -r _')
+    elif provider == 'opencode':
+        return ('echo "OpenCode (MIT). Dit is niet OpenClaude."; '
+                'curl -fsSL https://opencode.ai/install | bash; echo; echo "Druk op Enter om dit venster te sluiten."; read -r _')
+    elif provider == 'goose':
+        return ('echo "Goose (Apache-2.0). Dit is niet OpenClaude."; '
+                'curl -fsSL https://github.com/aaif-goose/goose/releases/download/stable/download_cli.sh | CONFIGURE=false bash; '
+                'echo; echo "Druk op Enter om dit venster te sluiten."; read -r _')
     else:
         raise ValueError('Onbekende assistent')
     return (
@@ -559,6 +648,25 @@ def launch_plan(fresh=False, env=None, which=None, access=None):
         argv = [binary]
         if model:
             argv += ['--model', model]
+    elif provider == 'opencode':
+        conf_home = os.path.join(work, 'xdg-config')
+        os.makedirs(os.path.join(conf_home, 'opencode'), mode=0o700, exist_ok=True)
+        writes.append({'path': os.path.join(conf_home, 'opencode', 'opencode.json'), 'text': json.dumps({
+            'mcp': {'servers': {'universe': {'type': 'local', 'command': ['python3', mcp], 'enabled': True}}},
+        }, ensure_ascii=False, indent=2) + '\n'})
+        env['XDG_CONFIG_HOME'] = conf_home
+        env['XDG_DATA_HOME'] = os.path.join(work, 'xdg-data')
+        argv = [binary]
+    elif provider == 'goose':
+        conf_home = os.path.join(work, 'xdg-config')
+        os.makedirs(os.path.join(conf_home, 'goose'), mode=0o700, exist_ok=True)
+        writes.append({'path': os.path.join(conf_home, 'goose', 'config.yaml'), 'text': (
+            'extensions:\n  universe:\n    enabled: true\n    type: stdio\n    name: universe\n'
+            '    cmd: python3\n    args:\n      - %s\n    timeout: 300\n' % json.dumps(mcp)[1:-1]
+        )})
+        env['XDG_CONFIG_HOME'] = conf_home
+        env['XDG_DATA_HOME'] = os.path.join(work, 'xdg-data')
+        argv = [binary, 'session']
     else:
         host = os.path.join(here, 'ollama_host.py')
         argv = [env.get('PYTHON', '') or shutil.which('python3') or 'python3', host,
@@ -585,11 +693,25 @@ def launch_plan(fresh=False, env=None, which=None, access=None):
         argv = ['/usr/bin/universe-ai-headroom'] + argv[1:]
         env['HEADROOM_BEACON'] = 'off'
         env['DO_NOT_TRACK'] = '1'
-    if cfg.get('omniroute_router') and provider in ('claude', 'codex'):
-        if provider == 'claude':
-            env['ANTHROPIC_BASE_URL'] = OMNIROUTE_BASE
-        else:
-            env['OPENAI_BASE_URL'] = OMNIROUTE_BASE + '/v1'
+    route = cfg.get('sessie_route') or 'claude'
+    if provider == 'claude' and route == 'claude':
+        env.pop('ANTHROPIC_BASE_URL', None)
+        env.pop('ANTHROPIC_AUTH_TOKEN', None)
+    elif provider == 'claude' and route == 'omniroute':
+        if not cfg.get('omniroute_providers'):
+            return {'ok': False, 'provider': provider,
+                    'fout': 'Voeg eerst een aanbieder toe. Deze sessie blijft bij Claude.'}
+        env['ANTHROPIC_BASE_URL'] = OMNIROUTE_BASE
+        env['OMNIROUTE_COMPRESSION'] = 'standard' if cfg.get('compressie') == 'omniroute' else 'off'
+    elif provider == 'claude' and route == 'litellm':
+        env['ANTHROPIC_BASE_URL'] = cfg.get('litellm_url') or LITELLM_DEFAULT
+        env.pop('OMNIROUTE_COMPRESSION', None)
+        token = key_for('litellm')
+        if token:
+            env['ANTHROPIC_AUTH_TOKEN'] = token
+            env.pop('ANTHROPIC_API_KEY', None)
+    if cfg.get('omniroute_router') and provider == 'codex':
+        env['OPENAI_BASE_URL'] = OMNIROUTE_BASE + '/v1'
         env['OMNIROUTE_COMPRESSION'] = 'standard' if cfg.get('compressie') == 'omniroute' else 'off'
     if spec['key_env']:
         if key:

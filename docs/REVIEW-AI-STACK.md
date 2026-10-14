@@ -2,16 +2,15 @@
 
 Stand na de pull requests 39 tot en met 42 (testherstel, Claude-harness, Brein-nevel, assistent met accounts, mail, agenda en scherm), plus de reparaties op deze tak. Dit is een architectuur- en beveiligingsreview, geen verkooppraatje.
 
-## Beslissing: geen goose, geen OpenCode
+## Beslissing: universe_mcp.py blijft, OpenClaude niet
 
-De gedeelde gereedschapsserver blijft `universe_mcp.py`. De starter (`launch.py` via `universe-ai`) kiest het programma: Claude Code, de Codex-CLI, de Gemini-CLI, of een kleine Ollama-client. Goose en OpenCode zijn bewust niet gebruikt.
+De gedeelde gereedschapsserver blijft `universe_mcp.py`. De starter (`launch.py` via `universe-ai`) kiest het programma: Claude Code, de Codex-CLI, de Gemini-CLI, of een kleine Ollama-client. OpenCode (MIT) en Goose (Apache-2.0) zijn optioneel als je een andere agent dan Claude wilt. Ze vervangen de stapel niet.
 
-- Die projecten zijn zelf een agent, met een eigen toestemmingssysteem. Dat systeem mag hier de grens niet zijn. Versturen, agenda en scherm moeten in de shell en in de MCP-server blijven, anders omzeilt een ander programma de zenity-vragen.
-- Ze staan niet in Debian 13, kosten extra geheugen, en een zwakke pc heeft daar geen ruimte voor.
-- Goose praat zelf met de API. Dat botst met het bestaande ontwerp: ongewijzigde Claude Code, geen `claude -p` tegen het abonnement.
-- De drie cloudbureau’s spreken al MCP. Een eigen adapter per bureau is dan dubbel werk. Alleen Ollama is geen MCP-client. `ollama_host.py` is de enige nieuwe, kleine client (alleen de standaardbibliotheek). Er is in Debian geen onderhouden MCP-client voor Ollama.
-
-Bestaande MCP-servers voor Gmail, Outlook en CalDAV lossen de zenity-poort niet op. Open Interpreter en computer-use-pakketten sturen muis en toetsen vanuit het modelproces. Dat is precies het gat dat deze shell dicht probeert te houden. LiteLLM is een proxy voor modelaanroepen, geen bureaubladagent, en voegt hier niets toe.
+- Die projecten zijn zelf een agent, met een eigen toestemmingssysteem. Dat systeem is hier niet de grens. Versturen, agenda en scherm blijven in de shell en in de MCP-server. Zet hun computer-besturing niet aan.
+- Ze staan niet in Debian 13 en kosten extra geheugen. De knop Installeren opent alleen een terminal; Universe OS downloadt ze niet stilletjes.
+- OpenClaude wordt geweigerd. Het is een ongeautoriseerde afgeleide van Claude Code, en het stuurt standaard via een betaalde gateway met zoeken via Exa.
+- Een andere modelroute voor een Claude-sessie gaat via `ANTHROPIC_BASE_URL` naar OmniRoute of naar LiteLLM op deze computer. Terug naar Claude haalt dat adres weg. LiteLLM is een proxy voor modelaanroepen, geen bureaubladagent.
+- Alleen Ollama is geen MCP-client. `ollama_host.py` is de kleine client (alleen de standaardbibliotheek).
 
 ## Wat deze tak heeft dichtgezet
 

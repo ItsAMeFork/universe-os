@@ -109,7 +109,7 @@ zodat het programma de sleutelbos en `/dev/uinput` niet zelf pakt. Zie `docs/REV
 ## Wisselen van AI
 Controlecentrum → AI kiest het programma in het paneel: Claude Code (standaard), Codex (ChatGPT), Gemini of Ollama.
 Alle vier gebruiken dezelfde `universe_mcp.py`. Ollama spreekt zelf geen MCP; `ollama_host.py` is alleen de client
-ernaartoe. Goose en OpenCode zijn niet gekozen: een tweede runtime met een eigen toestemmingssysteem, en niet in Debian.
+ernaartoe. OpenCode (MIT) en Goose (Apache-2.0) zijn optioneel, niet de standaard. Hun eigen toestemmingssysteem is niet de grens; de vragen op het scherm blijven van de shell. Zet hun computer-besturing niet aan.
 Hooks van Claude Code blijven voor luisteren, denken, toestemming en klaar. Bij de andere programma's stuurt de
 MCP-server de seintjes voor hulpmiddelen (`UNIVERSE_AI_EVENTS`); luisteren en klaar komen bij Ollama uit de host.
 Codex en Gemini hebben dat begin- en eindseintje niet. Sleutels staan in de sleutelbos (`ai-sleutel:<programma>`),
@@ -118,7 +118,11 @@ niet in `ai.json`.
 ## Lessen en plugins
 Na een taak schrijft de shell het tokengebruik in `brein.db` (tabel `efficientie`). Een korte les (soort `les`) komt er alleen als die goedkoper is dan de taak en het weekbudget nog ruimte heeft. Dat gaat via de goedkoopste API van het gekozen programma, nooit via `claude -p`. Zonder API-sleutel slaat Claude, Codex en Gemini de les over; het gebruik blijft wel bewaard. Ollama kan lokaal reflecteren. De pagina AI toont een trend en een schakelaar. Lessen zijn sterren in het brein, te filteren, te bewerken en te verwijderen.
 
-Plugins zijn een vastgezette, bekeken set. Hooks en regelpakketten van derden gaan niet aan. Chrome DevTools en Context7 staan uit tot de gebruiker ze aanzet, omdat de een een browser bestuurt en de ander vragen naar context7.com stuurt. Frontend design (officieel, Apache-2.0) staat aan als vaardigheid. Everything Claude Code 2.2.3 installeer je met de marketplace-opdracht; regels worden daarna niet aangezet. Headroom (tokens besparen, baken uit) staat uit. De schakelaar Tokens besparen (Headroom) staat groot op de pagina AI en ook in het paneel, met de stand Uit of Aan. Minder tokens en goedkoper; de AI kan af en toe een detail missen. OmniRoute (lokale router op poort 20128) staat uit. Van die twee comprimeert er hoogstens één, en gratis aanbieders via OmniRoute kunnen je vragen lezen. Zie `docs/AI-PLUGINS-EN-LESSEN.md`.
+Plugins zijn een vastgezette, bekeken set. Hooks en regelpakketten van derden gaan niet aan. Chrome DevTools en Context7 staan uit tot de gebruiker ze aanzet, omdat de een een browser bestuurt en de ander vragen naar context7.com stuurt. Frontend design (officieel, Apache-2.0) staat aan als vaardigheid. Everything Claude Code 2.2.3 installeer je met de marketplace-opdracht; regels worden daarna niet aangezet. Headroom (tokens besparen, baken uit) staat uit. De schakelaar Tokens besparen (Headroom) staat groot op de pagina AI en ook in het paneel, met de stand Uit of Aan. Minder tokens en goedkoper; de AI kan af en toe een detail missen. OmniRoute (lokale router op poort 20128) staat uit.
+
+Een Claude-sessie kan naar OmniRoute of naar LiteLLM (`http://127.0.0.1:4000`) wijzen via `ANTHROPIC_BASE_URL`. Terug naar Claude haalt dat adres weg. OpenClaude wordt niet gebruikt: het is een ongeautoriseerde afgeleide en stuurt standaard via een betaalde gateway, met zoeken via Exa. Een andere agent, als je die wilt, is OpenCode (MIT) of Goose (Apache-2.0). Van Headroom en OmniRoute comprimeert er hoogstens één, en gratis aanbieders via OmniRoute kunnen je vragen lezen. Zie `docs/AI-PLUGINS-EN-LESSEN.md`.
+
+Automatisch toestaan staat uit. De schakelaar staat op de pagina AI en in het bedieningspaneel, met een duur van 30 minuten, 1 uur, 2 uur of tot je het uitzet. Daarna gaat hij zelf uit. Gewone bevestigingen (programma openen, bestanden, concepten, agenda lezen) gaan dan door. Betalen, wissen, versturen, wachtwoorden en systeemwijzigingen worden niet uitgevoerd; ze wachten in het brein onder Acties. Waar het kan, staat er Ongedaan maken. Super+Escape zet de stand direct uit. Zolang hij aan staat, is er een balk op het scherm.
 
 ## Fasen
 1. **Deze stap:** starter, MCP-server met hulpmiddelen en brein (notities en voorkeuren), hooks, socketopdrachten,

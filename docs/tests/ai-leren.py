@@ -168,6 +168,7 @@ assert ai_provider.load()['omniroute_providers'] == ['openrouter']
 assert ai_provider.load()['omniroute_router'] is False
 ai_provider.set_router(True)
 ai_provider.set_compressie('omniroute')
+ai_provider.set_sessie('omniroute')
 which = lambda name: {'claude': '/usr/bin/claude'}.get(name)
 routed = ai_provider.launch_plan(fresh=True, which=which, access=lambda *_a: True)
 assert routed['argv'][0] == '/usr/bin/claude'

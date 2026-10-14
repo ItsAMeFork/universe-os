@@ -41,6 +41,8 @@ const status = {
  sandbox: true,
  leren: true,
  compressie: 'geen',
+ sessie_route: 'claude',
+ litellm_url: 'http://127.0.0.1:4000',
  omniroute_providers: [],
  omniroute_router: false,
  omniroute_waarschuwing: 'Gratis aanbieders kunnen je vragen lezen. Zet OmniRoute alleen aan als je dat wilt.',
@@ -68,6 +70,10 @@ const call = async (cmd, args) => {
  if (cmd === 'ai.key') return {bewaard: !!args.sleutel};
  if (cmd === 'ai.open' || cmd === 'ai.install') return true;
  if (cmd === 'ai.leren') return {leren: !!args.aan};
+ if (cmd === 'auto.status') return {aan:false, duur:'30m', tekst:'Uit', wacht:0};
+ if (cmd === 'auto.set') return {aan:!!args.aan, duur:args.duur||'30m', tekst:args.aan?'Aan tot 12:00. Super+Escape zet het direct uit.':'Uit', wacht:0};
+ if (cmd === 'ai.sessie') { status.sessie_route = args.route || 'claude'; return status; }
+ if (cmd === 'ai.litellm') { status.litellm_url = args.url; return status; }
  if (cmd === 'ai.compressie') { status.compressie = args.modus; return status; }
  if (cmd === 'ai.omniroute.add') {
   status.omniroute_providers = [...(status.omniroute_providers||[]), args.naam];

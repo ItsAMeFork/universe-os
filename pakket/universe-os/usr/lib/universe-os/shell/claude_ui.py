@@ -197,6 +197,78 @@ class ClaudeUI:
         tokens.pack_start(note, False, False, 0)
         return tokens
 
+    def _back_to_claude(self):
+        try:
+            _ai().set_sessie('claude')
+        except Exception as error:
+            self.log('Terug naar Claude mislukt: %s' % error)
+            return
+        if getattr(self, 'sub_label', None):
+            try:
+                naam, regel = _ai().panel_title()
+                self.title_label.set_text(naam)
+                self.sub_label.set_text(regel)
+            except Exception:
+                pass
+        if self.term:
+            self.restart(fresh=False)
+
+    def _auto_row(self):
+        import auto_accept
+        on = auto_accept.active()
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        box.get_style_context().add_class('claude-tokens')
+        row = Gtk.Box(spacing=12)
+        switch = Gtk.Switch()
+        switch.set_active(on)
+        switch.set_valign(Gtk.Align.CENTER)
+        switch.get_style_context().add_class('token-switch')
+        label = Gtk.Label(label='Automatisch toestaan', xalign=0)
+        label.get_style_context().add_class('claude-token-label')
+        state = Gtk.Label(label='Aan' if on else 'Uit', xalign=0)
+        state.get_style_context().add_class('claude-token-state')
+        state.get_style_context().add_class('on' if on else 'off')
+        note = Gtk.Label(label='Gewone stappen gaan door. Betalen, wissen, versturen, wachtwoorden en systeemwijzigingen blijven wachten.', xalign=0)
+        note.set_line_wrap(True)
+        note.set_max_width_chars(52)
+        note.get_style_context().add_class('claude-token-note')
+        duration = Gtk.ComboBoxText()
+        for key, title in (('30m', '30 minuten'), ('1u', '1 uur'), ('2u', '2 uur'), ('tot-uit', 'Tot je het uitzet')):
+            duration.append(key, title)
+        duration.set_active_id(auto_accept.public().get('duur') or '30m')
+
+        def paint(info):
+            active = bool(info.get('aan'))
+            state.set_text('Aan' if active else 'Uit')
+            ctx = state.get_style_context()
+            ctx.remove_class('on')
+            ctx.remove_class('off')
+            ctx.add_class('on' if active else 'off')
+            if self.shell:
+                self.shell.broadcast('auto', info)
+
+        def on_auto(_widget, _param):
+            if getattr(self, '_auto_busy', False):
+                return
+            try:
+                info = auto_accept.set_choice(switch.get_active(), duration.get_active_id() or '30m')
+            except Exception as error:
+                self._auto_busy = True
+                switch.set_active(not switch.get_active())
+                self._auto_busy = False
+                self.log('Automatisch toestaan niet gewijzigd: %s' % error)
+                return
+            paint(info)
+
+        switch.connect('notify::active', on_auto)
+        row.pack_start(switch, False, False, 0)
+        row.pack_start(label, False, False, 0)
+        row.pack_start(state, False, False, 0)
+        row.pack_start(duration, False, False, 0)
+        box.pack_start(row, False, False, 0)
+        box.pack_start(note, False, False, 0)
+        return box
+
     def build_panel(self):
         L, E, K = GtkLayerShell.Layer, GtkLayerShell.Edge, GtkLayerShell.KeyboardMode
         win = Gtk.Window()
@@ -249,10 +321,17 @@ class ClaudeUI:
         head.pack_end(close, False, False, 0)
         head.pack_end(new, False, False, 0)
         tokens = self._token_row()
+        away = self._auto_row()
+        back = Gtk.Button(label='Terug naar Claude')
+        back.set_tooltip_text('Deze sessie gaat weer rechtstreeks naar Claude. OmniRoute en LiteLLM gaan uit.')
+        back.get_style_context().add_class('claude-btn')
+        back.connect('clicked', lambda b: self._back_to_claude())
         holder = Gtk.Box()
         holder.get_style_context().add_class('claude-term')
         box.pack_start(head, False, False, 0)
         box.pack_start(tokens, False, False, 0)
+        box.pack_start(away, False, False, 0)
+        box.pack_start(back, False, False, 0)
         box.pack_start(holder, True, True, 0)
         win.add(box)
         win.connect('draw', self.draw_panel)

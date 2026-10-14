@@ -388,8 +388,9 @@ def perform(kind, args, confirmer=None, runner=None, have=None):
         # Fail closed: no dialog function means no.
         allowed = bool(confirmer) and bool(confirmer('Claude wil het scherm bedienen', preview))
         if not allowed:
-            brein.log_actie('scherm_' + kind, summary, 'geweigerd')
-            raise PermissionError('Geweigerd.')
+            if not confirm.deferred():
+                brein.log_actie('scherm_' + kind, summary, 'geweigerd')
+            raise PermissionError(confirm.refused_message('Geweigerd.'))
         outcome = 'goedgekeurd'
     else:
         outcome = 'uitgevoerd'

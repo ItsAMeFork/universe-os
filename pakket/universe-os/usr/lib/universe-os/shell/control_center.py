@@ -52,6 +52,12 @@ def _ai():
     return ai_provider
 
 
+def _auto():
+    _claude()
+    import auto_accept
+    return auto_accept
+
+
 def _plugins():
     _claude()
     import plugins
@@ -405,6 +411,10 @@ def handlers(app):
         'ai.plugins.set': lambda a: _plugins().set_enabled(a.get('id'), a.get('aan')),
         'ai.plugins.install': lambda a: _plugins().ensure(),
         'ai.plugins.terminal': lambda a: plugin_terminal(a.get('id')),
+        'ai.sessie': lambda a: _ai().set_sessie(a.get('route') or a.get('sessie') or 'claude'),
+        'ai.litellm': lambda a: _ai().set_litellm_url(a.get('url') or ''),
+        'auto.status': lambda a: _auto().public(),
+        'auto.set': lambda a: _auto().set_choice(bool(a.get('aan')), a.get('duur') or '30m'),
         'window.page': lambda a: app.pending_page,
         'brein.summary': lambda a: _brein().summary(),
         'brein.export': lambda a: _brein().write_export(_download_dir()),
@@ -450,6 +460,7 @@ class ControlCenter(Gtk.Application):
                                                    'ai.status', 'ai.set', 'ai.key', 'ai.install', 'ai.leren',
                                                    'ai.compressie', 'ai.omniroute.add', 'ai.omniroute.remove', 'ai.omniroute.router',
                                                    'ai.plugins', 'ai.plugins.set', 'ai.plugins.install', 'ai.plugins.terminal',
+                                                   'ai.sessie', 'ai.litellm', 'auto.status', 'auto.set',
                                                    'accounts.list', 'accounts.clients', 'accounts.client', 'accounts.oauth_start',
                                                    'accounts.oauth_poll', 'accounts.imap', 'accounts.caldav', 'accounts.disconnect',
                                                    'scherm.status', 'scherm.toestaan', 'scherm.intrekken'}, log=lambda *args: None)
