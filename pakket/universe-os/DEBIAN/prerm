@@ -8,4 +8,8 @@ if [ "$1" = "remove" ] && [ -f /etc/pam.d/gtklock ]; then
     sed -i '/universe-lock-poging/d' /etc/pam.d/gtklock || true
     [ -f /etc/pam.d/sudo ] && sed -i '/universe-admin-geluid/d' /etc/pam.d/sudo || true
 fi
+if [ "$1" = "remove" ]; then
+    rm -f /etc/systemd/user/default.target.wants/universe-ydotoold.service
+    [ -f /etc/pam.d/lightdm ] && sed -i '/universe-os-keyring/d' /etc/pam.d/lightdm || true
+fi
 exit 0

@@ -11,7 +11,9 @@ const fmtTime=d=>d.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})
 const fmtDate=d=>d.toLocaleDateString('nl-NL',{weekday:'long',day:'numeric',month:'long'});
 const pill=h('button',{class:'pill',type:'button','aria-label':'Bedieningspaneel openen','aria-expanded':'false'});
 const panel=h('section',{class:'panel glass',hidden:true,role:'dialog','aria-label':'Bedieningspaneel'});
-document.body.append(pill,panel);
+const banner=h('div',{class:'scherm-banner',hidden:true,role:'status'});
+document.body.append(pill,panel,banner);
+let scherm={};
 pill.addEventListener('click',()=>toggle(true));
 
 function netIcon(n){return !n||n.state!=='connected'?'offline':n.type==='wifi'?'wifi':'wired';}
@@ -20,7 +22,7 @@ let pillKey='';
 function renderPill(){
  const now=new Date(),v=status.volume,b=status.battery,count=status.notifications?.length||0;
  // Status arrives every 10 s and the clock ticks every 15 s: only rebuild when something visible changed.
- const key=[fmtTime(now),JSON.stringify(status.network),v?.level,v?.muted,b?.present,b?.percent,b?.charging,count].join('|');
+ const key=[fmtTime(now),JSON.stringify(status.network),v?.level,v?.muted,b?.present,b?.percent,b?.charging,count,scherm.toegestaan?'1':'0',scherm.bezig?'1':'0'].join('|');
  if(key===pillKey)return;
  pillKey=key;
  pill.replaceChildren(...[
@@ -28,7 +30,9 @@ function renderPill(){
   h('span',{class:'item',title:netText(status.network)},icon(netIcon(status.network))),
   v?h('span',{class:'item',title:`Volume ${v.level}%`},icon(v.muted?'mute':'volume')):null,
   b?.present?h('span',{class:'item',title:'Batterij'},icon('battery'),`${b.percent}%${b.charging?' ⚡':''}`):null,
-  h('span',{class:'item',title:'Meldingen'},icon('bell'),count?h('span',{class:'count'},String(count)):null)].filter(child=>child!=null));
+  h('span',{class:'item',title:'Meldingen'},icon('bell'),count?h('span',{class:'count'},String(count)):null),
+  scherm.toegestaan?h('span',{class:'item',title:'AI mag het scherm bedienen. Super+Escape stopt.'},'AI'):null].filter(child=>child!=null));
+ pill.classList.toggle('scherm-aan',!!(scherm.toegestaan||scherm.bezig));
  pill.setAttribute('aria-label',`Bedieningspaneel openen. ${fmtTime(now)}. ${netText(status.network)}.${count?` ${count} meldingen.`:''}`);
  window.__universePageReady?.();
 }
@@ -88,5 +92,7 @@ on('status',s=>{status=s;renderPill();});
 on('panel-toggle',()=>toggle(!open));
 on('panel-close',()=>{if(open)toggle(false);});
 on('config',c=>{config=c;applySettings({...c.settings,colors:c.world.colors});});
+function applyScherm(s){scherm=s||{};banner.hidden=!scherm.bezig;banner.textContent=scherm.bezig?'Claude bedient het scherm. Super+Escape stopt dit.':'';renderPill();}
+on('scherm',applyScherm);
 setInterval(()=>{renderPill();},15000);
-(async()=>{try{config=await call('config.get');applySettings({...config.settings,colors:config.world.colors});}catch{}refresh();})();
+(async()=>{try{config=await call('config.get');applySettings({...config.settings,colors:config.world.colors});}catch{}call('scherm.status').then(applyScherm).catch(()=>{});refresh();})();

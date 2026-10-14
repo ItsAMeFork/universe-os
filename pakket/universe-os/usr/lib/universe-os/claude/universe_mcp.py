@@ -333,6 +333,63 @@ def t_forget(a):
     return brein.forget(a.get('id'))
 
 
+def t_mail_search(a):
+    return shell('mail.search', {'q': a.get('q') or a.get('zoek') or '', 'account': a.get('account'), 'max': a.get('max')}, timeout=40)
+
+
+def t_mail_read(a):
+    return shell('mail.read', {'account': a.get('account'), 'id': a.get('id')}, timeout=40)
+
+
+def t_mail_draft(a):
+    return shell('mail.draft', {'account': a.get('account'), 'naar': a.get('naar') or a.get('to'),
+                                 'onderwerp': a.get('onderwerp') or a.get('subject'), 'tekst': a.get('tekst') or a.get('body') or ''}, timeout=40)
+
+
+def t_mail_send(a):
+    """The shell shows the recipients, subject and body and sends only after Toestaan. This tool cannot skip that."""
+    return shell('mail.send', {'account': a.get('account'), 'naar': a.get('naar') or a.get('to'),
+                                'onderwerp': a.get('onderwerp') or a.get('subject'), 'tekst': a.get('tekst') or a.get('body') or ''}, timeout=180)
+
+
+def t_calendar_list(a):
+    return shell('agenda.list', {'account': a.get('account')}, timeout=40)
+
+
+def t_calendar_create(a):
+    return shell('agenda.create', {'account': a.get('account'), 'titel': a.get('titel') or a.get('title'),
+                                    'start': a.get('start'), 'eind': a.get('eind') or a.get('end'), 'plek': a.get('plek') or a.get('location') or ''},
+                 timeout=180)
+
+
+def _screen(name, args):
+    return shell(name, args, timeout=180)
+
+
+def t_mouse(a):
+    return _screen('scherm.muis', {'x': a.get('x'), 'y': a.get('y')})
+
+
+def t_click(a):
+    return _screen('scherm.klik', {'knop': a.get('knop') or a.get('button') or 'left', 'doel': a.get('doel') or ''})
+
+
+def t_type(a):
+    return _screen('scherm.typ', {'tekst': a.get('tekst') or a.get('text') or '', 'veld': a.get('veld') or ''})
+
+
+def t_keys(a):
+    return _screen('scherm.toets', {'toets': a.get('toets') or a.get('combo') or ''})
+
+
+def t_scroll(a):
+    return _screen('scherm.scroll', {'dy': a.get('dy')})
+
+
+def t_focus(a):
+    return _screen('scherm.focus', {'id': a.get('id')})
+
+
 S = lambda props, req=(): {'type': 'object', 'properties': props, 'required': list(req)}  # noqa: E731
 STR = {'type': 'string'}
 
@@ -396,6 +453,30 @@ TOOLS = {
                      S({'zoek': STR, 'soort': {'type': 'string', 'enum': list(brein.KINDS)}, 'max': {'type': 'integer'}}), t_recall, True),
     'brein_bijwerken': ('Second brain: replace the text of a memory.', S({'id': {'type': 'integer'}, 'tekst': STR}, ['id', 'tekst']), t_brain_update, False),
     'brein_vergeten': ('Second brain: delete a memory.', S({'id': {'type': 'integer'}}, ['id']), t_forget, False),
+    'mail_search': ('Search recent important mail on a connected account (Google, Microsoft or IMAP). Empty q = important/recent. '
+                    'Results are also stored as Mail stars in the local second brain.',
+                    S({'q': STR, 'account': STR, 'max': {'type': 'integer'}}), t_mail_search, True),
+    'mail_read': ('Read one message (id from mail_search).', S({'account': STR, 'id': STR}, ['account', 'id']), t_mail_read, True),
+    'mail_draft': ('Save a draft. Does not send.', S({'account': STR, 'naar': {}, 'onderwerp': STR, 'tekst': STR}, ['onderwerp']), t_mail_draft, False),
+    'mail_send': ('Send an email. ALWAYS opens a confirmation dialog on the user\'s screen showing recipients, subject and body. '
+                  'Nothing is sent if the user presses Weigeren. There is no way to skip the dialog.',
+                  S({'account': STR, 'naar': {}, 'onderwerp': STR, 'tekst': STR}, ['naar', 'onderwerp']), t_mail_send, False),
+    'calendar_list': ('Upcoming events on a connected Google, Microsoft or CalDAV calendar. Also stored as Agenda stars.',
+                      S({'account': STR}), t_calendar_list, True),
+    'calendar_create': ('Create a calendar event. ALWAYS asks the user to confirm title, start, end and place first.',
+                        S({'account': STR, 'titel': STR, 'start': {}, 'eind': {}, 'plek': STR}, ['titel', 'start']), t_calendar_create, False),
+    'scherm_muis': ('Move the pointer to x, y. Only works after the user enabled "AI mag scherm bedienen" for this login. '
+                    'A banner stays on screen; Super+Escape stops it at once.',
+                    S({'x': {'type': 'integer'}, 'y': {'type': 'integer'}}, ['x', 'y']), t_mouse, False),
+    'scherm_klik': ('Click. knop: left, right or middle. Pass doel with the button label. Clicks that send, pay or delete ask first.',
+                    S({'knop': STR, 'doel': STR}), t_click, False),
+    'scherm_typ': ('Type text. Set veld to "wachtwoord" or "betaling" when the focus is a password or payment field — that always asks first '
+                   'and the text is not written to the audit log.',
+                   S({'tekst': STR, 'veld': STR}, ['tekst']), t_type, False),
+    'scherm_toets': ('Key combo such as ctrl+l or alt+f4. Delete, close and send combos ask first.',
+                     S({'toets': STR}, ['toets']), t_keys, False),
+    'scherm_scroll': ('Scroll the wheel. dy is a number of notches, positive is up.', S({'dy': {'type': 'integer'}}, ['dy']), t_scroll, False),
+    'scherm_focus': ('Focus a window (id from vensters). Requires the same screen-control switch.', S({'id': STR}, ['id']), t_focus, False),
 }
 
 

@@ -48,8 +48,44 @@ Softwarewinkel opent de softwarebeheerder voor programma’s en updates.
 Controlecentrum bevat instellingen voor netwerk, geluid, beeldschermen, taal,
 energie, accounts, sneltoetsen en beveiliging. Gamehal toont geïnstalleerde games.
 Brein opent de nevel: herinneringen als sterren, verbanden als lijnen, en wat je
-opende als een komeetspoor. Onder Beveiliging zie je wat er lokaal bewaard wordt,
-met exporteren en alles vergeten.
+opende als een komeetspoor. De lijst rechts toont dezelfde dingen plus Mail, Agenda
+en Acties. Onder Beveiliging zie je wat er lokaal bewaard wordt, met exporteren en
+alles vergeten.
+
+## Accounts, mail en agenda
+
+Controlecentrum → Accounts koppelt Google of Microsoft (aanmelden in de browser of
+met een apparaatcode), of een gewone IMAP/SMTP- en CalDAV-server. Je vult zelf de
+OAuth-client-id in van een desktop-app die jij bij Google of Microsoft hebt
+aangemaakt; Universe OS neemt geen clientgeheim van iemand anders mee. Tokens en
+wachtwoorden gaan naar de sleutelbos (gnome-keyring, Secret Service). Ze staan
+niet in brein.db en niet in een tekstbestand.
+
+Claude kan daarna zoeken, lezen en een concept bewaren. Versturen opent altijd een
+venster met ontvangers, onderwerp en tekst. Niets gaat de deur uit als je op
+Weigeren drukt. Een nieuwe afspraak vraagt hetzelfde.
+
+## Scherm bedienen
+
+Op dezelfde Accounts-pagina zet je **AI mag scherm bedienen** aan. Dat geldt alleen
+tot je afmeldt, en Claude kan het niet zelf aanzetten. Terwijl Claude de muis of
+het toetsenbord stuurt, staat er een balk: "Claude bedient het scherm".
+**Super+Escape** stopt dat meteen.
+
+labwc (de vensterbeheerder) heeft geen eigen afstandsbediening. Toetsen gaan via
+`wtype` (virtueel toetsenbord, meegeleverd). De muis gaat via `python3-evdev` en
+`/dev/uinput`, of via `ydotool` als je dat uit Debian-backports zet en je gebruiker
+in de groep `input` zit. Een klik op verwijderen, betalen of verzenden, en een
+toets als Delete of Alt+F4, vragen eerst om toestemming. Een wachtwoordveld ook;
+de tekst komt niet in het logboek.
+
+## Acties in het brein
+
+Alles wat de assistent deed staat bij Acties: tijdstip, wat het was, en of je het
+goedkeurde of weigerde. Mail en agenda in de lijst zijn een lokale samenvatting
+(onderwerp en de eerste regels), geen kopie van je hele postbus. Alles vergeten
+wist herinneringen, mail, agenda en het logboek. Gekoppelde accounts blijven staan
+tot je ze ontkoppelt.
 
 Internet opent je standaardbrowser direct. Zonder beschikbare standaardbrowser kies je eerst een browser; die keuze wordt voor jouw account opgeslagen. Gebruik **Browser kiezen** in Thuiswereld om te wisselen. In de Internet-kamer staan ook de Chrome-downloadstatus en geïnstalleerde chat/mailprogramma’s. Nieuwe programma’s verschijnen binnen Applicaties; er staat geen aparte programmabalk op het bureaublad.
 Universe OS heeft nog geen eigen chatdienst of chataccount; er wordt geen Space

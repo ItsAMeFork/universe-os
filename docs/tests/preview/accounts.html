@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="nl" class="reduce-motion" style="background:#050815">
+<head>
+<meta charset="utf-8">
+<title>Accounts</title>
+<link rel="stylesheet" href="/pakket/universe-os/usr/share/universe-os/ui/common.css">
+<style>
+html,body{background:#050815;margin:0;height:100%}
+main{display:grid;grid-template-columns:260px 1fr;height:100vh}
+nav{padding:20px;overflow:auto;border-right:1px solid var(--line)}
+nav h1{font-size:1.3em;color:var(--accent)}
+nav button{width:100%;display:flex;gap:10px;text-align:left;margin:5px 0}
+nav button[aria-current=page]{border-color:var(--accent);color:var(--accent)}
+article{overflow:auto;padding:28px}
+h2,h3{color:var(--accent)}
+.card{padding:18px;margin:16px 0;border-radius:24px;background:#0b1021e6;border:1px solid var(--line)}
+label{display:flex;flex-direction:column;gap:8px;margin:12px 0}
+label.check{flex-direction:row;align-items:center}
+button{margin:5px 5px 5px 0}
+.message{min-height:1.5em}
+</style>
+</head>
+<body>
+<main>
+<nav aria-label="Instellingen"><h1>Controlecentrum</h1>
+<button type="button">Gebruikers</button>
+<button type="button" aria-current="page">Accounts</button>
+<button type="button">Beveiliging</button>
+</nav>
+<article><h2>Accounts</h2><div id="root"></div></article>
+</main>
+<script type="module">
+import {mountAccounts} from '/pakket/universe-os/usr/share/universe-os/ui/accounts-ui.js';
+const accounts = [
+ {id:'g', provider:'google', naam:'Jesse', adres:'jesse@example.com', scopes:['Gmail lezen','Gmail versturen','Agenda lezen','Agenda bewerken'], server:''},
+ {id:'i', provider:'imap', naam:'School', adres:'jesse@school.example', scopes:['IMAP','SMTP'], server:'imap.school.example'}
+];
+const call = async (cmd) => {
+ if (cmd === 'accounts.list') return accounts;
+ if (cmd === 'scherm.status') return {toegestaan:true, bezig:false, backend:'wtype', compositor:'labwc', paniek:'Super+Escape', muis:false};
+ if (cmd === 'accounts.disconnect') return {ontkoppeld:true};
+ return {};
+};
+await mountAccounts(document.getElementById('root'), {call});
+document.body.dataset.ready = '1';
+</script>
+</body>
+</html>
