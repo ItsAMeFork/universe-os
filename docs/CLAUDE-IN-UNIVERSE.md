@@ -101,6 +101,20 @@ Versturen, afspraken maken, en gevoelige schermacties (wissen, betalen, wachtwoo
 eigen venster in de shell. Zonder antwoord "Toestaan" gebeurt de actie niet, ook niet als het hulpmiddel
 rechtstreeks wordt aangeroepen.
 
+De toestemming van Claude Code zelf is geen grens. Die geldt alleen voor dat ene programma, en een terminalopdracht
+loopt eromheen. De grens zit in de shell en in `universe_mcp.py`: `call` op de socket alleen vanaf dat bestand,
+schermtoestemming alleen in het geheugen van de shell na een venster, geen invoer naar een terminal, en bubblewrap
+zodat het programma de sleutelbos en `/dev/uinput` niet zelf pakt. Zie `docs/REVIEW-AI-STACK.md`.
+
+## Wisselen van AI
+Controlecentrum → AI kiest het programma in het paneel: Claude Code (standaard), Codex (ChatGPT), Gemini of Ollama.
+Alle vier gebruiken dezelfde `universe_mcp.py`. Ollama spreekt zelf geen MCP; `ollama_host.py` is alleen de client
+ernaartoe. Goose en OpenCode zijn niet gekozen: een tweede runtime met een eigen toestemmingssysteem, en niet in Debian.
+Hooks van Claude Code blijven voor luisteren, denken, toestemming en klaar. Bij de andere programma's stuurt de
+MCP-server de seintjes voor hulpmiddelen (`UNIVERSE_AI_EVENTS`); luisteren en klaar komen bij Ollama uit de host.
+Codex en Gemini hebben dat begin- en eindseintje niet. Sleutels staan in de sleutelbos (`ai-sleutel:<programma>`),
+niet in `ai.json`.
+
 ## Fasen
 1. **Deze stap:** starter, MCP-server met hulpmiddelen en brein (notities en voorkeuren), hooks, socketopdrachten,
    paneel met terminal, eenvoudig tijdelijk personage. Testen in de VM.

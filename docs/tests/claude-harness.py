@@ -92,14 +92,19 @@ def energie(actie, reply):
     return powered, result, server.lines if server else []
 
 
-# Shell down, or this shell does not know claude.power yet: direct poweroff/reboot is allowed.
+# Shell down, or this shell does not know claude.power yet: do not power off anyway.
 powered, result, _ = energie('afsluiten', None)
-assert powered and powered[0][0] == 'poweroff', powered
-assert not result.get('isError')
-assert 'afgesloten' in text_of(result)
+assert powered == [], powered
+assert result.get('isError') is True
+assert 'shell' in text_of(result).lower()
 
 powered, result, _ = energie('opnieuw_opstarten', 'fout: niet toegestaan: claude.power')
-assert powered and powered[0][0] == 'reboot', powered
+assert powered == [], powered
+assert result.get('isError') is True
+
+# Lock may still fall back when the shell is gone. Reboot may not.
+powered, result, _ = energie('vergrendelen', None)
+assert powered and powered[0][0] == 'lock', powered
 assert not result.get('isError')
 
 # Any other shell error (refusal, handler exception, silence) must reach Claude. Do not power off.

@@ -10,7 +10,7 @@ Depends: python3 (>= 3.11), python3-gi, curl, python3-gi-cairo, python3-cairo, g
  brightnessctl, mate-polkit, polkitd, pkexec, xdg-user-dirs, xdg-utils, libgtk-3-bin, desktop-file-utils,
  thunar, gvfs, gvfs-backends, udisks2, xfce4-terminal, zenity, fonts-noto-core, adwaita-icon-theme,
  network-manager, wireplumber, pipewire-audio, pipewire-bin, packagekit, packagekit-tools, ufw, lightdm, lightdm-gtk-greeter, gir1.2-lightdm-1, xserver-xorg,
- python3-keyring, gir1.2-secret-1, gnome-keyring, libpam-gnome-keyring, python3-evdev, wtype
+ python3-keyring, gir1.2-secret-1, gnome-keyring, libpam-gnome-keyring, python3-evdev, wtype, bubblewrap
 Recommends: recoll, poppler-utils, wine, wine64, msitools, gnome-software, gdebi, pavucontrol, wdisplays, blueman, network-manager-gnome,
  python3-caldav,
  gnome-system-monitor, firefox-esr, mousepad, file-roller, atril, gnome-calculator

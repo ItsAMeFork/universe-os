@@ -92,7 +92,7 @@ on('status',s=>{status=s;renderPill();});
 on('panel-toggle',()=>toggle(!open));
 on('panel-close',()=>{if(open)toggle(false);});
 on('config',c=>{config=c;applySettings({...c.settings,colors:c.world.colors});});
-function applyScherm(s){scherm=s||{};banner.hidden=!scherm.bezig;banner.textContent=scherm.bezig?'Claude bedient het scherm. Super+Escape stopt dit.':'';renderPill();}
+function applyScherm(s){scherm=s||{};banner.hidden=!scherm.bezig;banner.textContent=scherm.bezig?'De assistent bedient het scherm. Super+Escape stopt dit.':'';renderPill();}
 on('scherm',applyScherm);
 setInterval(()=>{renderPill();},15000);
 (async()=>{try{config=await call('config.get');applySettings({...config.settings,colors:config.world.colors});}catch{}call('scherm.status').then(applyScherm).catch(()=>{});refresh();})();

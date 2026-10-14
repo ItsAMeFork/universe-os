@@ -10,7 +10,7 @@ it only redraws while it animates (a blink every few seconds otherwise).
 import math
 import os
 import random
-import shutil
+import sys
 import time
 
 import cairo
@@ -41,12 +41,17 @@ CSS = b"""
 """
 
 
+def _ai():
+    folder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'claude')
+    if folder not in sys.path:
+        sys.path.insert(0, folder)
+    import ai_provider
+    return ai_provider
+
+
 def find_claude():
     """Path of the claude command, also when ~/.local/bin (official installer) is not on the shell's PATH."""
-    for path in (shutil.which('claude'), os.path.expanduser('~/.local/bin/claude'), os.path.expanduser('~/.claude/local/claude')):
-        if path and os.access(path, os.X_OK):
-            return path
-    return None
+    return _ai().bin_for('claude')
 
 
 def ease(t):
@@ -66,7 +71,8 @@ class ClaudeUI:
         Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
     def available(self):
-        return find_claude() is not None
+        info = _ai().load()
+        return _ai().installed(info['provider'])
 
     def animations(self):
         import config
@@ -94,6 +100,9 @@ class ClaudeUI:
         """Puts a ready-made question in the Claude panel. The user sends it with Enter: the buddy itself never sends
         anything to Claude. A freshly started Claude Code needs a few seconds before it reads input."""
         fresh = self.term is None
+        if not self.available():
+            self.log('De gekozen AI is niet geïnstalleerd; paneel niet geopend.')
+            return False
         if not self.open():
             return False
         text = question.replace('\n', ' ')
@@ -130,7 +139,7 @@ class ClaudeUI:
     def build_panel(self):
         L, E, K = GtkLayerShell.Layer, GtkLayerShell.Edge, GtkLayerShell.KeyboardMode
         win = Gtk.Window()
-        win.set_title('Universe Claude')
+        win.set_title('Universe AI')
         visual = win.get_screen().get_rgba_visual()
         if visual:
             win.set_visual(visual)
@@ -153,10 +162,17 @@ class ClaudeUI:
         dot = Gtk.Label(label='●')
         dot.get_style_context().add_class('claude-dot')
         titles = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        title = Gtk.Label(label='Claude', xalign=0)
+        naam, regel = 'AI', 'Kies een assistent in Controlecentrum → AI'
+        try:
+            naam, regel = _ai().panel_title()
+        except Exception:
+            pass
+        title = Gtk.Label(label=naam, xalign=0)
         title.get_style_context().add_class('claude-title')
-        sub = Gtk.Label(label='Claude Code met Haiku · /model om te wisselen', xalign=0)
+        sub = Gtk.Label(label=regel, xalign=0)
         sub.get_style_context().add_class('claude-sub')
+        self.title_label = title
+        self.sub_label = sub
         titles.pack_start(title, False, False, 0)
         titles.pack_start(sub, False, False, 0)
         new = Gtk.Button(label='Nieuw gesprek')
@@ -229,7 +245,7 @@ class ClaudeUI:
             self.log('Links in het Claude-paneel niet klikbaar: %s' % error)
         term.connect('button-press-event', self.terminal_click)
         term.connect('key-press-event', self.terminal_key)
-        argv = ['/usr/bin/universe-claude'] + (['--nieuw'] if fresh else [])
+        argv = ['/usr/bin/universe-ai'] + (['--nieuw'] if fresh else [])
         term.spawn_async(Vte.PtyFlags.DEFAULT, os.path.expanduser('~'), argv, None, GLib.SpawnFlags.DEFAULT,
                          None, None, -1, None, None, None)
         self.holder.pack_start(term, True, True, 0)
@@ -238,8 +254,15 @@ class ClaudeUI:
 
     def open(self):
         if not self.available():
-            self.log('Claude Code is niet geïnstalleerd; paneel niet geopend.')
+            self.log('De gekozen AI is niet geïnstalleerd; paneel niet geopend.')
             return False
+        if getattr(self, 'title_label', None):
+            try:
+                naam, regel = _ai().panel_title()
+                self.title_label.set_text(naam)
+                self.sub_label.set_text(regel)
+            except Exception:
+                pass
         if self.alive_timer:
             GLib.source_remove(self.alive_timer)
             self.alive_timer = 0
@@ -362,7 +385,7 @@ class Buddy:
         self.ui = ui
         L, E, K = GtkLayerShell.Layer, GtkLayerShell.Edge, GtkLayerShell.KeyboardMode
         win = Gtk.Window()
-        win.set_title('Universe Claude buddy')
+        win.set_title('Universe AI')
         visual = win.get_screen().get_rgba_visual()
         if visual:
             win.set_visual(visual)
@@ -380,7 +403,7 @@ class Buddy:
         area.add_events(Gdk.EventMask.BUTTON_PRESS_MASK)
         area.connect('button-press-event', self.clicked)
         area.set_halign(Gtk.Align.END)
-        area.set_tooltip_text('Claude (Windows+C)')
+        area.set_tooltip_text('AI (Windows+C)')
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self.bubble = Gtk.EventBox()
         self.bubble.set_app_paintable(True)
@@ -450,7 +473,7 @@ class Buddy:
                     self.ui.log('Suggestie mislukt: %s' % error)
                     try:
                         import backend
-                        backend.spawn(['notify-send', '-a', 'Claude', 'Dat lukte niet', str(error)[:200]])
+                        backend.spawn(['notify-send', '-a', 'AI', 'Dat lukte niet', str(error)[:200]])
                     except Exception:  # noqa: BLE001
                         pass
                 self.set_state('happy')

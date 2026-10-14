@@ -10,7 +10,7 @@
   {"id": "screenshot-area", "name": "Schermafbeelding van een gebied", "key": "S-Print", "command": "universe-screenshot --gebied"},
   {"id": "terminal", "name": "Terminal", "key": "C-A-t", "command": "universe-ctl run terminal"},
   {"id": "settings", "name": "Controlecentrum", "key": "W-i", "command": "universe-ctl run control"},
-  {"id": "claude", "name": "Claude (paneel met Claude Code)", "key": "W-c", "command": "universe-ctl claude"},
+  {"id": "claude", "name": "AI (paneel)", "key": "W-c", "command": "universe-ctl claude"},
   {"id": "scherm-stop", "name": "AI-schermbediening stoppen", "key": "W-Escape", "command": "universe-ctl scherm-stop", "fixed": true},
   {"id": "switch", "name": "Wisselen tussen programma's", "key": "A-Tab", "labwc": "NextWindow", "fixed": true},
   {"id": "switch-back", "name": "Terug wisselen tussen programma's", "key": "A-S-Tab", "labwc": "PreviousWindow", "fixed": true},

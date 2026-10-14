@@ -42,7 +42,8 @@ CLAUDE_CALLS = {'status', 'apps.list', 'apps.launch', 'windows.list', 'windows.a
                 'brein.search', 'brein.forget_all', 'brein.lijst',
                 'mail.search', 'mail.read', 'mail.draft', 'mail.send', 'agenda.list', 'agenda.create',
                 'scherm.status', 'scherm.muis', 'scherm.klik', 'scherm.typ', 'scherm.toets', 'scherm.scroll', 'scherm.focus'}
-CLAUDE_RUN = {'files', 'terminal', 'monitor', 'software', 'control', 'pavucontrol', 'wdisplays', 'blueman-manager', 'network-editor'}
+# terminal is not here: the assistant must not open a shell it can then type into.
+CLAUDE_RUN = {'files', 'monitor', 'software', 'control', 'pavucontrol', 'wdisplays', 'blueman-manager', 'network-editor'}
 # Same set as universe_mcp.SECURITY_SETTINGS: `universe-ctl call config.set` must not bypass the MCP check.
 SECURITY_SETTINGS = {'lockMinutes'}
 # Fixed list for claude.anim / animatie_tonen. Planet flights are the existing world.open route (open-planet);
@@ -162,6 +163,12 @@ def _screen():
     _claude_dir()
     import screen
     return screen
+
+
+def _peer():
+    _claude_dir()
+    import peer
+    return peer
 
 
 def _confirm(title, text):
@@ -656,9 +663,22 @@ class Shell:
             'scherm.intrekken': lambda a: self._screen_grant(False),
         }
 
+    def _focused_app(self):
+        try:
+            windows = self.window_list()
+        except Exception:
+            return ''
+        for window in windows:
+            if window.get('activated'):
+                return window.get('appId') or ''
+        return ''
+
     def _screen_act(self, kind, args):
-        """Pointer, keys and typing. The banner is up for the whole call, including the confirmation dialog."""
+        """Pointer, keys and typing. The banner is up for the whole call, including the confirmation dialog.
+        The focused program is filled in here so the model cannot claim a terminal is something else."""
         screen = _screen()
+        args = dict(args or {})
+        args['venster'] = self._focused_app()
         self.broadcast('scherm', {**screen.status(), 'bezig': True, 'actie': kind})
         try:
             return screen.perform(kind, args, confirmer=_confirm)
@@ -670,6 +690,13 @@ class Shell:
         if not screen.enabled():
             _brein().log_actie('scherm_focus', 'Schermbediening stond uit', 'geweigerd')
             raise PermissionError('AI mag het scherm niet bedienen. Zet het aan in Controlecentrum → Accounts.')
+        target = ''
+        for window in self.window_list():
+            if str(window.get('id')) == str(args.get('id')):
+                target = window.get('appId') or ''
+        if screen.terminal_app(target):
+            _brein().log_actie('scherm_focus', 'Terminal geweigerd', 'geweigerd')
+            raise PermissionError('Een terminal mag de assistent niet naar voren halen.')
         self.broadcast('scherm', {**screen.status(), 'bezig': True, 'actie': 'focus'})
         try:
             self.toplevels.activate(str(args.get('id')))
@@ -710,6 +737,9 @@ class Shell:
                 log('antwoord niet verstuurd: %s' % error)
             return False
         if line.startswith('call '):
+            # Same-user processes can open this socket. Only the real MCP server may call handlers.
+            if not _peer().allow_call(line, _peer().cmdline_of_connection(connection)):
+                return answer('fout: alleen de assistent-hulpmiddelen mogen dit. Een terminal kan het niet.')
             self.call(line, answer)
         else:
             answer(self.command(line))
@@ -785,16 +815,29 @@ class Shell:
             elif cmd == 'scherm-stop':
                 # Panic hotkey (Super+Escape). Drops the session grant before the next input event.
                 self.broadcast('scherm', _screen().revoke())
+            elif cmd == 'scherm-aan':
+                import json
+                result = _screen().request_grant(_confirm)
+                self.broadcast('scherm', result)
+                return 'ok ' + json.dumps(result, ensure_ascii=False)
+            elif cmd == 'scherm-uit':
+                import json
+                result = _screen().revoke()
+                self.broadcast('scherm', result)
+                return 'ok ' + json.dumps(result, ensure_ascii=False)
             elif cmd == 'scherm':
-                self.broadcast('scherm', _screen().status())
+                import json
+                result = _screen().status()
+                self.broadcast('scherm', result)
+                return 'ok ' + json.dumps(result, ensure_ascii=False)
             elif cmd == 'claude':
                 if not (self.claude and self.claude.available()):
-                    return 'fout: Claude Code is niet geïnstalleerd'
+                    return 'fout: De gekozen AI is niet geïnstalleerd'
                 self.claude.toggle()
             elif cmd == 'claude-ask' and len(parts) > 1:
-                # Puts a question ready in the Claude panel (the user sends it with Enter), e.g. from a launcher.
+                # Puts a question ready in the panel (the user sends it with Enter). The buddy never sends it.
                 if not (self.claude and self.claude.available()):
-                    return 'fout: Claude Code is niet geïnstalleerd'
+                    return 'fout: De gekozen AI is niet geïnstalleerd'
                 self.claude.ask(line.split(maxsplit=1)[1])
             elif cmd == 'claude-event' and len(parts) > 1:
                 import json
@@ -993,7 +1036,7 @@ class Shell:
             return True
         buddy = self.claude.buddy if self.claude else None
         if not buddy:
-            raise RuntimeError('De buddy is er niet (uitgezet of Claude Code ontbreekt).')
+            raise RuntimeError('De buddy is er niet (uitgezet of de gekozen AI ontbreekt).')
         if kind == 'buddy':
             buddy.set_state(arg)
         elif kind == 'plek':

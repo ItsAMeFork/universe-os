@@ -16,11 +16,19 @@ import shutil
 import subprocess
 
 import brein
+import confirm
 
 PANIC = 'Super+Escape'
 SENSITIVE_KEYS = frozenset({
     'delete', 'shift+delete', 'ctrl+delete', 'ctrl+shift+delete',
     'alt+f4', 'ctrl+w', 'ctrl+q', 'ctrl+enter', 'ctrl+shift+enter', 'alt+enter',
+})
+# Opening a terminal from here would let the next typed line run outside the confirmation gate.
+BLOCKED_KEYS = frozenset({'ctrl+alt+t', 'super+t', 'super+return'})
+TERMINALS = frozenset({
+    'xfce4-terminal', 'gnome-terminal', 'org.gnome.terminal', 'org.gnome.console', 'kgx',
+    'kitty', 'foot', 'alacritty', 'xterm', 'wezterm', 'tilix', 'com.mitchellh.ghostty',
+    'io.elementary.terminal', 'universe-claude', 'universe-ai',
 })
 _MODS = ('ctrl', 'alt', 'shift', 'super')
 _ALIAS = {'control': 'ctrl', 'win': 'super', 'meta': 'super', 'return': 'enter', 'del': 'delete', 'esc': 'escape'}
@@ -38,42 +46,65 @@ _DOEL = ('verwijder', 'delete', 'betalen', 'betaal', 'payment', 'pay', 'verzend'
 _PASSWORD_FIELDS = frozenset({'wachtwoord', 'password', 'pin', 'betaling', 'payment'})
 
 
-def _runtime(*parts):
-    base = os.environ.get('XDG_RUNTIME_DIR') or '/tmp'
-    folder = os.path.join(base, 'universe-os')
-    os.makedirs(folder, mode=0o700, exist_ok=True)
-    return os.path.join(folder, *parts)
+# The grant lives in this process (the shell). A file in the runtime dir was writable by the
+# assistant itself, so `touch` turned screen control on without the user. Do not read one.
+_granted = False
+_working = False
 
 
-def _flag():
-    return _runtime('ai-scherm')
-
-
-def _busy():
-    return _runtime('ai-scherm-bezig')
+def _discard_flag_file():
+    """Remove a leftover flag from older versions. It is never consulted."""
+    path = os.path.join(os.environ.get('XDG_RUNTIME_DIR') or '/tmp', 'universe-os', 'ai-scherm')
+    try:
+        os.remove(path)
+    except OSError:
+        return
 
 
 def enabled():
-    return os.path.isfile(_flag())
+    _discard_flag_file()
+    return _granted
 
 
 def allow():
-    """Session grant. Only the Accounts page may call this — it is not on the Claude allow-list."""
-    path = _flag()
-    with open(path, 'w', encoding='utf-8') as handle:
-        handle.write('aan\n')
-    os.chmod(path, 0o600)
+    """Session grant. The shell calls this only after the user pressed Toestaan."""
+    global _granted
+    _discard_flag_file()
+    _granted = True
     return status()
+
+
+def request_grant(confirmer):
+    """Turns screen control on only when confirmer returns True. No confirmer means no."""
+    if enabled():
+        return status()
+    if confirmer is None or not confirmer(
+            'AI mag het scherm bedienen',
+            'Dit geldt tot je afmeldt. De assistent kan dan de muis en toetsen sturen.\n'
+            'Super+Escape stopt het meteen.\n'
+            'Een terminal kan de assistent niet bedienen.'):
+        return status()
+    return allow()
 
 
 def revoke():
     """Panic stop (Super+Escape) and the off switch. Drops the session grant immediately."""
-    for path in (_flag(), _busy()):
-        try:
-            os.remove(path)
-        except FileNotFoundError:
-            pass
+    global _granted, _working
+    _granted = False
+    _working = False
+    _discard_flag_file()
     return status()
+
+
+def terminal_app(app_id):
+    """True for a terminal window. The assistant must not type into one: that is a shell."""
+    text = str(app_id or '').strip().lower()
+    if text.endswith('.desktop'):
+        text = text[:-len('.desktop')]
+    base = text.split('.')[-1]
+    if text in TERMINALS or base in TERMINALS:
+        return True
+    return 'terminal' in base or base in ('xterm', 'kitty', 'foot', 'alacritty', 'wezterm', 'tilix')
 
 
 def available():
@@ -127,22 +158,22 @@ def status():
     backend = backend_for('muis')
     if backend == 'geen':
         backend = backend_for('typ')
-    return {'toegestaan': enabled(), 'bezig': os.path.isfile(_busy()), 'backend': backend,
+    return {'toegestaan': _granted, 'bezig': _working, 'backend': backend,
             'beschikbaar': [name for name, ok in present.items() if ok],
             'muis': backend_for('muis') != 'geen', 'compositor': compositor(), 'paniek': PANIC}
 
 
 def _mark(busy):
-    path = _busy()
-    if busy:
-        with open(path, 'w', encoding='utf-8') as handle:
-            handle.write('bezig\n')
-        os.chmod(path, 0o600)
-    else:
-        try:
-            os.remove(path)
-        except FileNotFoundError:
-            pass
+    global _working
+    _working = bool(busy)
+
+
+def looks_like_secret(text):
+    """A single token with a digit or a symbol. The tool cannot see the real widget type."""
+    text = str(text or '')
+    if not text or any(ch.isspace() for ch in text) or len(text) < 8:
+        return False
+    return any(ch.isdigit() for ch in text) or any(ch in text for ch in '!@#$%^&*')
 
 
 def norm_combo(combo):
@@ -158,11 +189,12 @@ def _sensitive(kind, args):
     if kind == 'typ':
         text = str(args.get('tekst') or '')
         field = str(args.get('veld') or '').strip().lower()
-        if field in _PASSWORD_FIELDS or args.get('verzenden'):
-            summary = 'Tekst in een %sveld (%d tekens, niet gelogd)' % (field or 'gevoelig', len(text))
-            preview = summary + '.\n\nClaude krijgt de tekst niet in het logboek te zien nadat je toestemt.'
+        # The model can omit veld. A token that looks like a secret is still confirmed, and the text stays out of the log.
+        if field in _PASSWORD_FIELDS or args.get('verzenden') or looks_like_secret(text):
+            summary = 'Tekst in een gevoelig veld (%d tekens, niet gelogd)' % len(text)
+            preview = summary + '.\n\nDe tekst komt niet in het logboek.'
             if args.get('verzenden'):
-                preview = 'Claude wil tekst typen en die daarna versturen of bevestigen.\n' + preview
+                preview = 'De assistent wil tekst typen en die daarna versturen of bevestigen.\n' + preview
             return True, preview, summary
         return False, '', 'Typ %d tekens' % len(text)
     if kind == 'toets':
@@ -336,10 +368,19 @@ def perform(kind, args, confirmer=None, runner=None, have=None):
     have replaces backend detection in tests (a backend name). runner replaces the real command.
     """
     args = dict(args or {})
+    if confirm.busy():
+        brein.log_actie('scherm_' + kind, 'Bevestiging stond open', 'geweigerd')
+        raise PermissionError('Er staat een bevestiging open. Die kan de assistent niet zelf aanklikken.')
     if not enabled():
         brein.log_actie('scherm_' + kind, 'Schermbediening stond uit', 'geweigerd')
         raise PermissionError('AI mag het scherm niet bedienen. Zet "AI mag scherm bedienen" aan in '
                               'Controlecentrum → Accounts. Dit geldt tot je afmeldt. Stoppen: %s.' % PANIC)
+    if kind in ('typ', 'toets', 'klik') and terminal_app(args.get('venster')):
+        brein.log_actie('scherm_' + kind, 'Terminal geweigerd', 'geweigerd')
+        raise PermissionError('Een terminal mag de assistent niet bedienen. Dat zou de bevestiging omzeilen.')
+    if kind == 'toets' and norm_combo(args.get('toets') or args.get('combo') or '') in BLOCKED_KEYS:
+        brein.log_actie('scherm_toets', 'Terminaltoets geweigerd', 'geweigerd')
+        raise PermissionError('Die toets opent een terminal. Dat mag de assistent niet.')
     backend = backend_for(kind, have)
     ops = plan(backend, kind, args)
     sensitive, preview, summary = _sensitive(kind, args)
