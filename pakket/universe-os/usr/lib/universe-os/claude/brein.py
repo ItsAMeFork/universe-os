@@ -1,13 +1,28 @@
 """The second brain: one local SQLite database with full-text search (FTS5), for Claude Code via universe-mcp.
 
 Lives in ~/.local/share/universe-os/brein.db and never leaves the computer; only what Claude asks for goes into the
-conversation. Phase 1: preferences, notes and facts. File index and timeline follow later (docs/CLAUDE-IN-UNIVERSE.md).
+conversation. Preferences, notes and facts, plus a 30-day timeline. The Brein nebula reads the same rows: stars are
+capped, and constellation lines come from shared tags and words through FTS5 (no embeddings).
 """
+import json
+import math
 import os
 import sqlite3
 import time
 
 KINDS = ('voorkeur', 'notitie', 'feit')
+# The nebula draws one star per memory. Past this, older rows stay in the database but not on the canvas.
+STAR_CAP = 160
+TRAIL_CAP = 36
+EDGE_CAP = 200
+FORGET_PHRASE = 'alles vergeten'
+# Short words that show up in almost every sentence. Tags may be shorter (length 2) and are not filtered here.
+STOPWORDS = frozenset('''
+de het een van en is dat die voor met op te zijn niet je jij ik in om aan ook als maar of er bij tot uit nog wel
+dan naar over deze dit wat hoe waar mijn jou we ze zij hun ons onze kan moet wil graag heel meer veel iets niets
+alles hier daar zo al nu later altijd nooit the and for you with this that from your are was were have has not but
+about into over just like
+'''.split())
 
 
 def path():
@@ -97,6 +112,175 @@ def forget(memory_id):
     return True
 
 
+def _brightness(updated, now):
+    """1.0 just written, fading toward 0.28 over a couple of weeks. The nebula uses this as star brightness."""
+    age = max(0.0, float(now) - float(updated))
+    return round(0.28 + 0.72 * math.exp(-age / (12 * 86400)), 3)
+
+
+def _present(row, now=None):
+    now = time.time() if now is None else now
+    return {'id': row['id'], 'soort': row['kind'], 'tekst': row['text'], 'labels': row['tags'],
+            'aangemaakt': row['created'], 'bijgewerkt': row['updated'],
+            'helderheid': _brightness(row['updated'], now)}
+
+
+def get(memory_id):
+    with connect() as db:
+        row = db.execute('SELECT * FROM memories WHERE id = ?', (int(memory_id),)).fetchone()
+    return _present(row) if row else None
+
+
+def list_memories(limit=STAR_CAP):
+    """Newest memories for the nebula, never more than STAR_CAP."""
+    limit = max(1, min(int(limit or STAR_CAP), STAR_CAP))
+    now = time.time()
+    with connect() as db:
+        rows = db.execute('SELECT * FROM memories ORDER BY updated DESC, id DESC LIMIT ?', (limit,))
+        return [_present(r, now) for r in rows]
+
+
+def _tokens(text, min_len):
+    raw = str(text or '').lower().replace(',', ' ').replace(';', ' ')
+    words = []
+    for part in raw.split():
+        word = ''.join(ch for ch in part if ch.isalnum())
+        if len(word) >= min_len and word not in STOPWORDS and word not in words:
+            words.append(word)
+    return words
+
+
+def links(limit=STAR_CAP, max_edges=EDGE_CAP):
+    """Constellation edges: memories that share a tag or a distinctive word, confirmed with FTS5.
+
+    A token has to match through the full-text index, not only a Python substring. Tokens shared by two to eight
+    memories become a chain (a line of stars), so one common word cannot fill the sky with edges.
+    """
+    rows = list_memories(limit)
+    ids = {r['id'] for r in rows}
+    grouped = {}  # token -> (id list, came from a tag)
+    for row in rows:
+        tagged = _tokens(row['labels'], 2)
+        words = []
+        for token in tagged:
+            words.append(token)
+        for token in _tokens(row['tekst'], 4):
+            if token not in words:
+                words.append(token)
+            if len(words) >= 10:
+                break
+        for token in words:
+            have, from_tag = grouped.get(token, ([], False))
+            if row['id'] not in have:
+                have.append(row['id'])
+            grouped[token] = (have, from_tag or token in tagged)
+    shared = [(token, members, from_tag) for token, (members, from_tag) in grouped.items() if 2 <= len(members) <= 8]
+    shared.sort(key=lambda item: (0 if item[2] else 1, len(item[1]), -len(item[0])))
+    edges, seen = [], set()
+    with connect() as db:
+        for token, members, _from_tag in shared[:80]:
+            if len(edges) >= max_edges:
+                break
+            try:
+                found = {r[0] for r in db.execute('SELECT rowid FROM memories_fts WHERE memories_fts MATCH ?', ('"%s"' % token,))}
+            except sqlite3.OperationalError:
+                continue
+            confirmed = [mid for mid in members if mid in found and mid in ids]
+            if len(confirmed) < 2:
+                continue
+            for left, right in zip(confirmed, confirmed[1:]):
+                key = (min(left, right), max(left, right))
+                if key in seen:
+                    continue
+                seen.add(key)
+                edges.append({'van': left, 'naar': right, 'via': token})
+                if len(edges) >= max_edges:
+                    break
+    return edges
+
+
+def search_memories(query='', limit=40):
+    """Memories matching a nebula search. An empty query is the recent list (every star lit)."""
+    limit = max(1, min(int(limit or 40), STAR_CAP))
+    match = _match(query)
+    now = time.time()
+    with connect() as db:
+        if match:
+            rows = db.execute('SELECT m.* FROM memories_fts f JOIN memories m ON m.id = f.rowid '
+                              'WHERE memories_fts MATCH ? ORDER BY rank LIMIT ?', (match, limit))
+        else:
+            rows = db.execute('SELECT * FROM memories ORDER BY updated DESC, id DESC LIMIT ?', (limit,))
+        return [_present(r, now) for r in rows]
+
+
+def resolve_flash(data):
+    """The memory a hook or MCP just stored, so the open nebula can flash that star."""
+    data = data if isinstance(data, dict) else {}
+    if data.get('id'):
+        row = get(data['id'])
+        if row:
+            return row
+    text = str(data.get('tekst') or '').strip()
+    if text:
+        with connect() as db:
+            row = db.execute('SELECT * FROM memories WHERE text = ? ORDER BY id DESC LIMIT 1', (text,)).fetchone()
+        if row:
+            return _present(row)
+    fresh = list_memories(1)
+    return fresh[0] if fresh else None
+
+
+def forget_all(confirm):
+    """Wipes memories, the timeline and hint answers. Refuses unless confirm is the exact phrase."""
+    if str(confirm or '').strip().lower() != FORGET_PHRASE:
+        raise ValueError('Typ "%s" om alles te vergeten.' % FORGET_PHRASE)
+    with connect() as db:
+        db.execute('DELETE FROM memories')
+        db.execute('DELETE FROM timeline')
+        db.execute('DELETE FROM hints')
+    return True
+
+
+def summary():
+    with connect() as db:
+        per_kind = {kind: db.execute('SELECT count(*) FROM memories WHERE kind = ?', (kind,)).fetchone()[0] for kind in KINDS}
+        return {
+            'herinneringen': sum(per_kind.values()),
+            'per_soort': per_kind,
+            'tijdlijn': db.execute('SELECT count(*) FROM timeline').fetchone()[0],
+            'hints': db.execute('SELECT count(*) FROM hints').fetchone()[0],
+            'bewaarplaats': '~/.local/share/universe-os/brein.db',
+            'dagen_tijdlijn': TIMELINE_DAYS,
+        }
+
+
+def export_data():
+    now = time.time()
+    with connect() as db:
+        memories = [_present(r, now) for r in db.execute('SELECT * FROM memories ORDER BY id')]
+        events = [{'op': r['at'], 'soort': r['kind'], 'wat': r['item'], 'naam': r['label']}
+                  for r in db.execute('SELECT * FROM timeline ORDER BY at')]
+        hints = [{'sleutel': r['key'], 'antwoord': r['answer'], 'op': r['at']}
+                 for r in db.execute('SELECT * FROM hints ORDER BY key')]
+    return {'herinneringen': memories, 'tijdlijn': events, 'hints': hints,
+            'gemaakt': time.strftime('%Y-%m-%dT%H:%M:%S', time.localtime(now))}
+
+
+def write_export(folder):
+    """Writes export_data() as JSON (mode 0600) and returns the path plus counts."""
+    data = export_data()
+    os.makedirs(folder, mode=0o700, exist_ok=True)
+    dest = os.path.join(folder, 'brein-%s.json' % time.strftime('%Y%m%d-%H%M%S'))
+    tmp = dest + '.tmp'
+    with open(tmp, 'w', encoding='utf-8') as handle:
+        json.dump(data, handle, ensure_ascii=False, indent=2)
+        handle.write('\n')
+    os.chmod(tmp, 0o600)
+    os.replace(tmp, dest)
+    return {'pad': dest, 'herinneringen': len(data['herinneringen']), 'tijdlijn': len(data['tijdlijn']),
+            'hints': len(data['hints'])}
+
+
 # ----- timeline: what the user opened (30 days), for Claude and for the buddy's suggestions -----
 TIMELINE_DAYS = 30
 
@@ -117,6 +301,22 @@ def timeline(days=7, kind=None, limit=100):
                           [since] + ([kind] if kind else []) + [max(1, min(int(limit or 100), 500))])
         return [{'wanneer': time.strftime('%Y-%m-%d %H:%M', time.localtime(r['at'])), 'soort': r['kind'],
                  'wat': r['item'], 'naam': r['label']} for r in rows]
+
+
+def _trail_point(row):
+    return {'op': row['at'], 'soort': row['kind'], 'wat': row['item'], 'naam': row['label'] or row['item']}
+
+
+def trail(limit=TRAIL_CAP):
+    """Chronological comet trail for the nebula (oldest first), capped and evenly sampled."""
+    limit = max(1, min(int(limit or TRAIL_CAP), TRAIL_CAP))
+    since = time.time() - TIMELINE_DAYS * 86400
+    with connect() as db:
+        rows = list(db.execute('SELECT * FROM timeline WHERE at >= ? ORDER BY at ASC', (since,)))
+    if len(rows) > limit:
+        step = (len(rows) - 1) / (limit - 1)
+        rows = [rows[round(i * step)] for i in range(limit)]
+    return [_trail_point(r) for r in rows]
 
 
 def habits(hour, weekday=None, min_count=3):

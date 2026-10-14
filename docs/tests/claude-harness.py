@@ -135,6 +135,7 @@ ANIMATIONS = {
     'planeet-controle': ('planeet', 'control'),
     'planeet-internet': ('planeet', 'chat'),
     'planeet-games': ('planeet', 'games'),
+    'planeet-brein': ('planeet', 'brein'),
     'ruimte': ('ruimte', None),
     'buddy-rust': ('buddy', 'idle'),
     'buddy-luisteren': ('buddy', 'listen'),

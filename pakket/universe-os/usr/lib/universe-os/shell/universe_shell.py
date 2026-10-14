@@ -38,7 +38,8 @@ CLAUDE_CALLS = {'status', 'apps.list', 'apps.launch', 'windows.list', 'windows.a
                 'notifications.clear', 'run', 'desktop.list', 'desktop.mkdir', 'desktop.rename', 'desktop.trash',
                 'desktop.launch', 'browser.list', 'browser.select', 'audio.outputs', 'audio.select', 'config.get',
                 'config.set', 'start.toggle', 'layout.get', 'updates.status', 'updates.refresh', 'updates.install',
-                'claude.power', 'claude.anim'}
+                'claude.power', 'claude.anim', 'brein.list', 'brein.links', 'brein.timeline', 'brein.update', 'brein.forget',
+                'brein.search', 'brein.forget_all'}
 CLAUDE_RUN = {'files', 'terminal', 'monitor', 'software', 'control', 'pavucontrol', 'wdisplays', 'blueman-manager', 'network-editor'}
 # Same set as universe_mcp.SECURITY_SETTINGS: `universe-ctl call config.set` must not bypass the MCP check.
 SECURITY_SETTINGS = {'lockMinutes'}
@@ -51,6 +52,7 @@ ANIMATIONS = {
     'planeet-controle': ('planeet', 'control'),
     'planeet-internet': ('planeet', 'chat'),
     'planeet-games': ('planeet', 'games'),
+    'planeet-brein': ('planeet', 'brein'),
     'ruimte': ('ruimte', None),
     'buddy-rust': ('buddy', 'idle'),
     'buddy-luisteren': ('buddy', 'listen'),
@@ -71,6 +73,69 @@ DOCK_MARGIN = 8
 
 def log(text):
     print('[universe-shell] %s' % text, file=sys.stderr, flush=True)
+
+
+def _brein():
+    """brein.py lives next to the shell, under claude/ (installed: /usr/lib/universe-os/claude)."""
+    folder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'claude')
+    if folder not in sys.path:
+        sys.path.insert(0, folder)
+    import brein
+    return brein
+
+
+def _brein_files(query, limit=10):
+    """Recoll hits as moons; without Recoll, the shell's own file-name search."""
+    query = str(query or '').strip()
+    if not query:
+        return []
+    limit = max(1, min(int(limit or 10), 12))
+    found = None
+    try:
+        folder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'claude')
+        if folder not in sys.path:
+            sys.path.insert(0, folder)
+        import recoll_index
+        found = recoll_index.search(query, limit)
+    except Exception:  # noqa: BLE001 - the nebula still works without file search
+        found = None
+    if found is not None:
+        moons = []
+        for item in found[:limit]:
+            path = item.get('pad') or ''
+            moons.append({'naam': (item.get('titel') or os.path.basename(path) or path)[:180], 'pad': path, 'soort': 'bestand'})
+        return moons
+    try:
+        named = backend.search_files(query, limit)
+    except Exception:  # noqa: BLE001
+        return []
+    return [{'naam': item.get('name') or '', 'pad': item.get('path') or '',
+             'soort': 'map' if item.get('dir') else 'bestand'} for item in named[:limit]]
+
+
+def _brein_update(args):
+    text = args.get('tekst') if 'tekst' in args else args.get('text')
+    brain = _brein()
+    brain.update(args.get('id'), text)
+    return brain.get(int(args.get('id')))
+
+
+def _brein_forget(args):
+    memory_id = int(args.get('id'))
+    _brein().forget(memory_id)
+    return {'vergeten': memory_id}
+
+
+def _brein_search(args):
+    query = args.get('q') if 'q' in args else args.get('zoek', '')
+    brain = _brein()
+    return {'sterren': brain.search_memories(query, args.get('max') or 40), 'bestanden': _brein_files(query)}
+
+
+def _brein_forget_all(args):
+    phrase = args.get('bevestig') if 'bevestig' in args else args.get('confirm', '')
+    _brein().forget_all(phrase)
+    return {'vergeten': 'alles'}
 
 
 class Surface:
@@ -111,7 +176,8 @@ class Shell:
         self.world_ready = False
         self.toplevels = None  # run(): imported after the world window exists (pywayland, asyncio, ssl: seconds on a cold disk)
         self.bridge = Bridge(self.handlers(), threaded={'status', 'audio.outputs', 'audio.select', 'updates.status', 'power', 'volume.set', 'volume.mute',
-                                                        'notifications.clear', 'search.files', 'updates.status', 'updates.refresh', 'updates.install', 'pick.path'}, log=log)
+                                                        'notifications.clear', 'search.files', 'updates.status', 'updates.refresh', 'updates.install', 'pick.path',
+                                                        'brein.search'}, log=log)
         self.worlds = []
         self.panel = None
         self.dock = None
@@ -520,6 +586,13 @@ class Shell:
             'unlock.done': lambda a: self.unlock_done(),
             'claude.available': lambda a: bool(self.claude and self.claude.available()),
             'claude.toggle': lambda a: bool(self.claude) and self.claude.toggle(a.get('open')),
+            'brein.list': lambda a: {'sterren': _brein().list_memories(a.get('max'))},
+            'brein.links': lambda a: {'lijnen': _brein().links(a.get('max'))},
+            'brein.timeline': lambda a: {'spoor': _brein().trail(a.get('max')), 'dagen': _brein().TIMELINE_DAYS},
+            'brein.update': _brein_update,
+            'brein.forget': _brein_forget,
+            'brein.search': _brein_search,
+            'brein.forget_all': _brein_forget_all,
         }
 
     # ----- universe-ctl socket -----
@@ -637,8 +710,12 @@ class Shell:
                         data = json.loads(parts[2])
                     except ValueError:
                         pass
-                if self.claude:
-                    self.claude.event(parts[1], data if isinstance(data, dict) else {})
+                if not isinstance(data, dict):
+                    data = {}
+                if parts[1] == 'brein':
+                    self.flash_brein(data)  # a new memory: the open nebula flashes a star
+                elif self.claude:
+                    self.claude.event(parts[1], data)
             elif cmd == 'apps-changed':
                 self.broadcast('apps-changed')
             elif cmd == 'reload':
@@ -794,6 +871,16 @@ class Shell:
         # the glowing core; then the shutdown sound and the power action.
         GLib.idle_add(self.begin_logout, action)
         return True
+
+    def flash_brein(self, data):
+        """Push one memory to every world. The nebula ignores it when it is closed."""
+        payload = {}
+        try:
+            payload = _brein().resolve_flash(data or {}) or {}
+        except Exception as error:  # noqa: BLE001 - the hook must not break the shell
+            log('brein-flits: %s' % error)
+        for world in self.worlds:
+            world.emit('brein-flash', payload)
 
     def show_animation(self, name):
         """Play one allow-listed animation the world or the buddy already knows (animatie_tonen)."""

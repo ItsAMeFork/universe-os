@@ -41,6 +41,8 @@ in het brein (tabel hints). Het personage stuurt zelf nooit iets naar Claude.
 ## Tweede brein
 - Herinneringen, tijdlijn (30 dagen, programma's en bestanden die via Universe geopend worden) en antwoorden op
   suggesties: SQLite in `~/.local/share/universe-os/brein.db`.
+- De planeet Brein toont die herinneringen als een nevel (sterren, sterrenbeelden via gedeelde woorden in FTS5,
+  komeetspoor). Controlecentrum → Beveiliging laat zien wat er staat, exporteert JSON en kan alles vergeten.
 - Inhoud van je bestanden: **Recoll** (Debian-pakket, Xapian, offline), aanbevolen pakket. Index van de eigen mappen,
   elk half uur bijgewerkt op laagste prioriteit (niet op een bijna lege batterij). Zonder Recoll: zoeken op bestandsnaam.
 - Onderzocht en afgevallen: mem0/OpenMemory en Khoj (te zwaar, LLM nodig), basic-memory (Python 3.12, AGPL), de

@@ -30,7 +30,29 @@ const pages={
  users:async root=>{const list=await call('users.list');for(const u of list){root.append(card(u.fullName||u.name,note(`${u.name} · ${u.admin?'Beheerder':'Standaardaccount'}${u.me?' · Jij':''}`)));if(u.me)root.append(passwords('Eigen wachtwoord','account.password',{},true));if(config.user.admin){root.append(passwords(`Wachtwoord van ${u.name}`,'users.password',{name:u.name}));const verify=input('text'),removeHome=check('Persoonlijke bestanden ook verwijderen (onomkeerbaar)');root.append(card(`Beheer ${u.name}`,button(u.admin?'Standaardaccount maken':'Beheerder maken',()=>call('users.admin',{name:u.name,admin:!u.admin})),field(`Typ ${u.name} om verwijderen te bevestigen`,verify),removeHome.node,button('Account verwijderen',async()=>{if(verify.value!==u.name)throw Error('Bevestig de exacte accountnaam.');await call('users.remove',{name:u.name,deleteHome:removeHome.i.checked});await open('users');})));}}if(config.user.admin){const name=input(),full=input(),pw=input('password'),repeat=input('password'),admin=check('Beheerder');root.append(card('Nieuw account',field('Gebruikersnaam',name),field('Volledige naam',full),field('Wachtwoord',pw),field('Herhaal wachtwoord',repeat),admin.node,button('Account toevoegen',async()=>{if(!/^[a-z_][a-z0-9_-]{0,31}$/.test(name.value))throw Error('Gebruik een geldige gebruikersnaam in kleine letters.');if(pw.value.length<6||pw.value!==repeat.value)throw Error('Gebruik minstens 6 tekens en twee gelijke wachtwoorden.');const password=pw.value;pw.value=repeat.value='';await call('users.add',{name:name.value,fullName:full.value,password,admin:admin.i.checked});await open('users');})));}else root.append(note('Accountbeheer vereist een beheerder.'));},
  shortcuts:async root=>{const list=await call('shortcuts.get'),inputs=new Map();for(const s of list){const i=input('text',s.key);i.disabled=!!s.fixed;inputs.set(s.id,i);root.append(field(s.name+(s.fixed?' (vast)':''),i));}root.append(note('W = Windows, C = Ctrl, S = Shift, A = Alt. Voorbeeld: W-e.'),button('Sneltoetsen opslaan',async()=>{const seen=new Set(),changes={};for(const s of list){const key=inputs.get(s.id).value.trim();if(!key||seen.has(key.toLowerCase()))throw Error('Elke sneltoets moet ingevuld en uniek zijn.');seen.add(key.toLowerCase());if(!s.fixed)changes[s.id]=key;}await call('shortcuts.set',{changes});}));},
  updates:async root=>root.append(card('Software en updates',updatesView(),note('Vrijgegeven Universe OS-updates komen uit de eigen ondertekende pakketbron. Debian en Chrome gebruiken hun eigen pakketbronnen.'),tool('Software beheren','software',{mode:'installed'}))),
- security:async root=>{const f=await call('firewall.get');root.append(card('Firewall',note(!f.installed?'Firewall niet geïnstalleerd.':f.enabled?'Firewall staat aan.':'Firewall staat niet actief.'),note('Inkomende verbindingen worden standaard geweigerd. De huidige regelset wordt hier niet weergegeven.')),card('Privacy',note('Persoonlijke mappen horen alleen voor hun eigenaar toegankelijk te zijn. Beheer accountrechten op de pagina Accounts.')));},
+ security:async root=>{
+  const f=await call('firewall.get');
+  root.append(card('Firewall',note(!f.installed?'Firewall niet geïnstalleerd.':f.enabled?'Firewall staat aan.':'Firewall staat niet actief.'),note('Inkomende verbindingen worden standaard geweigerd. De huidige regelset wordt hier niet weergegeven.')));
+  const brain=await call('brein.summary');
+  const live=h('p',{});
+  const show=b=>{live.textContent=`${b.herinneringen} herinneringen (${b.per_soort.voorkeur} voorkeuren, ${b.per_soort.notitie} notities, ${b.per_soort.feit} feiten). Tijdlijn: ${b.tijdlijn} openingen van de laatste ${b.dagen_tijdlijn} dagen. Antwoorden op suggesties: ${b.hints}.`;};
+  show(brain);
+  const phrase=input('text');phrase.placeholder='alles vergeten';phrase.setAttribute('aria-label','Bevestiging om alles te vergeten');phrase.autocomplete='off';
+  root.append(card('Privacy',
+   note('Persoonlijke mappen horen alleen voor hun eigenaar toegankelijk te zijn. Beheer accountrechten op de pagina Accounts.'),
+   h('p',{style:'font-weight:600;color:var(--accent);margin-bottom:0'},'Tweede brein'),
+   note('Wat Claude lokaal onthoudt staat alleen op deze computer, in '+brain.bewaarplaats+'. Het gaat niet naar internet.'),
+   live,
+   button('Exporteren als JSON',async()=>{const saved=await call('brein.export');return 'Opgeslagen: '+saved.pad;}),
+   field('Typ alles vergeten om het hele brein te wissen',phrase),
+   button('Alles vergeten',async()=>{
+    if(phrase.value.trim().toLowerCase()!=='alles vergeten')throw Error('Typ precies: alles vergeten');
+    await call('brein.forget_all',{bevestig:phrase.value.trim()});
+    phrase.value='';
+    show(await call('brein.summary'));
+    return 'Alles is vergeten.';
+   })));
+ },
  claude:async root=>{const s=await call('claude.status');if(!s.installed){root.append(card('Claude Code',note('Claude Code is niet geïnstalleerd. Je meldt je aan met je eigen Claude-account; Universe OS levert Claude Code zelf niet mee.'),button('Claude Code installeren',async()=>{await call('claude.install');return 'Installatie geopend in een terminal. Druk daar op Enter om het venster te sluiten en open deze pagina daarna opnieuw.';})));return;}root.append(card('Claude Code',note(`Geïnstalleerd${s.version?' · versie '+s.version:''}`),button('Inloggen / Claude openen',()=>call('claude.open'))),card('Personage',setting('Personage op het bureaublad','buddy','checkbox')));},
  about:async root=>{const a=await call('about');root.append(card('Universe OS',details(a,{universe:'Versie',base:'Linuxbasis',kernel:'Kernel',cpu:'Processor',memoryMB:'Geheugen (MB)',machine:'Computer',labwc:'Vensterbeheerder',secureBoot:'Secure Boot'}),note(a.efi?'Opgestart met UEFI.':'Niet opgestart met UEFI.')));}
 };

@@ -20,10 +20,10 @@ import recoll_index  # noqa: E402
 SOCKET = os.path.join(os.environ.get('XDG_RUNTIME_DIR', '/tmp'), 'universe-shell.sock')
 PROTOCOL = '2025-06-18'
 PLANETS = {'home': 'Thuiswereld (persoonlijke map)', 'apps': 'Applicaties', 'store': 'Softwarewinkel',
-           'control': 'Controlecentrum', 'chat': 'Internet', 'games': 'Gamehal'}
+           'control': 'Controlecentrum', 'chat': 'Internet', 'games': 'Gamehal', 'brein': 'Brein (herinneringen)'}
 # Names the shell already plays (universe_shell.ANIMATIONS): planet flights, back to space, buddy states and walks.
 ANIMATIONS = ('planeet-thuis', 'planeet-applicaties', 'planeet-winkel', 'planeet-controle', 'planeet-internet',
-              'planeet-games', 'ruimte', 'buddy-rust', 'buddy-luisteren', 'buddy-denken', 'buddy-werken',
+              'planeet-games', 'planeet-brein', 'ruimte', 'buddy-rust', 'buddy-luisteren', 'buddy-denken', 'buddy-werken',
               'buddy-aandacht', 'buddy-blij', 'buddy-naar-huis', 'buddy-naar-dock', 'buddy-naar-wereld',
               'buddy-naar-paneel')
 TOOLS_FOR_RUN = ('files', 'terminal', 'monitor', 'software', 'control', 'pavucontrol', 'wdisplays', 'blueman-manager', 'network-editor')
@@ -302,8 +302,23 @@ def t_desktop_files(a):
     return shell('desktop.list')
 
 
+def notify_shell(kind, info):
+    """Best-effort: the shell flashes a new star when the nebula is open. Never fails the tool."""
+    line = 'claude-event %s %s\n' % (kind, json.dumps(info or {}, ensure_ascii=False))
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+            sock.settimeout(0.4)
+            sock.connect(SOCKET)
+            sock.sendall(line.encode())
+            sock.recv(64)
+    except OSError:
+        return
+
+
 def t_remember(a):
-    return {'id': brein.remember(a.get('tekst'), a.get('soort') or 'notitie', a.get('labels') or '')}
+    memory_id = brein.remember(a.get('tekst'), a.get('soort') or 'notitie', a.get('labels') or '')
+    notify_shell('brein', {'id': memory_id})
+    return {'id': memory_id}
 
 
 def t_recall(a):
@@ -335,7 +350,7 @@ TOOLS = {
                        S({'id': {'type': 'string', 'enum': list(PLANETS)}}, ['id']), t_planet, False),
     'animatie_tonen': ('Play one animation the desktop already has. naam must be one of: planet flights '
                        '(planeet-thuis, planeet-applicaties, planeet-winkel, planeet-controle, planeet-internet, '
-                       'planeet-games), back to the space world (ruimte), a buddy state (buddy-rust, buddy-luisteren, '
+                       'planeet-games, planeet-brein), back to the space world (ruimte), a buddy state (buddy-rust, buddy-luisteren, '
                        'buddy-denken, buddy-werken, buddy-aandacht, buddy-blij) or a buddy walk (buddy-naar-huis, '
                        'buddy-naar-dock, buddy-naar-wereld, buddy-naar-paneel).',
                        S({'naam': {'type': 'string', 'enum': list(ANIMATIONS)}}, ['naam']), t_animation, False),

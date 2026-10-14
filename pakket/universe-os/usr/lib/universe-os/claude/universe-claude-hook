@@ -11,6 +11,15 @@ PLACES = {'app_openen': 'dock', 'venster': 'dock', 'vensters': 'dock', 'bureaubl
           'planeet_openen': 'world', 'hulpmiddel_openen': 'dock', 'pad_openen': 'dock', 'schermafbeelding': 'world'}
 
 
+def send(kind, info):
+    path = os.path.join(os.environ.get('XDG_RUNTIME_DIR', '/tmp'), 'universe-shell.sock')
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+        s.settimeout(1)
+        s.connect(path)
+        s.sendall(('claude-event %s %s\n' % (kind, json.dumps(info))).encode())
+        s.recv(64)
+
+
 def main():
     try:
         data = json.load(sys.stdin)
@@ -27,6 +36,15 @@ def main():
         info = {'tool': tool, 'place': PLACES.get(short)}
     elif event == 'PostToolUse':
         kind = 'tool-done'
+        short = tool.split('__')[-1] if tool.startswith('mcp__universe__') else ''
+        # A new memory: the shell flashes a star when the Brein nebula is open. The tool-done event still follows.
+        if short == 'brein_onthouden':
+            raw = data.get('tool_input') if isinstance(data.get('tool_input'), dict) else {}
+            try:
+                send('brein', {'tekst': str(raw.get('tekst') or '')[:500], 'soort': str(raw.get('soort') or '')[:40],
+                               'labels': str(raw.get('labels') or '')[:200]})
+            except Exception:
+                pass
     elif event == 'Notification':
         message = str(data.get('message') or '').lower()
         if data.get('notification_type') == 'permission_prompt' or 'permission' in message:
@@ -37,12 +55,7 @@ def main():
         kind = 'done'
     else:
         return
-    path = os.path.join(os.environ.get('XDG_RUNTIME_DIR', '/tmp'), 'universe-shell.sock')
-    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
-        s.settimeout(1)
-        s.connect(path)
-        s.sendall(('claude-event %s %s\n' % (kind, json.dumps(info))).encode())
-        s.recv(64)
+    send(kind, info)
 
 
 if __name__ == '__main__':
