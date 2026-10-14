@@ -5,9 +5,10 @@
 //  formPlanet:    the reverse feeling when the login screen appears: light streams together and the planet forms.
 
 import {alpha} from './globe.js';
+import {canvasScale} from './canvas-budget.js';
 
 function overlay(){
- const dpr=Math.min(devicePixelRatio||1,2),W=innerWidth,H=innerHeight;
+ const W=innerWidth,H=innerHeight,dpr=canvasScale(W,H,devicePixelRatio,new URLSearchParams(location.search).get('gfx')==='soft');
  const canvas=document.createElement('canvas');canvas.width=Math.round(W*dpr);canvas.height=Math.round(H*dpr);
  canvas.setAttribute('aria-hidden','true');
  canvas.style.cssText='position:fixed;inset:0;width:100%;height:100%;z-index:50;pointer-events:none';

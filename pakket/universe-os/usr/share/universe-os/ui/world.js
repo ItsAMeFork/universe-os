@@ -1,4 +1,5 @@
 import {updatesView} from './updates-ui.js';
+import {canvasScale} from './canvas-budget.js';
 import {call,on,applySettings,motionAllowed,toast,h,icon} from './api.js';
 import {alpha,globe,earth,paintEarths,earthsPainted,starfield,pixelSize} from './globe.js';
 import {sharpenPlanet,sharpenEarth} from './planets-hq.js';
@@ -123,7 +124,7 @@ const STAR_GROUPS=Array.from({length:24},(_,i)=>({style:`rgba(208,224,255,${alph
 for(const s of STARS)STAR_GROUPS[Math.min(23,Math.floor((s[3]-.25)/.75*24))].stars.push(s);
 let skyShown=false;
 function drawSky(){
- const dpr=Math.min(devicePixelRatio||1,2),w=innerWidth,hgt=innerHeight;
+ const w=innerWidth,hgt=innerHeight,dpr=canvasScale(w,hgt,devicePixelRatio,new URLSearchParams(location.search).get('gfx')==='soft');
  if(sky.width!==Math.round(w*dpr)||sky.height!==Math.round(hgt*dpr)){sky.width=Math.round(w*dpr);sky.height=Math.round(hgt*dpr);}
  const c=sky.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,hgt);
  if(!skyShown){skyShown=true;document.body.style.backgroundImage='none';} // the login picture of world.html, until the first real sky
@@ -237,7 +238,9 @@ function shownAt(o,m){
 }
 const shown=o=>shownAt(o,mix);
 function render(){
- frame=0;drawSky();
+ // Animation loops also render directly. Cancel a queued input render to avoid
+ // drawing twice in the same frame and losing the queued callback's handle.
+ if(frame)cancelAnimationFrame(frame);frame=0;drawSky();
  for(const o of objects){
   const el=o.el;if(!el)continue;
   const v=shown(o),p=project(v.pos),px=p?p.s*v.size:0;
