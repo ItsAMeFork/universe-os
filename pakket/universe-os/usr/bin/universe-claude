@@ -1,28 +1,3 @@
 #!/bin/sh
-# Starts the unmodified Claude Code for the Claude panel: Haiku by default, the Universe tools (universe-mcp), the
-# hooks for the buddy and a short explanation of Universe OS. --nieuw starts a new conversation.
-D=/usr/lib/universe-os/claude
-CLAUDE=$(command -v claude || true)
-for p in "$HOME/.local/bin/claude" "$HOME/.claude/local/claude"; do
-    [ -z "$CLAUDE" ] && [ -x "$p" ] && CLAUDE=$p
-done
-if [ -z "$CLAUDE" ]; then
-    echo "Claude Code is nog niet geïnstalleerd."
-    echo "Installeer het in het Controlecentrum, of in een terminal met:"
-    echo "  curl -fsSL https://claude.ai/install.sh | bash"
-    printf "Druk op Enter om te sluiten. "
-    read -r _
-    exit 1
-fi
-# Claude Code works in a folder of its own: it never remembers trusting the home folder itself, so it asked
-# "Do you trust this folder?" on every start (VM test, 11 Oct). The personal folder is added with --add-dir.
-WORK="${XDG_DATA_HOME:-$HOME/.local/share}/universe-os/claude"
-mkdir -p "$WORK" && cd "$WORK" || exit 1
-CONTINUE=
-# Continue the last conversation if there is one (Claude Code names its folder after the path).
-if [ "$1" != "--nieuw" ] && ls "$HOME/.claude/projects/$(printf %s "$WORK" | sed 's/[^A-Za-z0-9]/-/g')"/*.jsonl >/dev/null 2>&1; then
-    CONTINUE=--continue
-fi
-export UNIVERSE_CLAUDE=1
-exec "$CLAUDE" --model haiku $CONTINUE --add-dir "$HOME" --mcp-config "$D/mcp.json" --settings "$D/settings.json" \
-    --append-system-prompt "$(cat "$D/uitleg.md")"
+# Kept so older shortcuts still open the panel. The program itself is chosen on the AI page.
+exec /usr/bin/universe-ai "$@"

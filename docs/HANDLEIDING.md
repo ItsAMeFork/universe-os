@@ -61,15 +61,16 @@ aangemaakt; Universe OS neemt geen clientgeheim van iemand anders mee. Tokens en
 wachtwoorden gaan naar de sleutelbos (gnome-keyring, Secret Service). Ze staan
 niet in brein.db en niet in een tekstbestand.
 
-Claude kan daarna zoeken, lezen en een concept bewaren. Versturen opent altijd een
+De assistent (Claude, ChatGPT, Gemini of een lokaal model, te kiezen onder Controlecentrum → AI)
+kan daarna zoeken, lezen en een concept bewaren. Versturen opent altijd een
 venster met ontvangers, onderwerp en tekst. Niets gaat de deur uit als je op
 Weigeren drukt. Een nieuwe afspraak vraagt hetzelfde.
 
 ## Scherm bedienen
 
 Op dezelfde Accounts-pagina zet je **AI mag scherm bedienen** aan. Dat geldt alleen
-tot je afmeldt, en Claude kan het niet zelf aanzetten. Terwijl Claude de muis of
-het toetsenbord stuurt, staat er een balk: "Claude bedient het scherm".
+tot je afmeldt, en de assistent kan het niet zelf aanzetten (ook niet via een bestand of de terminal).
+Terwijl de assistent de muis of het toetsenbord stuurt, staat er een balk: "De assistent bedient het scherm".
 **Super+Escape** stopt dat meteen.
 
 labwc (de vensterbeheerder) heeft geen eigen afstandsbediening. Toetsen gaan via

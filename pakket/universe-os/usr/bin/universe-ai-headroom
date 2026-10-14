@@ -1,0 +1,10 @@
+#!/bin/sh
+# Headroom's anonymous beacon is on unless this is set before the process starts.
+# Prompts stay on this computer. --code-memory none skips the Serena download.
+export HEADROOM_BEACON=off
+export DO_NOT_TRACK=1
+if ! command -v headroom >/dev/null 2>&1; then
+  echo "Headroom ontbreekt. Op de pagina AI: uv tool install \"headroom-ai[all]==0.40.0\""
+  exit 1
+fi
+exec headroom wrap --code-memory none claude "$@"

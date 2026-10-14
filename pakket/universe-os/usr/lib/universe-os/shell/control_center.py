@@ -46,14 +46,53 @@ def _screen():
     return screen
 
 
-def _tell_shell(command):
-    subprocess.run(['universe-ctl', command], capture_output=True)
+def _ai():
+    _claude()
+    import ai_provider
+    return ai_provider
+
+
+def _auto():
+    _claude()
+    import auto_accept
+    return auto_accept
+
+
+def _plugins():
+    _claude()
+    import plugins
+    return plugins
+
+
+def _shell_json(command, timeout=8):
+    """Ask the running shell. Screen control lives there, not in a file this process could write."""
+    done = subprocess.run(['universe-ctl', command], capture_output=True, text=True, timeout=timeout)
+    text = (done.stdout or '').strip()
+    if text.startswith('ok '):
+        try:
+            data = json.loads(text[3:])
+        except ValueError:
+            data = None
+        if isinstance(data, dict):
+            return data
+    if text == 'ok':
+        return _screen().status()
+    message = text[6:] if text.startswith('fout: ') else text
+    raise RuntimeError(message or 'De shell gaf geen antwoord.')
 
 
 def _grant_screen(on):
-    result = _screen().allow() if on else _screen().revoke()
-    _tell_shell('scherm')
-    return result
+    # Turning it on shows a dialog in the shell. This process must not flip the switch itself.
+    return _shell_json('scherm-aan' if on else 'scherm-uit', timeout=200)
+
+
+def _screen_status_for_ui():
+    try:
+        return _shell_json('scherm')
+    except (RuntimeError, OSError, subprocess.SubprocessError):
+        state = _screen().status()
+        state['toegestaan'] = False
+        return state
 
 
 def _oauth_start(args):
@@ -207,11 +246,26 @@ def secure_boot():
 
 
 def claude_path():
-    """Same lookup as find_claude() in claude_ui.py (also when ~/.local/bin is not on PATH)."""
-    for path in (shutil.which('claude'), os.path.expanduser('~/.local/bin/claude'), os.path.expanduser('~/.claude/local/claude')):
-        if path and os.access(path, os.X_OK):
-            return path
-    return None
+    """Same lookup as the AI page (also when ~/.local/bin is not on PATH)."""
+    return _ai().bin_for('claude')
+
+
+def ai_install(provider):
+    """Opens a terminal with the official install command. Universe OS does not ship the CLIs."""
+    if not shutil.which('xfce4-terminal'):
+        raise RuntimeError('Er is geen terminal beschikbaar om de installatie te starten.')
+    script = _ai().install_script(provider or 'claude')
+    backend.spawn(['xfce4-terminal', '--title', 'AI installeren', '-x', 'bash', '-c', script])
+    return True
+
+
+def plugin_terminal(plugin_id):
+    """User-started install. Rules are not copied; the script itself refuses a copy."""
+    if not shutil.which('xfce4-terminal'):
+        raise RuntimeError('Er is geen terminal beschikbaar om de installatie te starten.')
+    script = _plugins().install_script(plugin_id)
+    backend.spawn(['xfce4-terminal', '--title', 'Plugin installeren', '-x', 'bash', '-c', script])
+    return True
 
 
 def claude_status():
@@ -223,11 +277,7 @@ def claude_status():
 
 def claude_install():
     """Runs Anthropic's official installer in a terminal, so the user sees what happens."""
-    if not shutil.which('xfce4-terminal'):
-        raise RuntimeError('Er is geen terminal beschikbaar om de installatie te starten.')
-    script = 'curl -fsSL https://claude.ai/install.sh | bash; echo; echo "Druk op Enter om dit venster te sluiten."; read -r _'
-    backend.spawn(['xfce4-terminal', '--title', 'Claude Code installeren', '-x', 'bash', '-c', script])
-    return True
+    return ai_install('claude')
 
 
 def handlers(app):
@@ -347,6 +397,24 @@ def handlers(app):
         'claude.status': lambda a: claude_status(),
         'claude.install': lambda a: claude_install(),
         'claude.open': lambda a: backend.spawn(['universe-ctl', 'claude']),
+        'ai.status': lambda a: _ai().public_status(),
+        'ai.set': lambda a: _ai().set_choice(a.get('provider'), a.get('model') or '', a.get('ollama_url')),
+        'ai.key': lambda a: _ai().set_key(a.get('provider'), a.get('sleutel') if 'sleutel' in a else a.get('key')),
+        'ai.open': lambda a: backend.spawn(['universe-ctl', 'claude']),
+        'ai.install': lambda a: ai_install(a.get('provider') or 'claude'),
+        'ai.leren': lambda a: _ai().set_leren(a.get('aan')),
+        'ai.compressie': lambda a: _ai().set_compressie(a.get('modus') or a.get('compressie') or 'geen'),
+        'ai.omniroute.add': lambda a: _ai().add_upstream(a.get('naam') or a.get('name')),
+        'ai.omniroute.remove': lambda a: _ai().remove_upstream(a.get('naam') or a.get('name')),
+        'ai.omniroute.router': lambda a: _ai().set_router(a.get('aan')),
+        'ai.plugins': lambda a: _plugins().public_list(),
+        'ai.plugins.set': lambda a: _plugins().set_enabled(a.get('id'), a.get('aan')),
+        'ai.plugins.install': lambda a: _plugins().ensure(),
+        'ai.plugins.terminal': lambda a: plugin_terminal(a.get('id')),
+        'ai.sessie': lambda a: _ai().set_sessie(a.get('route') or a.get('sessie') or 'claude'),
+        'ai.litellm': lambda a: _ai().set_litellm_url(a.get('url') or ''),
+        'auto.status': lambda a: _auto().public(),
+        'auto.set': lambda a: _auto().set_choice(bool(a.get('aan')), a.get('duur') or '30m'),
         'window.page': lambda a: app.pending_page,
         'brein.summary': lambda a: _brein().summary(),
         'brein.export': lambda a: _brein().write_export(_download_dir()),
@@ -359,7 +427,7 @@ def handlers(app):
         'accounts.imap': lambda a: _accounts().add_imap(a.get('naam'), a.get('adres'), a.get('imap_host'), a.get('smtp_host'), a.get('user'), a.get('password'), a.get('imap_port'), a.get('smtp_port')),
         'accounts.caldav': lambda a: _accounts().add_caldav(a.get('naam'), a.get('adres'), a.get('url'), a.get('user'), a.get('password')),
         'accounts.disconnect': lambda a: _accounts().disconnect(a.get('id')),
-        'scherm.status': lambda a: _screen().status(),
+        'scherm.status': lambda a: _screen_status_for_ui(),
         'scherm.toestaan': lambda a: _grant_screen(True),
         'scherm.intrekken': lambda a: _grant_screen(False),
     }
@@ -375,6 +443,8 @@ class ControlCenter(Gtk.Application):
         args = command_line.get_arguments()[1:]
         if '--pagina' in args and args.index('--pagina') + 1 < len(args):
             self.pending_page = args[args.index('--pagina') + 1]
+            if self.pending_page == 'claude':
+                self.pending_page = 'ai'
         self.activate()
         if self.window and self.view:
             emit(self.view, 'page', self.pending_page)
@@ -387,6 +457,10 @@ class ControlCenter(Gtk.Application):
         bridge = Bridge(handlers(self), threaded={'updates.channel.set', 'network.status', 'status', 'audio.outputs', 'audio.select', 'wifi.list', 'wifi.connect', 'users.add', 'users.remove', 'users.admin',
                                                    'users.password', 'account.password', 'timezone.set', 'updates.status', 'keyboard.set',
                                                    'locale.set', 'bluetooth.get', 'updates.refresh', 'updates.install', 'claude.status',
+                                                   'ai.status', 'ai.set', 'ai.key', 'ai.install', 'ai.leren',
+                                                   'ai.compressie', 'ai.omniroute.add', 'ai.omniroute.remove', 'ai.omniroute.router',
+                                                   'ai.plugins', 'ai.plugins.set', 'ai.plugins.install', 'ai.plugins.terminal',
+                                                   'ai.sessie', 'ai.litellm', 'auto.status', 'auto.set',
                                                    'accounts.list', 'accounts.clients', 'accounts.client', 'accounts.oauth_start',
                                                    'accounts.oauth_poll', 'accounts.imap', 'accounts.caldav', 'accounts.disconnect',
                                                    'scherm.status', 'scherm.toestaan', 'scherm.intrekken'}, log=lambda *args: None)

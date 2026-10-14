@@ -386,7 +386,7 @@ assert 'mail_send' in claude_doc and 'scherm.toestaan' in claude_doc
 shortcuts = (ROOT / 'pakket/universe-os/usr/share/universe-os/shortcuts.json').read_text(encoding='utf-8')
 assert 'scherm-stop' in shortcuts and 'W-Escape' in shortcuts
 
-for script in ('accounts-ui.js', 'brein-nevel.js', 'control.js', 'panel.js', 'settings-index.js'):
+for script in ('accounts-ui.js', 'ai-ui.js', 'brein-nevel.js', 'control.js', 'panel.js', 'settings-index.js'):
     checked = subprocess.run(['node', '--check', str(UI / script)], capture_output=True, text=True)
     assert checked.returncode == 0, checked.stderr
 

@@ -44,13 +44,13 @@ export async function mountAccounts(root, api={}){
   toggle.checked=on;
   const label=h('label',{class:'check'},toggle,'AI mag scherm bedienen');
   live.append(card('Scherm',
-   note(on?'Aan voor deze aanmelding. Super+Escape zet het direct uit.':'Uit. Claude kan het scherm niet sturen tot je dit aanzet. Het geldt tot je afmeldt.'),
+   note(on?'Aan voor deze aanmelding. Super+Escape zet het direct uit.':'Uit. De assistent kan het scherm niet sturen tot je dit aanzet. Het geldt tot je afmeldt. Aanzetten vraagt nog een venster; een bestand aanmaken is niet genoeg.'),
    note(`Compositor: ${screen.compositor||'onbekend'}. Invoer: ${screen.backend||'geen'}. Paniektoets: ${screen.paniek||'Super+Escape'}.`),
    label,
    button('Opslaan',async()=>{
     await call(toggle.checked?'scherm.toestaan':'scherm.intrekken');
     await reload();
-    return toggle.checked?'Claude mag het scherm bedienen tot je afmeldt of Super+Escape drukt.':'Schermbediening uit.';
+    return toggle.checked?'Als je zojuist op Toestaan drukte, mag de assistent het scherm bedienen tot je afmeldt of Super+Escape drukt.':'Schermbediening uit.';
    })));
  }
 
@@ -87,7 +87,8 @@ export async function mountAccounts(root, api={}){
  const imapName=input(),imapMail=input(),imapHost=input(),imapPort=input('number','993'),smtpHost=input(),smtpPort=input('number','465'),imapUser=input(),imapPw=input('password');
  const davName=input(),davMail=input(),davUrl=input(),davUser=input(),davPw=input('password');
  root.append(
-  note('Koppel je mail en agenda één keer. Claude gebruikt daarna die accounts. Versturen en afspraken maken vragen altijd eerst om toestemming op het scherm.'),
+  note('Koppel je mail en agenda één keer. De assistent gebruikt daarna die accounts, welke AI je ook kiest. Versturen en afspraken maken vragen altijd eerst om toestemming op het scherm.'),
+  note('Google maakt dit lastig. De apparaatcode werkt niet voor Gmail, en Google moet de app controleren voordat iemand anders dan een testgebruiker kan koppelen. Voor de meeste mensen is IMAP eenvoudiger. Gebruik een desktop-client en koppel via de browser.'),
   live, flowBox,
   providerCard('google','Google'),
   providerCard('microsoft','Microsoft'),

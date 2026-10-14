@@ -10,7 +10,7 @@ it only redraws while it animates (a blink every few seconds otherwise).
 import math
 import os
 import random
-import shutil
+import sys
 import time
 
 import cairo
@@ -35,18 +35,30 @@ CSS = b"""
               padding: 4px 10px; box-shadow: none; text-shadow: none; }
 .claude-btn:hover { background: rgba(255, 158, 66, 0.22); }
 .claude-term { padding: 4px 10px 12px 14px; }
+.claude-tokens { padding: 2px 16px 10px 16px; }
+.claude-token-label { color: #e8fffa; font-weight: 700; font-size: 15px; }
+.claude-token-state { font-weight: 800; font-size: 14px; }
+.claude-token-state.on { color: #85ffe3; }
+.claude-token-state.off { color: #ffc98a; }
+.claude-token-note { color: rgba(232, 255, 250, 0.72); font-size: 12px; }
+switch.token-switch { min-width: 64px; min-height: 36px; }
 .buddy-hint { padding: 14px 16px 24px 16px; }
 .buddy-text { color: #e8fffa; font-size: 14px; }
 .buddy-main { background: rgba(255, 158, 66, 0.85); color: #1a0e02; font-weight: 700; }
 """
 
 
+def _ai():
+    folder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'claude')
+    if folder not in sys.path:
+        sys.path.insert(0, folder)
+    import ai_provider
+    return ai_provider
+
+
 def find_claude():
     """Path of the claude command, also when ~/.local/bin (official installer) is not on the shell's PATH."""
-    for path in (shutil.which('claude'), os.path.expanduser('~/.local/bin/claude'), os.path.expanduser('~/.claude/local/claude')):
-        if path and os.access(path, os.X_OK):
-            return path
-    return None
+    return _ai().bin_for('claude')
 
 
 def ease(t):
@@ -66,7 +78,8 @@ class ClaudeUI:
         Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
     def available(self):
-        return find_claude() is not None
+        info = _ai().load()
+        return _ai().installed(info['provider'])
 
     def animations(self):
         import config
@@ -94,6 +107,9 @@ class ClaudeUI:
         """Puts a ready-made question in the Claude panel. The user sends it with Enter: the buddy itself never sends
         anything to Claude. A freshly started Claude Code needs a few seconds before it reads input."""
         fresh = self.term is None
+        if not self.available():
+            self.log('De gekozen AI is niet geïnstalleerd; paneel niet geopend.')
+            return False
         if not self.open():
             return False
         text = question.replace('\n', ' ')
@@ -127,10 +143,136 @@ class ClaudeUI:
             self.close()
         return True
 
+    def _headroom_on(self):
+        try:
+            return _ai().load().get('compressie') == 'headroom'
+        except Exception:
+            return False
+
+    def _token_row(self):
+        """Same switch as Controlecentrum → AI, one click away while the panel is open."""
+        on = self._headroom_on()
+        tokens = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        tokens.get_style_context().add_class('claude-tokens')
+        row = Gtk.Box(spacing=12)
+        switch = Gtk.Switch()
+        switch.set_active(on)
+        switch.set_valign(Gtk.Align.CENTER)
+        switch.get_style_context().add_class('token-switch')
+        switch.set_tooltip_text('Tokens besparen (Headroom). Staat uit tot je dit aanzet. Geldt bij de volgende start.')
+        label = Gtk.Label(label='Tokens besparen (Headroom)', xalign=0)
+        label.get_style_context().add_class('claude-token-label')
+        state = Gtk.Label(label='Aan' if on else 'Uit', xalign=0)
+        state.get_style_context().add_class('claude-token-state')
+        state.get_style_context().add_class('on' if on else 'off')
+        note = Gtk.Label(label='Minder tokens en goedkoper; de AI kan af en toe een detail missen.', xalign=0)
+        note.set_line_wrap(True)
+        note.set_max_width_chars(52)
+        note.get_style_context().add_class('claude-token-note')
+
+        def on_token(_widget, _param):
+            if getattr(self, '_token_busy', False):
+                return
+            want = switch.get_active()
+            try:
+                _ai().set_compressie('headroom' if want else 'geen')
+            except Exception as error:
+                self._token_busy = True
+                switch.set_active(not want)
+                self._token_busy = False
+                self.log('Tokens besparen niet gewijzigd: %s' % error)
+                return
+            active = switch.get_active()
+            state.set_text('Aan' if active else 'Uit')
+            ctx = state.get_style_context()
+            ctx.remove_class('on')
+            ctx.remove_class('off')
+            ctx.add_class('on' if active else 'off')
+
+        switch.connect('notify::active', on_token)
+        row.pack_start(switch, False, False, 0)
+        row.pack_start(label, False, False, 0)
+        row.pack_start(state, False, False, 0)
+        tokens.pack_start(row, False, False, 0)
+        tokens.pack_start(note, False, False, 0)
+        return tokens
+
+    def _back_to_claude(self):
+        try:
+            _ai().set_sessie('claude')
+        except Exception as error:
+            self.log('Terug naar Claude mislukt: %s' % error)
+            return
+        if getattr(self, 'sub_label', None):
+            try:
+                naam, regel = _ai().panel_title()
+                self.title_label.set_text(naam)
+                self.sub_label.set_text(regel)
+            except Exception:
+                pass
+        if self.term:
+            self.restart(fresh=False)
+
+    def _auto_row(self):
+        import auto_accept
+        on = auto_accept.active()
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        box.get_style_context().add_class('claude-tokens')
+        row = Gtk.Box(spacing=12)
+        switch = Gtk.Switch()
+        switch.set_active(on)
+        switch.set_valign(Gtk.Align.CENTER)
+        switch.get_style_context().add_class('token-switch')
+        label = Gtk.Label(label='Automatisch toestaan', xalign=0)
+        label.get_style_context().add_class('claude-token-label')
+        state = Gtk.Label(label='Aan' if on else 'Uit', xalign=0)
+        state.get_style_context().add_class('claude-token-state')
+        state.get_style_context().add_class('on' if on else 'off')
+        note = Gtk.Label(label='Gewone stappen gaan door. Betalen, wissen, versturen, wachtwoorden en systeemwijzigingen blijven wachten.', xalign=0)
+        note.set_line_wrap(True)
+        note.set_max_width_chars(52)
+        note.get_style_context().add_class('claude-token-note')
+        duration = Gtk.ComboBoxText()
+        for key, title in (('30m', '30 minuten'), ('1u', '1 uur'), ('2u', '2 uur'), ('tot-uit', 'Tot je het uitzet')):
+            duration.append(key, title)
+        duration.set_active_id(auto_accept.public().get('duur') or '30m')
+
+        def paint(info):
+            active = bool(info.get('aan'))
+            state.set_text('Aan' if active else 'Uit')
+            ctx = state.get_style_context()
+            ctx.remove_class('on')
+            ctx.remove_class('off')
+            ctx.add_class('on' if active else 'off')
+            if self.shell:
+                self.shell.broadcast('auto', info)
+
+        def on_auto(_widget, _param):
+            if getattr(self, '_auto_busy', False):
+                return
+            try:
+                info = auto_accept.set_choice(switch.get_active(), duration.get_active_id() or '30m')
+            except Exception as error:
+                self._auto_busy = True
+                switch.set_active(not switch.get_active())
+                self._auto_busy = False
+                self.log('Automatisch toestaan niet gewijzigd: %s' % error)
+                return
+            paint(info)
+
+        switch.connect('notify::active', on_auto)
+        row.pack_start(switch, False, False, 0)
+        row.pack_start(label, False, False, 0)
+        row.pack_start(state, False, False, 0)
+        row.pack_start(duration, False, False, 0)
+        box.pack_start(row, False, False, 0)
+        box.pack_start(note, False, False, 0)
+        return box
+
     def build_panel(self):
         L, E, K = GtkLayerShell.Layer, GtkLayerShell.Edge, GtkLayerShell.KeyboardMode
         win = Gtk.Window()
-        win.set_title('Universe Claude')
+        win.set_title('Universe AI')
         visual = win.get_screen().get_rgba_visual()
         if visual:
             win.set_visual(visual)
@@ -153,10 +295,17 @@ class ClaudeUI:
         dot = Gtk.Label(label='●')
         dot.get_style_context().add_class('claude-dot')
         titles = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        title = Gtk.Label(label='Claude', xalign=0)
+        naam, regel = 'AI', 'Kies een assistent in Controlecentrum → AI'
+        try:
+            naam, regel = _ai().panel_title()
+        except Exception:
+            pass
+        title = Gtk.Label(label=naam, xalign=0)
         title.get_style_context().add_class('claude-title')
-        sub = Gtk.Label(label='Claude Code met Haiku · /model om te wisselen', xalign=0)
+        sub = Gtk.Label(label=regel, xalign=0)
         sub.get_style_context().add_class('claude-sub')
+        self.title_label = title
+        self.sub_label = sub
         titles.pack_start(title, False, False, 0)
         titles.pack_start(sub, False, False, 0)
         new = Gtk.Button(label='Nieuw gesprek')
@@ -171,9 +320,18 @@ class ClaudeUI:
         head.pack_start(titles, True, True, 0)
         head.pack_end(close, False, False, 0)
         head.pack_end(new, False, False, 0)
+        tokens = self._token_row()
+        away = self._auto_row()
+        back = Gtk.Button(label='Terug naar Claude')
+        back.set_tooltip_text('Deze sessie gaat weer rechtstreeks naar Claude. OmniRoute en LiteLLM gaan uit.')
+        back.get_style_context().add_class('claude-btn')
+        back.connect('clicked', lambda b: self._back_to_claude())
         holder = Gtk.Box()
         holder.get_style_context().add_class('claude-term')
         box.pack_start(head, False, False, 0)
+        box.pack_start(tokens, False, False, 0)
+        box.pack_start(away, False, False, 0)
+        box.pack_start(back, False, False, 0)
         box.pack_start(holder, True, True, 0)
         win.add(box)
         win.connect('draw', self.draw_panel)
@@ -229,7 +387,7 @@ class ClaudeUI:
             self.log('Links in het Claude-paneel niet klikbaar: %s' % error)
         term.connect('button-press-event', self.terminal_click)
         term.connect('key-press-event', self.terminal_key)
-        argv = ['/usr/bin/universe-claude'] + (['--nieuw'] if fresh else [])
+        argv = ['/usr/bin/universe-ai'] + (['--nieuw'] if fresh else [])
         term.spawn_async(Vte.PtyFlags.DEFAULT, os.path.expanduser('~'), argv, None, GLib.SpawnFlags.DEFAULT,
                          None, None, -1, None, None, None)
         self.holder.pack_start(term, True, True, 0)
@@ -238,8 +396,15 @@ class ClaudeUI:
 
     def open(self):
         if not self.available():
-            self.log('Claude Code is niet geïnstalleerd; paneel niet geopend.')
+            self.log('De gekozen AI is niet geïnstalleerd; paneel niet geopend.')
             return False
+        if getattr(self, 'title_label', None):
+            try:
+                naam, regel = _ai().panel_title()
+                self.title_label.set_text(naam)
+                self.sub_label.set_text(regel)
+            except Exception:
+                pass
         if self.alive_timer:
             GLib.source_remove(self.alive_timer)
             self.alive_timer = 0
@@ -362,7 +527,7 @@ class Buddy:
         self.ui = ui
         L, E, K = GtkLayerShell.Layer, GtkLayerShell.Edge, GtkLayerShell.KeyboardMode
         win = Gtk.Window()
-        win.set_title('Universe Claude buddy')
+        win.set_title('Universe AI')
         visual = win.get_screen().get_rgba_visual()
         if visual:
             win.set_visual(visual)
@@ -380,7 +545,7 @@ class Buddy:
         area.add_events(Gdk.EventMask.BUTTON_PRESS_MASK)
         area.connect('button-press-event', self.clicked)
         area.set_halign(Gtk.Align.END)
-        area.set_tooltip_text('Claude (Windows+C)')
+        area.set_tooltip_text('AI (Windows+C)')
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self.bubble = Gtk.EventBox()
         self.bubble.set_app_paintable(True)
@@ -450,7 +615,7 @@ class Buddy:
                     self.ui.log('Suggestie mislukt: %s' % error)
                     try:
                         import backend
-                        backend.spawn(['notify-send', '-a', 'Claude', 'Dat lukte niet', str(error)[:200]])
+                        backend.spawn(['notify-send', '-a', 'AI', 'Dat lukte niet', str(error)[:200]])
                     except Exception:  # noqa: BLE001
                         pass
                 self.set_state('happy')

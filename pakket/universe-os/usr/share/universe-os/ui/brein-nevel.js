@@ -10,19 +10,20 @@ const KIND={
  voorkeur:{naam:'Voorkeur',kleur:'#85ffe3'},
  notitie:{naam:'Notitie',kleur:'#c9b6ff'},
  feit:{naam:'Feit',kleur:'#ffc98a'},
+ les:{naam:'Les',kleur:'#d6ff9a'},
  mail:{naam:'Mail',kleur:'#9ecbff'},
  agenda:{naam:'Agenda',kleur:'#ffe08a'},
  actie:{naam:'Actie',kleur:'#ff9ec8'},
 };
-const STATUS={goedgekeurd:'Goedgekeurd',geweigerd:'Geweigerd',uitgevoerd:'Uitgevoerd',mislukt:'Mislukt'};
-const FILTERS=[['alles','Alles'],['herinneringen','Herinneringen'],['mail','Mail'],['agenda','Agenda'],['acties','Acties']];
+const STATUS={goedgekeurd:'Goedgekeurd',geweigerd:'Geweigerd',uitgevoerd:'Uitgevoerd',mislukt:'Mislukt',automatisch:'Automatisch',wacht:'Wacht',ongedaan:'Ongedaan'};
+const FILTERS=[['alles','Alles'],['herinneringen','Herinneringen'],['lessen','Lessen'],['mail','Mail'],['agenda','Agenda'],['acties','Acties']];
 
 const hash=n=>{let x=(2166136261^n)>>>0;x=Math.imul(x^(n&255),16777619);x=Math.imul(x^((n>>>8)&255),16777619);return x>>>0;};
 const clip=(t,n)=>{const s=String(t||'').replace(/\s+/g,' ').trim();return s.length>n?s.slice(0,n-1)+'…':s;};
 
 /** Stable place in the cloud: kind picks a lobe, the id picks the spot inside it. */
 export function layoutPoint(star,w,h){
- const lobe={voorkeur:-0.9,notitie:2.25,feit:4.75,mail:0.35,agenda:3.5,actie:5.4}[star.soort]??1.2;
+ const lobe={voorkeur:-0.9,notitie:2.25,feit:4.75,les:1.6,mail:0.35,agenda:3.5,actie:5.4}[star.soort]??1.2;
  const n=hash(Number(star.id)||0);
  const ang=lobe+((n%1000)/1000)*1.2;
  const rad=0.2+(((n>>>10)%1000)/1000)*0.8;
@@ -129,11 +130,34 @@ export function mountNebula(parent,api={}){
   if(!rows.length) list.append(h('p',{class:'muted'},'Niets in deze lijst.'));
   for(const row of rows){
    const kind=row.soort==='herinnering'?'herinnering':row.soort;
-   const label={mail:'Mail',agenda:'Agenda',actie:'Actie',herinnering:'Herinnering'}[kind]||kind;
+   const label={mail:'Mail',agenda:'Agenda',actie:'Actie',herinnering:'Herinnering',les:'Les'}[kind]||kind;
    const article=h('article',{});
    article.append(h('div',{class:'kind'},label+(row.tijd?' · '+row.tijd:'')),h('strong',{},row.titel||label),h('p',{},row.tekst||''));
+   if(row.soort==='les'&&row.id){
+    const edit=h('button',{type:'button'},'Bewerken');
+    const drop=h('button',{type:'button'},'Verwijderen');
+    edit.addEventListener('click',async()=>{
+     const next=window.prompt('Les',row.tekst||'');
+     if(!next||!next.trim())return;
+     try{await call('brein.update',{id:row.id,tekst:next.trim()});await loadList();}
+     catch(e){status.textContent=e.message||'Bewerken mislukt.';}
+    });
+    drop.addEventListener('click',async()=>{
+     try{await call('brein.forget',{id:row.id});await load();}
+     catch(e){status.textContent=e.message||'Verwijderen mislukt.';}
+    });
+    article.append(h('div',{class:'row'},edit,drop));
+   }
    if(row.van) article.append(h('p',{class:'muted'},row.van));
    if(row.status) article.append(h('span',{class:'badge'},STATUS[row.status]||row.status));
+   if(row.soort==='actie'&&row.ongedaan&&row.status!=='ongedaan'){
+    const undo=h('button',{type:'button'},'Ongedaan maken');
+    undo.addEventListener('click',async()=>{
+     try{await call('brein.ongedaan',{id:row.id});await loadList();}
+     catch(e){status.textContent=e.message||'Ongedaan maken mislukt.';}
+    });
+    article.append(undo);
+   }
    list.append(article);
   }
  }

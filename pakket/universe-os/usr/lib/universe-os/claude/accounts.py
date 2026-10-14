@@ -757,8 +757,10 @@ def send_mail(account=None, to=None, subject='', body='', confirmer=None, http=N
     summary = 'Naar %s: %s' % (', '.join(recipients), subject)
     preview = 'Ontvangers: %s\nOnderwerp: %s\n\n%s' % (', '.join(recipients), subject, body[:4000])
     if confirmer is None or not confirmer('Claude wil een e-mail versturen', preview):
-        brein.log_actie('mail_send', summary, 'geweigerd')
-        raise PermissionError('Versturen geannuleerd. Er is niets verzonden.')
+        import confirm
+        if not confirm.deferred():
+            brein.log_actie('mail_send', summary, 'geweigerd')
+        raise PermissionError(confirm.refused_message('Versturen geannuleerd. Er is niets verzonden.'))
     try:
         _deliver(item, recipients, subject, body, http, smtp_factory)
     except PermissionError:
@@ -994,8 +996,10 @@ def create_event(account=None, titel='', start=None, eind=None, plek='', confirm
     summary = 'Afspraak: %s' % titel
     preview = 'Titel: %s\nBegin: %s\nEinde: %s\nPlek: %s' % (titel, _when_text(start_ts), _when_text(end_ts), plek or '—')
     if confirmer is None or not confirmer('Claude wil een afspraak maken', preview):
-        brein.log_actie('calendar_create', summary, 'geweigerd')
-        raise PermissionError('Afspraak geannuleerd. Er is niets gezet.')
+        import confirm
+        if not confirm.deferred():
+            brein.log_actie('calendar_create', summary, 'geweigerd')
+        raise PermissionError(confirm.refused_message('Afspraak geannuleerd. Er is niets gezet.'))
     try:
         extern = _create_remote(item, titel, start_ts, end_ts, plek, http, opener)
     except PermissionError:

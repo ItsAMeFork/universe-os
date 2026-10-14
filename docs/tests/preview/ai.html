@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="nl" class="reduce-motion" style="background:#050815">
+<head>
+<meta charset="utf-8">
+<title>AI</title>
+<link rel="stylesheet" href="/pakket/universe-os/usr/share/universe-os/ui/common.css">
+<style>
+html,body{background:#050815;margin:0;height:100%}
+main{display:grid;grid-template-columns:260px 1fr;height:100vh}
+nav{padding:20px;overflow:auto;border-right:1px solid var(--line)}
+nav h1{font-size:1.3em;color:var(--accent)}
+nav button{width:100%;display:flex;gap:10px;text-align:left;margin:5px 0}
+nav button[aria-current=page]{border-color:var(--accent);color:var(--accent)}
+article{overflow:auto;padding:28px}
+h2,h3{color:var(--accent)}
+.card{padding:18px;margin:16px 0;border-radius:24px;background:#0b1021e6;border:1px solid var(--line)}
+label{display:flex;flex-direction:column;gap:8px;margin:12px 0}
+label.check{flex-direction:row;align-items:center}
+button{margin:5px 5px 5px 0}
+.message{min-height:1.5em}
+.message.error{color:#ff8b8b}
+</style>
+</head>
+<body>
+<main>
+<nav aria-label="Instellingen"><h1>Controlecentrum</h1>
+<button type="button">Accounts</button>
+<button type="button" aria-current="page">AI</button>
+<button type="button">Beveiliging</button>
+</nav>
+<article><h2>AI</h2><div id="root"></div></article>
+</main>
+<script type="module">
+import {mountAi} from '/pakket/universe-os/usr/share/universe-os/ui/ai-ui.js';
+const status = {
+ provider: 'claude',
+ model: 'haiku',
+ ollama_url: 'http://127.0.0.1:11434',
+ naam: 'Claude Code',
+ regel: 'Claude Code · haiku',
+ sandbox: true,
+ leren: true,
+ compressie: 'geen',
+ sessie_route: 'claude',
+ litellm_url: 'http://127.0.0.1:4000',
+ omniroute_providers: [],
+ omniroute_router: false,
+ omniroute_waarschuwing: 'Gratis aanbieders kunnen je vragen lezen. Zet OmniRoute alleen aan als je dat wilt.',
+ trend: [
+  {tokens: 4200, gereedschap: 6, schatting: false, taak: 'Agenda nakijken'},
+  {tokens: 900, gereedschap: 1, schatting: true, taak: 'Korte vraag'}
+ ],
+ plugins: [
+  {id:'superpowers', naam:'Superpowers', licentie:'MIT', aan:true, status:'klaar', review:'Vaardigheden aan, hook uit.'},
+  {id:'ecc', naam:'Everything Claude Code', licentie:'MIT', aan:true, status:'later', review:'Regels en hooks blijven uit.', installeren:true, versie:'2.2.3'},
+  {id:'frontend-design', naam:'Frontend design', licentie:'Apache-2.0', aan:true, status:'klaar', review:'Officiële vaardigheid, geen extra hook.', installeren:true},
+  {id:'headroom', naam:'Headroom', licentie:'Apache-2.0', aan:false, status:'uit', review:'Tokens besparen staat uit. Het baken blijft uit.', installeren:true},
+  {id:'chrome-devtools', naam:'Chrome DevTools', licentie:'Apache-2.0', aan:false, status:'uit', review:'Uit tot je hem aanzet.'}
+ ],
+ providers: [
+  {id:'claude', naam:'Claude Code', uitleg:'Standaard. Je meldt je aan met je eigen Claude-account in het paneel.', geinstalleerd:true, sleutel_mogelijk:true, sleutel_bewaard:false, model_leeg:'Haiku (snel, licht)'},
+  {id:'codex', naam:'ChatGPT', uitleg:'Het Codex-programma van OpenAI. Aanmelden doe je in het paneel, of je bewaart hier een sleutel.', geinstalleerd:false, sleutel_mogelijk:true, sleutel_bewaard:false, model_leeg:'het model van Codex'},
+  {id:'gemini', naam:'Gemini', uitleg:'Het Gemini-programma van Google.', geinstalleerd:false, sleutel_mogelijk:true, sleutel_bewaard:true, model_leeg:'het model van Gemini'},
+  {id:'ollama', naam:'Op deze computer', uitleg:'Ollama draait het model hier. Een klein model is het enige dat een trage computer aankan.', geinstalleerd:true, sleutel_mogelijk:false, sleutel_bewaard:false, model_leeg:'qwen2.5:3b'}
+ ]
+};
+const call = async (cmd, args) => {
+ if (cmd === 'ai.status') return status;
+ if (cmd === 'ai.set') return {naam: args.provider};
+ if (cmd === 'ai.key') return {bewaard: !!args.sleutel};
+ if (cmd === 'ai.open' || cmd === 'ai.install') return true;
+ if (cmd === 'ai.leren') return {leren: !!args.aan};
+ if (cmd === 'auto.status') return {aan:false, duur:'30m', tekst:'Uit', wacht:0};
+ if (cmd === 'auto.set') return {aan:!!args.aan, duur:args.duur||'30m', tekst:args.aan?'Aan tot 12:00. Super+Escape zet het direct uit.':'Uit', wacht:0};
+ if (cmd === 'ai.sessie') { status.sessie_route = args.route || 'claude'; return status; }
+ if (cmd === 'ai.litellm') { status.litellm_url = args.url; return status; }
+ if (cmd === 'ai.compressie') { status.compressie = args.modus; return status; }
+ if (cmd === 'ai.omniroute.add') {
+  status.omniroute_providers = [...(status.omniroute_providers||[]), args.naam];
+  return status;
+ }
+ if (cmd === 'ai.omniroute.remove') {
+  status.omniroute_providers = (status.omniroute_providers||[]).filter(item => item !== args.naam);
+  if (!status.omniroute_providers.length) { status.omniroute_router = false; if (status.compressie === 'omniroute') status.compressie = 'geen'; }
+  return status;
+ }
+ if (cmd === 'ai.omniroute.router') { status.omniroute_router = !!args.aan; return status; }
+ if (cmd === 'ai.plugins.terminal') return true;
+ if (cmd === 'ai.plugins.set') {
+  status.plugins = status.plugins.map(item => item.id === args.id ? {...item, aan: !!args.aan} : item);
+  return status.plugins;
+ }
+ if (cmd === 'ai.plugins.install') return {tekst: 'Plugins bijgewerkt.'};
+ return {};
+};
+const buddy = document.createElement('p');
+buddy.className = 'muted';
+buddy.textContent = 'Personage op het bureaublad';
+await mountAi(document.getElementById('root'), {call, buddy});
+document.body.dataset.ready = '1';
+</script>
+</body>
+</html>

@@ -76,7 +76,7 @@ class Hints:
         self.shown_today[key] = day
         buttons = list(actions)
         if claude:
-            buttons.append(('Vraag Claude', lambda: self.ui.ask(claude)))
+            buttons.append(('Vraag de AI', lambda: self.ui.ask(claude)))
         buddy.show_hint(text, buttons, on_answer=lambda a: self.answered(key, a))
         return True
 

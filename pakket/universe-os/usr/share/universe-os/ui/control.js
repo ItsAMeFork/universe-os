@@ -1,4 +1,5 @@
 import {mountAccounts} from './accounts-ui.js';
+import {mountAi} from './ai-ui.js';
 import {audioView} from './audio-ui.js';
 import {updatesView} from './updates-ui.js';
 import {call,on,h,icon,applySettings} from './api.js';
@@ -37,7 +38,7 @@ const pages={
   root.append(card('Firewall',note(!f.installed?'Firewall niet geïnstalleerd.':f.enabled?'Firewall staat aan.':'Firewall staat niet actief.'),note('Inkomende verbindingen worden standaard geweigerd. De huidige regelset wordt hier niet weergegeven.')));
   const brain=await call('brein.summary');
   const live=h('p',{});
-  const show=b=>{live.textContent=`${b.herinneringen} herinneringen (${b.per_soort.voorkeur} voorkeuren, ${b.per_soort.notitie} notities, ${b.per_soort.feit} feiten). Tijdlijn: ${b.tijdlijn} openingen van de laatste ${b.dagen_tijdlijn} dagen. Antwoorden op suggesties: ${b.hints}. Mail: ${b.mail||0}. Agenda: ${b.agenda||0}. Acties: ${b.acties||0}.`;};
+  const show=b=>{live.textContent=`${b.herinneringen} herinneringen (${b.per_soort.voorkeur} voorkeuren, ${b.per_soort.notitie} notities, ${b.per_soort.feit} feiten, ${b.per_soort.les||0} lessen). Tijdlijn: ${b.tijdlijn} openingen van de laatste ${b.dagen_tijdlijn} dagen. Antwoorden op suggesties: ${b.hints}. Mail: ${b.mail||0}. Agenda: ${b.agenda||0}. Acties: ${b.acties||0}.`;};
   show(brain);
   const phrase=input('text');phrase.placeholder='alles vergeten';phrase.setAttribute('aria-label','Bevestiging om alles te vergeten');phrase.autocomplete='off';
   root.append(card('Privacy',
@@ -55,11 +56,11 @@ const pages={
     return 'Alles is vergeten.';
    })));
  },
- claude:async root=>{const s=await call('claude.status');if(!s.installed){root.append(card('Claude Code',note('Claude Code is niet geïnstalleerd. Je meldt je aan met je eigen Claude-account; Universe OS levert Claude Code zelf niet mee.'),button('Claude Code installeren',async()=>{await call('claude.install');return 'Installatie geopend in een terminal. Druk daar op Enter om het venster te sluiten en open deze pagina daarna opnieuw.';})));return;}root.append(card('Claude Code',note(`Geïnstalleerd${s.version?' · versie '+s.version:''}`),button('Inloggen / Claude openen',()=>call('claude.open'))),card('Personage',setting('Personage op het bureaublad','buddy','checkbox')));},
+ ai:async root=>{await mountAi(root,{buddy:setting('Personage op het bureaublad','buddy','checkbox')});},
  about:async root=>{const a=await call('about');root.append(card('Universe OS',details(a,{universe:'Versie',base:'Linuxbasis',kernel:'Kernel',cpu:'Processor',memoryMB:'Geheugen (MB)',machine:'Computer',labwc:'Vensterbeheerder',secureBoot:'Secure Boot'}),note(a.efi?'Opgestart met UEFI.':'Niet opgestart met UEFI.')));}
 };
 function navigation(){const q=document.getElementById('search').value.toLowerCase();nav.replaceChildren();for(const s of SETTINGS.filter(v=>(v.name+' '+v.words).toLowerCase().includes(q))){const b=h('button',{type:'button','aria-current':s.id===current?'page':undefined},icon(s.icon),s.name);b.addEventListener('click',()=>open(s.id));nav.append(b);}}
-async function open(id){if(!pages[id])id='appearance';current=id;const token=++generation;navigation();content.replaceChildren(h('h2',{},SETTINGS.find(s=>s.id===id).name),note('Laden…'));const root=h('div');try{await pages[id](root);}catch(e){root.append(h('p',{class:'message error',role:'alert'},e.message));}if(token===generation){content.replaceChildren(h('h2',{tabindex:-1},SETTINGS.find(s=>s.id===id).name),root);content.querySelector('h2').focus();}}
+async function open(id){if(id==='claude')id='ai';if(!pages[id])id='appearance';current=id;const token=++generation;navigation();content.replaceChildren(h('h2',{},SETTINGS.find(s=>s.id===id).name),note('Laden…'));const root=h('div');try{await pages[id](root);}catch(e){root.append(h('p',{class:'message error',role:'alert'},e.message));}if(token===generation){content.replaceChildren(h('h2',{tabindex:-1},SETTINGS.find(s=>s.id===id).name),root);content.querySelector('h2').focus();}}
 document.getElementById('search').addEventListener('input',navigation);
 on('page',id=>{if(config)open(id);});
 (async()=>{try{config=await call('config.get');applySettings({...config.settings,colors:config.world.colors});await open(await call('window.page'));}catch(e){content.replaceChildren(h('p',{role:'alert'},e.message));}})();

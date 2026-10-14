@@ -1,0 +1,3 @@
+#!/bin/sh
+# Starts the assistant chosen in Controlecentrum → AI. --nieuw starts a fresh Claude conversation.
+exec /usr/bin/python3 /usr/lib/universe-os/claude/launch.py "$@"
