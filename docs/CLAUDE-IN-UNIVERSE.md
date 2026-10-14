@@ -63,9 +63,43 @@ in het brein (tabel hints). Het personage stuurt zelf nooit iets naar Claude.
 - Claude Code stopt 10 minuten nadat het paneel dicht is.
 - Animaties volgen de instelling "animaties" en remmen zichzelf af op trage computers, zoals bij inloggen.
 
+## Persoonlijke assistent (mail, agenda, scherm)
+
+De gebruiker koppelt accounts één keer in Controlecentrum → Accounts. Claude Code
+gebruikt daarna dezelfde sessie, via de MCP-hulpmiddelen van `universe_mcp.py`.
+Die praten alleen met de shell (`universe-ctl call`), op een vaste lijst.
+
+| Hulpmiddel | Wat het doet | Toestemming |
+|---|---|---|
+| `mail_search`, `mail_read`, `mail_draft` | zoeken, lezen, concept | concept schrijft, verstuurt niet |
+| `mail_send` | versturen | altijd een zenity-venster met ontvangers, onderwerp en tekst |
+| `calendar_list` | komende afspraken | lezen |
+| `calendar_create` | afspraak zetten | altijd een venster met titel, begin, einde en plek |
+| `scherm_muis`, `scherm_klik`, `scherm_typ`, `scherm_toets`, `scherm_scroll`, `scherm_focus` | scherm overnemen | alleen als "AI mag scherm bedienen" aan staat voor deze aanmelding |
+
+`scherm.toestaan` staat niet op de lijst die Claude mag aanroepen. De schakelaar zit
+in het Controlecentrum. Super+Escape (`universe-ctl scherm-stop`) zet hem uit.
+
+Invoer op labwc: `wtype` voor toetsen (protocol van de compositor), `python3-evdev`
+via `/dev/uinput` voor muis en scroll. `ydotool` heeft voorrang als `ydotoold` draait;
+dat pakket zit in Debian 13 alleen in backports, daarom is het geen harde afhankelijkheid.
+`xdotool` wordt niet gebruikt.
+
+Geheimen: `python3-keyring` naar gnome-keyring. `brein.db` bewaart de naam, het adres,
+de rechten, een korte mail- en agendasamenvatting, en het actielogboek
+(goedgekeurd, geweigerd, uitgevoerd, mislukt). Geen wachtwoord, geen token.
+Een wachtwoord dat Claude in een veld typt komt ook niet in dat logboek; het veld
+moet als `wachtwoord` of `betaling` worden aangegeven, en dan komt er eerst een vraag.
+
+De Brein-nevel tekent mail, agenda en acties als extra sterren (blauw, geel, roze)
+en toont ze in de lijst, filterbaar. Dat blijft op deze computer.
+
 ## Veiligheid
 Claude Code vraagt zelf toestemming. Wij geven alleen alleen-lezen-hulpmiddelen vooraf vrij (lijsten, zoeken,
 status, brein lezen). Openen, instellingen wijzigen, vensters sluiten en het brein beschrijven vragen toestemming.
+Versturen, afspraken maken, en gevoelige schermacties (wissen, betalen, wachtwoordveld) hebben daarbovenop een
+eigen venster in de shell. Zonder antwoord "Toestaan" gebeurt de actie niet, ook niet als het hulpmiddel
+rechtstreeks wordt aangeroepen.
 
 ## Fasen
 1. **Deze stap:** starter, MCP-server met hulpmiddelen en brein (notities en voorkeuren), hooks, socketopdrachten,

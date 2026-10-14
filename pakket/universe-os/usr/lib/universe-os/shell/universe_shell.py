@@ -39,7 +39,9 @@ CLAUDE_CALLS = {'status', 'apps.list', 'apps.launch', 'windows.list', 'windows.a
                 'desktop.launch', 'browser.list', 'browser.select', 'audio.outputs', 'audio.select', 'config.get',
                 'config.set', 'start.toggle', 'layout.get', 'updates.status', 'updates.refresh', 'updates.install',
                 'claude.power', 'claude.anim', 'brein.list', 'brein.links', 'brein.timeline', 'brein.update', 'brein.forget',
-                'brein.search', 'brein.forget_all'}
+                'brein.search', 'brein.forget_all', 'brein.lijst',
+                'mail.search', 'mail.read', 'mail.draft', 'mail.send', 'agenda.list', 'agenda.create',
+                'scherm.status', 'scherm.muis', 'scherm.klik', 'scherm.typ', 'scherm.toets', 'scherm.scroll', 'scherm.focus'}
 CLAUDE_RUN = {'files', 'terminal', 'monitor', 'software', 'control', 'pavucontrol', 'wdisplays', 'blueman-manager', 'network-editor'}
 # Same set as universe_mcp.SECURITY_SETTINGS: `universe-ctl call config.set` must not bypass the MCP check.
 SECURITY_SETTINGS = {'lockMinutes'}
@@ -129,13 +131,50 @@ def _brein_forget(args):
 def _brein_search(args):
     query = args.get('q') if 'q' in args else args.get('zoek', '')
     brain = _brein()
-    return {'sterren': brain.search_memories(query, args.get('max') or 40), 'bestanden': _brein_files(query)}
+    result = {'sterren': brain.search_memories(query, args.get('max') or 40), 'bestanden': _brein_files(query)}
+    needle = str(query or '').strip().lower()
+    if needle:
+        result['extra'] = [star for star in brain.sterren_extra(40)
+                           if needle in (star.get('tekst') or '').lower() or needle in (star.get('labels') or '').lower()]
+    return result
 
 
 def _brein_forget_all(args):
     phrase = args.get('bevestig') if 'bevestig' in args else args.get('confirm', '')
     _brein().forget_all(phrase)
     return {'vergeten': 'alles'}
+
+
+def _claude_dir():
+    folder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'claude')
+    if folder not in sys.path:
+        sys.path.insert(0, folder)
+    return folder
+
+
+def _accounts():
+    _claude_dir()
+    import accounts
+    return accounts
+
+
+def _screen():
+    _claude_dir()
+    import screen
+    return screen
+
+
+def _confirm(title, text):
+    """Dialog on the user's screen. A missing zenity counts as no. Arguments from Claude are never a yes."""
+    _claude_dir()
+    import confirm
+    return confirm.ask(title, text)
+
+
+def _mail_kwargs(args):
+    return {'account': args.get('account'), 'to': args.get('naar') if 'naar' in args else args.get('to'),
+            'subject': args.get('onderwerp') if 'onderwerp' in args else args.get('subject'),
+            'body': args.get('tekst') if 'tekst' in args else args.get('body') or ''}
 
 
 class Surface:
@@ -177,7 +216,9 @@ class Shell:
         self.toplevels = None  # run(): imported after the world window exists (pywayland, asyncio, ssl: seconds on a cold disk)
         self.bridge = Bridge(self.handlers(), threaded={'status', 'audio.outputs', 'audio.select', 'updates.status', 'power', 'volume.set', 'volume.mute',
                                                         'notifications.clear', 'search.files', 'updates.status', 'updates.refresh', 'updates.install', 'pick.path',
-                                                        'brein.search'}, log=log)
+                                                        'brein.search', 'brein.lijst', 'mail.search', 'mail.read', 'mail.draft', 'mail.send',
+                                                        'agenda.list', 'agenda.create', 'scherm.muis', 'scherm.klik', 'scherm.typ', 'scherm.toets',
+                                                        'scherm.scroll', 'scherm.focus'}, log=log)
         self.worlds = []
         self.panel = None
         self.dock = None
@@ -593,7 +634,55 @@ class Shell:
             'brein.forget': _brein_forget,
             'brein.search': _brein_search,
             'brein.forget_all': _brein_forget_all,
+            'brein.lijst': lambda a: _brein().lijst(a.get('soort') or a.get('filter') or 'alles', a.get('q') if 'q' in a else a.get('zoek') or '', a.get('max') or 40),
+            'mail.search': lambda a: _accounts().search_mail(a.get('q') if 'q' in a else a.get('zoek') or '', a.get('account'), a.get('max') or 8),
+            'mail.read': lambda a: _accounts().read_mail(a.get('account'), a.get('id')),
+            'mail.draft': lambda a: _accounts().draft_mail(**_mail_kwargs(a)),
+            # confirmer is always the on-screen dialog. A "bevestig" field from Claude is ignored.
+            'mail.send': lambda a: _accounts().send_mail(confirmer=_confirm, **_mail_kwargs(a)),
+            'agenda.list': lambda a: _accounts().list_events(a.get('account')),
+            'agenda.create': lambda a: _accounts().create_event(a.get('account'), a.get('titel') or a.get('title'), a.get('start'),
+                                                                a.get('eind') if 'eind' in a else a.get('end'), a.get('plek') or a.get('location') or '',
+                                                                confirmer=_confirm),
+            'scherm.status': lambda a: _screen().status(),
+            'scherm.muis': lambda a: self._screen_act('muis', a),
+            'scherm.klik': lambda a: self._screen_act('klik', a),
+            'scherm.typ': lambda a: self._screen_act('typ', a),
+            'scherm.toets': lambda a: self._screen_act('toets', a),
+            'scherm.scroll': lambda a: self._screen_act('scroll', a),
+            'scherm.focus': lambda a: self._screen_focus(a),
+            # Not in CLAUDE_CALLS: only the Accounts page (this process's buttons, via the control centre) may flip the switch.
+            'scherm.toestaan': lambda a: self._screen_grant(True),
+            'scherm.intrekken': lambda a: self._screen_grant(False),
         }
+
+    def _screen_act(self, kind, args):
+        """Pointer, keys and typing. The banner is up for the whole call, including the confirmation dialog."""
+        screen = _screen()
+        self.broadcast('scherm', {**screen.status(), 'bezig': True, 'actie': kind})
+        try:
+            return screen.perform(kind, args, confirmer=_confirm)
+        finally:
+            self.broadcast('scherm', screen.status())
+
+    def _screen_focus(self, args):
+        screen = _screen()
+        if not screen.enabled():
+            _brein().log_actie('scherm_focus', 'Schermbediening stond uit', 'geweigerd')
+            raise PermissionError('AI mag het scherm niet bedienen. Zet het aan in Controlecentrum → Accounts.')
+        self.broadcast('scherm', {**screen.status(), 'bezig': True, 'actie': 'focus'})
+        try:
+            self.toplevels.activate(str(args.get('id')))
+            _brein().log_actie('scherm_focus', 'Venster %s' % args.get('id'), 'uitgevoerd')
+            return {'gelukt': True}
+        finally:
+            self.broadcast('scherm', screen.status())
+
+    def _screen_grant(self, on):
+        screen = _screen()
+        result = screen.allow() if on else screen.revoke()
+        self.broadcast('scherm', result)
+        return result
 
     # ----- universe-ctl socket -----
     def serve(self):
@@ -693,6 +782,11 @@ class Shell:
                     self.claude.update_buddy()  # buddy switched on/off in the Control Center
             elif cmd == 'logout':  # the same animated logout as the start menu (also for scripts and tests)
                 GLib.idle_add(self.begin_logout)
+            elif cmd == 'scherm-stop':
+                # Panic hotkey (Super+Escape). Drops the session grant before the next input event.
+                self.broadcast('scherm', _screen().revoke())
+            elif cmd == 'scherm':
+                self.broadcast('scherm', _screen().status())
             elif cmd == 'claude':
                 if not (self.claude and self.claude.available()):
                     return 'fout: Claude Code is niet geïnstalleerd'

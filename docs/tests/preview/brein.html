@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="nl" class="reduce-motion" style="background:#050815">
+<head>
+<meta charset="utf-8">
+<title>Brein</title>
+<link rel="stylesheet" href="/pakket/universe-os/usr/share/universe-os/ui/common.css">
+<link rel="stylesheet" href="/pakket/universe-os/usr/share/universe-os/ui/world.css">
+<style>html,body{height:100%;background:#050815}#room{position:fixed;inset:0}</style>
+</head>
+<body>
+<div id="room" class="room room-nebula"></div>
+<script type="module">
+import {mountNebula} from '/pakket/universe-os/usr/share/universe-os/ui/brein-nevel.js';
+const now = Date.now()/1000;
+const memories = [
+ {id:1, soort:'voorkeur', tekst:'Houdt van koffie in de ochtend', labels:'koffie', bijgewerkt:now, aangemaakt:now, helderheid:0.95},
+ {id:2, soort:'notitie', tekst:'De planten in de tuin hebben water nodig', labels:'tuin', bijgewerkt:now-86400, aangemaakt:now, helderheid:0.7},
+ {id:3, soort:'feit', tekst:'Werkt het liefst met weinig afleiding', labels:'focus', bijgewerkt:now-4000, aangemaakt:now, helderheid:0.8}
+];
+const sterren = [
+ {id:1000000001, bron:'mail', soort:'mail', tekst:'Ouderavond — De school vraagt of je donderdag kunt.', labels:'school@example.com', bijgewerkt:now, helderheid:0.92},
+ {id:2000000001, bron:'agenda', soort:'agenda', tekst:'Tandarts (2026-10-20 09:00)', labels:'Centrum', bijgewerkt:now, helderheid:0.9},
+ {id:3000000001, bron:'actie', soort:'actie', tekst:'2026-10-14 09:12 · goedgekeurd · Naar school@example.com: Ouderavond', labels:'mail_send', bijgewerkt:now, helderheid:0.75}
+];
+const rijen = [
+ {soort:'mail', titel:'Ouderavond', tekst:'De school vraagt of je donderdag kunt.', van:'school@example.com', tijd:'2026-10-14 08:40', status:''},
+ {soort:'agenda', titel:'Tandarts', tekst:'Centrum', tijd:'2026-10-20 09:00', status:''},
+ {soort:'actie', titel:'mail_send', tekst:'Naar school@example.com: Ouderavond', tijd:'2026-10-14 09:12', status:'goedgekeurd'},
+ {soort:'actie', titel:'scherm_toets', tekst:'Toets alt+f4', tijd:'2026-10-14 09:05', status:'geweigerd'},
+ {soort:'herinnering', titel:'voorkeur', tekst:'Houdt van koffie in de ochtend', tijd:'2026-10-14 07:30', status:''}
+];
+const call = async (cmd, args={}) => {
+ if (cmd === 'brein.list') return {sterren: memories};
+ if (cmd === 'brein.links') return {lijnen:[{van:1, naar:2, via:'tuin'}]};
+ if (cmd === 'brein.timeline') return {spoor:[]};
+ if (cmd === 'brein.lijst') {
+  const soort = args.soort || 'alles';
+  const rows = soort === 'alles' ? rijen : rijen.filter(r => (soort === 'acties' ? r.soort === 'actie' : r.soort === soort.replace('en','').replace('herinnering','herinnering')));
+  const filtered = soort === 'herinneringen' ? rijen.filter(r => r.soort === 'herinnering') : (soort === 'acties' ? rijen.filter(r => r.soort === 'actie') : (soort === 'mail' ? rijen.filter(r => r.soort === 'mail') : (soort === 'agenda' ? rijen.filter(r => r.soort === 'agenda') : rijen)));
+  return {rijen: filtered, sterren};
+ }
+ return {};
+};
+mountNebula(document.getElementById('room'), {call, focus:false});
+document.body.dataset.ready = '1';
+</script>
+</body>
+</html>

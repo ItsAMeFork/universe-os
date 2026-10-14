@@ -63,6 +63,14 @@ if [ "$1" = "configure" ]; then
     if [ -f /etc/pam.d/sudo ] && ! grep -q universe-admin-geluid /etc/pam.d/sudo; then
         sed -i '/^@include common-auth/i auth optional pam_exec.so quiet /usr/lib/universe-os/universe-admin-geluid' /etc/pam.d/sudo || true
     fi
+    # Sleutelbos voor gekoppelde accounts (Secret Service). Alleen onze eigen regel, zodat verwijderen hem weer weghaalt.
+    if [ -f /etc/pam.d/lightdm ] && ! grep -q universe-os-keyring /etc/pam.d/lightdm; then
+        printf '\n# universe-os-keyring\nauth optional pam_gnome_keyring.so # universe-os-keyring\nsession optional pam_gnome_keyring.so auto_start # universe-os-keyring\n' >> /etc/pam.d/lightdm
+    fi
+    # ydotoold (aanbevolen, Debian-backports): start per gebruiker als het programma er is.
+    mkdir -p /etc/systemd/user/default.target.wants
+    ln -sfn /usr/lib/systemd/user/universe-ydotoold.service /etc/systemd/user/default.target.wants/universe-ydotoold.service
+
     # Lock screen: a soft sound after a wrong password (universe-lock-poging). Optional line before the normal stack.
     if [ -f /etc/pam.d/gtklock ] && ! grep -q universe-lock-poging /etc/pam.d/gtklock; then
         sed -i '1i auth optional pam_exec.so quiet /usr/lib/universe-os/universe-lock-poging' /etc/pam.d/gtklock || true

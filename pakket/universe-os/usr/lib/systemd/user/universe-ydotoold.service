@@ -1,0 +1,12 @@
+[Unit]
+Description=Universe OS invoerhulp (ydotoold) voor schermbediening door de assistent
+Documentation=file:///usr/share/doc/universe-os/
+ConditionPathExists=/usr/bin/ydotoold
+
+[Service]
+ExecStart=/usr/bin/ydotoold
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target

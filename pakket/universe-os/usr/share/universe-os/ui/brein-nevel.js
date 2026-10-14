@@ -10,14 +10,19 @@ const KIND={
  voorkeur:{naam:'Voorkeur',kleur:'#85ffe3'},
  notitie:{naam:'Notitie',kleur:'#c9b6ff'},
  feit:{naam:'Feit',kleur:'#ffc98a'},
+ mail:{naam:'Mail',kleur:'#9ecbff'},
+ agenda:{naam:'Agenda',kleur:'#ffe08a'},
+ actie:{naam:'Actie',kleur:'#ff9ec8'},
 };
+const STATUS={goedgekeurd:'Goedgekeurd',geweigerd:'Geweigerd',uitgevoerd:'Uitgevoerd',mislukt:'Mislukt'};
+const FILTERS=[['alles','Alles'],['herinneringen','Herinneringen'],['mail','Mail'],['agenda','Agenda'],['acties','Acties']];
 
 const hash=n=>{let x=(2166136261^n)>>>0;x=Math.imul(x^(n&255),16777619);x=Math.imul(x^((n>>>8)&255),16777619);return x>>>0;};
 const clip=(t,n)=>{const s=String(t||'').replace(/\s+/g,' ').trim();return s.length>n?s.slice(0,n-1)+'…':s;};
 
 /** Stable place in the cloud: kind picks a lobe, the id picks the spot inside it. */
 export function layoutPoint(star,w,h){
- const lobe={voorkeur:-0.9,notitie:2.25,feit:4.75}[star.soort]??1.2;
+ const lobe={voorkeur:-0.9,notitie:2.25,feit:4.75,mail:0.35,agenda:3.5,actie:5.4}[star.soort]??1.2;
  const n=hash(Number(star.id)||0);
  const ang=lobe+((n%1000)/1000)*1.2;
  const rad=0.2+(((n>>>10)%1000)/1000)*0.8;
@@ -87,15 +92,17 @@ export function mountNebula(parent,api={}){
  const privacy=h('button',{type:'button'},'Privacy');
  privacy.addEventListener('click',()=>call('run',{tool:'control',page:'security'}).catch(e=>{status.textContent=e.message;}));
  const title=h('div',{class:'nebula-title'},h('strong',{},'Brein'),h('span',{},'Herinneringen in de nevel'));
- const hud=h('div',{class:'nebula-hud'},back,title,search,legend,privacy);
+ const listBtn=h('button',{type:'button','aria-pressed':'true'},'Lijst');
+ const hud=h('div',{class:'nebula-hud'},back,title,search,legend,listBtn,privacy);
  const chips=h('div',{class:'nebula-chips'});
+ const list=h('aside',{class:'nebula-list','aria-label':'Lijst van mail, agenda en acties'});
  const caption=h('p',{class:'nebula-caption'},'Komeetspoor · programma’s en bestanden die je opende');
  const hover=h('div',{class:'nebula-hover',hidden:true});
  const card=h('article',{class:'nebula-card',hidden:true,'aria-live':'polite'});
  const status=h('p',{class:'nebula-status',role:'alert'});
- parent.replaceChildren(canvas,hud,chips,caption,hover,card,status);
+ parent.replaceChildren(canvas,hud,chips,list,caption,hover,card,status);
 
- const state={stars:[],lines:[],trail:[],moons:[],match:null,hover:null,flash:null,selected:null};
+ const state={stars:[],lines:[],trail:[],moons:[],rows:[],filter:'alles',match:null,hover:null,flash:null,selected:null};
  const hits={stars:[],moons:[]};
  let plate=null,timer=0,alive=true,searchTimer=0,searchToken=0,view={w:0,h:0,dpr:1};
 
@@ -109,15 +116,50 @@ export function mountNebula(parent,api={}){
   drawChips();
  }
 
+ function renderList(){
+  list.replaceChildren();
+  const bar=h('div',{class:'nebula-filters'});
+  for(const [id,naam] of FILTERS){
+   const b=h('button',{type:'button','aria-pressed':state.filter===id?'true':'false'},naam);
+   b.addEventListener('click',()=>{state.filter=id;loadList();});
+   bar.append(b);
+  }
+  list.append(h('h2',{},'Lijst'),bar);
+  const rows=state.rows||[];
+  if(!rows.length) list.append(h('p',{class:'muted'},'Niets in deze lijst.'));
+  for(const row of rows){
+   const kind=row.soort==='herinnering'?'herinnering':row.soort;
+   const label={mail:'Mail',agenda:'Agenda',actie:'Actie',herinnering:'Herinnering'}[kind]||kind;
+   const article=h('article',{});
+   article.append(h('div',{class:'kind'},label+(row.tijd?' · '+row.tijd:'')),h('strong',{},row.titel||label),h('p',{},row.tekst||''));
+   if(row.van) article.append(h('p',{class:'muted'},row.van));
+   if(row.status) article.append(h('span',{class:'badge'},STATUS[row.status]||row.status));
+   list.append(article);
+  }
+ }
+ async function loadList(){
+  try{
+   const data=await call('brein.lijst',{soort:state.filter,q:search.value.trim()});
+   if(!alive||!still())return;
+   state.rows=data?.rijen||[];
+   if(state.filter==='alles'&&!search.value.trim()){
+    const extra=(data?.sterren||[]).slice(0,36);
+    const memories=state.stars.filter(s=>!s.bron);
+    state.stars=extra.concat(memories).slice(0,STAR_CAP);
+   }
+  }catch(e){if(alive)status.textContent=e.message||'De lijst kon niet worden gelezen.';}
+  renderList();paint();
+ }
  async function load(){
   try{
-   const [list,lines,trail]=await Promise.all([call('brein.list'),call('brein.links'),call('brein.timeline')]);
+   const [mem,lines,trail]=await Promise.all([call('brein.list'),call('brein.links'),call('brein.timeline')]);
    if(!alive||!still())return;
-   state.stars=(list?.sterren||[]).slice(0,STAR_CAP);
+   state.stars=(mem?.sterren||[]).filter(s=>!s.bron).slice(0,STAR_CAP);
    state.lines=lines?.lijnen||[];
    state.trail=(trail?.spoor||[]).slice(-TRAIL_CAP);
    status.textContent='';
   }catch(e){if(alive)status.textContent=e.message||'Het brein kon niet worden gelezen.';}
+  await loadList();
   paint();arm();
   if(alive)parent.dataset.nebula='ready';
  }
@@ -244,6 +286,12 @@ export function mountNebula(parent,api={}){
  function openStar(star){
   state.selected=star.id;card.hidden=false;hover.hidden=true;
   const kind=KIND[star.soort]||KIND.notitie;
+  if(star.bron){
+   const close=h('button',{type:'button'},'Sluiten');
+   close.addEventListener('click',()=>{state.selected=null;card.hidden=true;paint();});
+   card.replaceChildren(h('div',{class:'kind',style:'color:'+kind.kleur},kind.naam),h('h2',{},clip(star.tekst,72)||kind.naam),h('p',{},star.tekst||''),star.labels?h('p',{class:'muted'},star.labels):null,h('div',{class:'row'},close));
+   paint();close.focus();return;
+  }
   const when=star.bijgewerkt?new Date(star.bijgewerkt*1000).toLocaleDateString('nl-NL',{day:'numeric',month:'long',year:'numeric'}):'';
   const body=h('p',{},star.tekst||'');
   const row=h('div',{class:'row'});
@@ -341,14 +389,14 @@ export function mountNebula(parent,api={}){
   searchTimer=setTimeout(async()=>{
    const q=search.value.trim();
    const token=++searchToken;
-   if(!q){state.match=null;state.moons=[];drawChips();paint();return;}
+   if(!q){state.match=null;state.moons=[];drawChips();loadList();return;}
    try{
     const res=await call('brein.search',{q});
     if(!alive||token!==searchToken)return;
-    state.match=new Set((res?.sterren||[]).map(s=>s.id));
+    state.match=new Set([...(res?.sterren||[]).map(s=>s.id),...(res?.extra||[]).map(s=>s.id)]);
     state.moons=(res?.bestanden||[]).slice(0,MOON_CAP);
     status.textContent='';
-    drawChips();paint();arm();
+    drawChips();loadList();paint();arm();
    }catch(e){if(alive)status.textContent=e.message;}
   },220);
  });
@@ -403,6 +451,12 @@ export function mountNebula(parent,api={}){
  if(api.data){applyData(api.data);resize();if(alive)parent.dataset.nebula='ready';}
  else load();
  resize();
+ listBtn.addEventListener('click',()=>{
+  const open=list.hasAttribute('hidden');
+  list.toggleAttribute('hidden',!open);
+  listBtn.setAttribute('aria-pressed',open?'true':'false');
+  listBtn.textContent=open?'Lijst':'Nevel';
+ });
  if(api.focus!==false)search.focus({preventScroll:true});
  arm();
 

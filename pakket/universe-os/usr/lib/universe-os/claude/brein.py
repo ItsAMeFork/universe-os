@@ -49,6 +49,18 @@ def connect():
         CREATE TABLE IF NOT EXISTS timeline (at REAL NOT NULL, kind TEXT NOT NULL, item TEXT NOT NULL, label TEXT NOT NULL DEFAULT '');
         CREATE INDEX IF NOT EXISTS timeline_at ON timeline(at);
         CREATE TABLE IF NOT EXISTS hints (key TEXT PRIMARY KEY, answer TEXT NOT NULL, at REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS accounts (id TEXT PRIMARY KEY, provider TEXT NOT NULL, naam TEXT NOT NULL,
+            adres TEXT NOT NULL DEFAULT '', scopes TEXT NOT NULL DEFAULT '[]', extra TEXT NOT NULL DEFAULT '{}',
+            created REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS mail_items (id INTEGER PRIMARY KEY, account TEXT NOT NULL, extern TEXT NOT NULL,
+            onderwerp TEXT NOT NULL, van TEXT NOT NULL DEFAULT '', samenvatting TEXT NOT NULL DEFAULT '',
+            belangrijk INTEGER NOT NULL DEFAULT 1, wanneer REAL NOT NULL, UNIQUE(account, extern));
+        CREATE TABLE IF NOT EXISTS agenda_items (id INTEGER PRIMARY KEY, account TEXT NOT NULL, extern TEXT NOT NULL,
+            titel TEXT NOT NULL, start REAL NOT NULL, eind REAL NOT NULL, plek TEXT NOT NULL DEFAULT '',
+            UNIQUE(account, extern));
+        CREATE TABLE IF NOT EXISTS acties (id INTEGER PRIMARY KEY, op REAL NOT NULL, hulpmiddel TEXT NOT NULL,
+            samenvatting TEXT NOT NULL, status TEXT NOT NULL, detail TEXT NOT NULL DEFAULT '');
+        CREATE INDEX IF NOT EXISTS acties_op ON acties(op);
     """)
     return db
 
@@ -231,13 +243,19 @@ def resolve_flash(data):
 
 
 def forget_all(confirm):
-    """Wipes memories, the timeline and hint answers. Refuses unless confirm is the exact phrase."""
+    """Wipes memories, the timeline, hint answers, cached mail, agenda and the audit log.
+
+    Connected accounts stay (those are logins, removed from the Accounts page). Refuses unless confirm is the exact phrase.
+    """
     if str(confirm or '').strip().lower() != FORGET_PHRASE:
         raise ValueError('Typ "%s" om alles te vergeten.' % FORGET_PHRASE)
     with connect() as db:
         db.execute('DELETE FROM memories')
         db.execute('DELETE FROM timeline')
         db.execute('DELETE FROM hints')
+        db.execute('DELETE FROM mail_items')
+        db.execute('DELETE FROM agenda_items')
+        db.execute('DELETE FROM acties')
     return True
 
 
@@ -249,6 +267,10 @@ def summary():
             'per_soort': per_kind,
             'tijdlijn': db.execute('SELECT count(*) FROM timeline').fetchone()[0],
             'hints': db.execute('SELECT count(*) FROM hints').fetchone()[0],
+            'mail': db.execute('SELECT count(*) FROM mail_items').fetchone()[0],
+            'agenda': db.execute('SELECT count(*) FROM agenda_items').fetchone()[0],
+            'acties': db.execute('SELECT count(*) FROM acties').fetchone()[0],
+            'accounts': db.execute('SELECT count(*) FROM accounts').fetchone()[0],
             'bewaarplaats': '~/.local/share/universe-os/brein.db',
             'dagen_tijdlijn': TIMELINE_DAYS,
         }
@@ -262,8 +284,11 @@ def export_data():
                   for r in db.execute('SELECT * FROM timeline ORDER BY at')]
         hints = [{'sleutel': r['key'], 'antwoord': r['answer'], 'op': r['at']}
                  for r in db.execute('SELECT * FROM hints ORDER BY key')]
-    return {'herinneringen': memories, 'tijdlijn': events, 'hints': hints,
-            'gemaakt': time.strftime('%Y-%m-%dT%H:%M:%S', time.localtime(now))}
+        mail = [_mail_row(r) for r in db.execute('SELECT * FROM mail_items ORDER BY wanneer DESC')]
+        agenda = [_agenda_row(r) for r in db.execute('SELECT * FROM agenda_items ORDER BY start')]
+        actions = [_actie_row(r) for r in db.execute('SELECT * FROM acties ORDER BY op')]
+    return {'herinneringen': memories, 'tijdlijn': events, 'hints': hints, 'mail': mail, 'agenda': agenda,
+            'acties': actions, 'gemaakt': time.strftime('%Y-%m-%dT%H:%M:%S', time.localtime(now))}
 
 
 def write_export(folder):
@@ -339,3 +364,245 @@ def hint_answer(key):
 def set_hint_answer(key, answer):
     with connect() as db:
         db.execute('INSERT OR REPLACE INTO hints(key, answer, at) VALUES (?, ?, ?)', (key, answer, time.time()))
+
+
+# ----- accounts (no secrets), mail, agenda, audit log -----
+# Secrets never reach this database. accounts.py refuses banned keys before insert.
+BANNED_ACCOUNT_KEYS = frozenset({
+    'password', 'wachtwoord', 'token', 'secret', 'geheim', 'refresh_token', 'access_token',
+    'client_secret', 'device_code', 'authorization',
+})
+ACTIE_STATUS = ('goedgekeurd', 'geweigerd', 'uitgevoerd', 'mislukt')
+MAIL_STAR = 1_000_000_000
+AGENDA_STAR = 2_000_000_000
+ACTIE_STAR = 3_000_000_000
+LIST_FILTERS = ('alles', 'herinneringen', 'mail', 'agenda', 'acties')
+
+
+def _check_public(obj):
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            if str(key).lower() in BANNED_ACCOUNT_KEYS:
+                raise ValueError('Geheimen horen in de sleutelbos, niet in het brein.')
+            _check_public(value)
+    elif isinstance(obj, (list, tuple)):
+        for value in obj:
+            _check_public(value)
+
+
+def _clock(ts):
+    return time.strftime('%Y-%m-%d %H:%M', time.localtime(float(ts)))
+
+
+def save_account(row):
+    """Stores a connected account without secrets. Raises if a banned key is present."""
+    row = dict(row or {})
+    _check_public(row)
+    account_id = str(row.get('id') or '').strip()
+    provider = str(row.get('provider') or '').strip()
+    if not account_id or not provider:
+        raise ValueError('Account-id en provider zijn verplicht')
+    extra = row.get('extra') if isinstance(row.get('extra'), dict) else {}
+    _check_public(extra)
+    scopes = row.get('scopes') if isinstance(row.get('scopes'), list) else []
+    with connect() as db:
+        db.execute('INSERT OR REPLACE INTO accounts(id, provider, naam, adres, scopes, extra, created) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                   (account_id[:80], provider[:40], str(row.get('naam') or '')[:200], str(row.get('adres') or '')[:200],
+                    json.dumps(scopes, ensure_ascii=False), json.dumps(extra, ensure_ascii=False),
+                    float(row.get('created') or time.time())))
+    return get_account(account_id)
+
+
+def _account_row(r):
+    try:
+        scopes = json.loads(r['scopes'] or '[]')
+    except ValueError:
+        scopes = []
+    try:
+        extra = json.loads(r['extra'] or '{}')
+    except ValueError:
+        extra = {}
+    return {'id': r['id'], 'provider': r['provider'], 'naam': r['naam'], 'adres': r['adres'],
+            'scopes': scopes if isinstance(scopes, list) else [], 'extra': extra if isinstance(extra, dict) else {},
+            'created': r['created']}
+
+
+def get_account(account_id):
+    with connect() as db:
+        row = db.execute('SELECT * FROM accounts WHERE id = ?', (str(account_id),)).fetchone()
+    return _account_row(row) if row else None
+
+
+def list_accounts():
+    with connect() as db:
+        return [_account_row(r) for r in db.execute('SELECT * FROM accounts ORDER BY created')]
+
+
+def delete_account(account_id):
+    with connect() as db:
+        cur = db.execute('DELETE FROM accounts WHERE id = ?', (str(account_id),))
+        db.execute('DELETE FROM mail_items WHERE account = ?', (str(account_id),))
+        db.execute('DELETE FROM agenda_items WHERE account = ?', (str(account_id),))
+    return cur.rowcount > 0
+
+
+def upsert_mail(account, extern, onderwerp, van='', samenvatting='', wanneer=None, belangrijk=1):
+    extern = str(extern or '').strip()
+    if not extern:
+        raise ValueError('Bericht zonder id')
+    now = time.time() if wanneer is None else float(wanneer)
+    with connect() as db:
+        db.execute('''INSERT INTO mail_items(account, extern, onderwerp, van, samenvatting, belangrijk, wanneer)
+                      VALUES (?, ?, ?, ?, ?, ?, ?)
+                      ON CONFLICT(account, extern) DO UPDATE SET onderwerp=excluded.onderwerp, van=excluded.van,
+                      samenvatting=excluded.samenvatting, belangrijk=excluded.belangrijk, wanneer=excluded.wanneer''',
+                   (str(account)[:80], extern[:200], str(onderwerp or '')[:300], str(van or '')[:200],
+                    str(samenvatting or '')[:500], 1 if belangrijk else 0, now))
+
+
+def _mail_row(r):
+    return {'id': r['id'], 'account': r['account'], 'extern': r['extern'], 'onderwerp': r['onderwerp'],
+            'van': r['van'], 'samenvatting': r['samenvatting'], 'belangrijk': bool(r['belangrijk']),
+            'wanneer': r['wanneer'], 'tijd': _clock(r['wanneer'])}
+
+
+def list_mail(limit=12, query=''):
+    limit = max(1, min(int(limit or 12), 40))
+    query = str(query or '').strip()
+    like = '%' + query.replace('%', '').replace('_', '') + '%'
+    with connect() as db:
+        if query:
+            rows = db.execute('''SELECT * FROM mail_items WHERE belangrijk = 1 AND (onderwerp LIKE ? OR van LIKE ?
+                                 OR samenvatting LIKE ?) ORDER BY wanneer DESC LIMIT ?''', (like, like, like, limit))
+        else:
+            rows = db.execute('SELECT * FROM mail_items WHERE belangrijk = 1 ORDER BY wanneer DESC LIMIT ?', (limit,))
+        return [_mail_row(r) for r in rows]
+
+
+def upsert_agenda(account, extern, titel, start, eind, plek=''):
+    extern = str(extern or '').strip()
+    if not extern:
+        raise ValueError('Afspraak zonder id')
+    with connect() as db:
+        db.execute('''INSERT INTO agenda_items(account, extern, titel, start, eind, plek) VALUES (?, ?, ?, ?, ?, ?)
+                      ON CONFLICT(account, extern) DO UPDATE SET titel=excluded.titel, start=excluded.start,
+                      eind=excluded.eind, plek=excluded.plek''',
+                   (str(account)[:80], extern[:200], str(titel or '')[:300], float(start), float(eind), str(plek or '')[:200]))
+
+
+def _agenda_row(r):
+    return {'id': r['id'], 'account': r['account'], 'extern': r['extern'], 'titel': r['titel'],
+            'start': r['start'], 'eind': r['eind'], 'plek': r['plek'],
+            'van': _clock(r['start']), 'tot': _clock(r['eind'])}
+
+
+def list_agenda(limit=12, query='', now=None):
+    limit = max(1, min(int(limit or 12), 40))
+    now = time.time() if now is None else float(now)
+    query = str(query or '').strip()
+    like = '%' + query.replace('%', '').replace('_', '') + '%'
+    with connect() as db:
+        if query:
+            rows = db.execute('''SELECT * FROM agenda_items WHERE eind >= ? AND (titel LIKE ? OR plek LIKE ?)
+                                 ORDER BY start LIMIT ?''', (now - 3600, like, like, limit))
+        else:
+            rows = db.execute('SELECT * FROM agenda_items WHERE eind >= ? ORDER BY start LIMIT ?', (now - 3600, limit))
+        return [_agenda_row(r) for r in rows]
+
+
+def log_actie(hulpmiddel, samenvatting, status, detail=''):
+    """Audit row. Callers must not put passwords or tokens in samenvatting or detail."""
+    if status not in ACTIE_STATUS:
+        raise ValueError('Status moet een van %s zijn' % ', '.join(ACTIE_STATUS))
+    with connect() as db:
+        cur = db.execute('INSERT INTO acties(op, hulpmiddel, samenvatting, status, detail) VALUES (?, ?, ?, ?, ?)',
+                         (time.time(), str(hulpmiddel or '')[:80], str(samenvatting or '')[:400], status, str(detail or '')[:400]))
+        return cur.lastrowid
+
+
+def _actie_row(r):
+    return {'id': r['id'], 'op': r['op'], 'tijd': _clock(r['op']), 'hulpmiddel': r['hulpmiddel'],
+            'samenvatting': r['samenvatting'], 'status': r['status'], 'detail': r['detail']}
+
+
+def list_acties(limit=80, query='', status=None):
+    limit = max(1, min(int(limit or 80), 200))
+    query = str(query or '').strip()
+    like = '%' + query.replace('%', '').replace('_', '') + '%'
+    clauses, params = [], []
+    if status:
+        clauses.append('status = ?')
+        params.append(status)
+    if query:
+        clauses.append('(samenvatting LIKE ? OR hulpmiddel LIKE ? OR detail LIKE ?)')
+        params.extend((like, like, like))
+    where = (' WHERE ' + ' AND '.join(clauses)) if clauses else ''
+    with connect() as db:
+        rows = db.execute('SELECT * FROM acties' + where + ' ORDER BY op DESC LIMIT ?', params + [limit])
+        return [_actie_row(r) for r in rows]
+
+
+def _mail_star(row):
+    text = '%s — %s' % (row['onderwerp'], row['samenvatting'])
+    return {'id': MAIL_STAR + int(row['id']), 'bron': 'mail', 'bron_id': row['id'], 'soort': 'mail',
+            'tekst': text.strip(' —'), 'labels': row['van'], 'aangemaakt': row['wanneer'], 'bijgewerkt': row['wanneer'],
+            'helderheid': 0.92, 'account': row['account']}
+
+
+def _agenda_star(row):
+    text = row['titel'] + ((' · ' + row['plek']) if row['plek'] else '')
+    return {'id': AGENDA_STAR + int(row['id']), 'bron': 'agenda', 'bron_id': row['id'], 'soort': 'agenda',
+            'tekst': '%s (%s)' % (text, row['van']), 'labels': row['plek'], 'aangemaakt': row['start'],
+            'bijgewerkt': row['start'], 'helderheid': 0.9, 'account': row['account']}
+
+
+def _actie_star(row):
+    return {'id': ACTIE_STAR + int(row['id']), 'bron': 'actie', 'bron_id': row['id'], 'soort': 'actie',
+            'tekst': '%s · %s · %s' % (row['tijd'], row['status'], row['samenvatting']), 'labels': row['hulpmiddel'],
+            'aangemaakt': row['op'], 'bijgewerkt': row['op'], 'helderheid': 0.75}
+
+
+def sterren_extra(limit=24):
+    """Mail, agenda and audit rows as nebula stars (ids live in a high range, away from memories)."""
+    each = max(1, min(int(limit or 24), 40) // 3 or 1)
+    stars = [_mail_star(r) for r in list_mail(each)]
+    stars += [_agenda_star(r) for r in list_agenda(each)]
+    stars += [_actie_star(r) for r in list_acties(each)]
+    return stars
+
+
+def lijst(soort='alles', zoek='', limit=40):
+    """Flat, filterable list for the Brein page: memories, mail, agenda, actions."""
+    soort = str(soort or 'alles').strip().lower()
+    if soort not in LIST_FILTERS:
+        raise ValueError('Filter moet een van %s zijn' % ', '.join(LIST_FILTERS))
+    limit = max(1, min(int(limit or 40), 80))
+    query = str(zoek or '').strip()
+    needle = query.lower()
+    rows = []
+
+    def add(row):
+        blob = ' '.join(str(row.get(key) or '') for key in ('titel', 'tekst', 'status', 'van')).lower()
+        if needle and needle not in blob:
+            return
+        rows.append(row)
+
+    if soort in ('alles', 'herinneringen'):
+        memories = search_memories(query, limit) if query else list_memories(limit)
+        for item in memories:
+            add({'soort': 'herinnering', 'id': item['id'], 'titel': item['soort'], 'tekst': item['tekst'],
+                 'wanneer': item['bijgewerkt'], 'tijd': _clock(item['bijgewerkt']), 'status': ''})
+    if soort in ('alles', 'mail'):
+        for item in list_mail(limit, query):
+            add({'soort': 'mail', 'id': item['id'], 'titel': item['onderwerp'], 'tekst': item['samenvatting'],
+                 'van': item['van'], 'wanneer': item['wanneer'], 'tijd': item['tijd'], 'status': ''})
+    if soort in ('alles', 'agenda'):
+        for item in list_agenda(limit, query):
+            add({'soort': 'agenda', 'id': item['id'], 'titel': item['titel'], 'tekst': item['plek'],
+                 'wanneer': item['start'], 'tijd': item['van'], 'status': ''})
+    if soort in ('alles', 'acties'):
+        for item in list_acties(limit, query):
+            add({'soort': 'actie', 'id': item['id'], 'titel': item['hulpmiddel'], 'tekst': item['samenvatting'],
+                 'wanneer': item['op'], 'tijd': item['tijd'], 'status': item['status']})
+    rows.sort(key=lambda row: row.get('wanneer') or 0, reverse=True)
+    return {'rijen': rows[:limit], 'sterren': sterren_extra(limit)}

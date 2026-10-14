@@ -21,12 +21,47 @@ import config  # noqa: E402
 import session  # noqa: E402
 from webview import Bridge, emit, make_view  # noqa: E402
 
-def _brein():
+def _claude():
     folder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'claude')
     if folder not in sys.path:
         sys.path.insert(0, folder)
+    return folder
+
+
+def _brein():
+    _claude()
     import brein
     return brein
+
+
+def _accounts():
+    _claude()
+    import accounts
+    return accounts
+
+
+def _screen():
+    _claude()
+    import screen
+    return screen
+
+
+def _tell_shell(command):
+    subprocess.run(['universe-ctl', command], capture_output=True)
+
+
+def _grant_screen(on):
+    result = _screen().allow() if on else _screen().revoke()
+    _tell_shell('scherm')
+    return result
+
+
+def _oauth_start(args):
+    result = _accounts().start_oauth(args.get('provider'), args.get('methode') or 'loopback', args.get('client_id') or '', args.get('client_secret') or None)
+    url = result.get('url') or result.get('verificatie') or ''
+    if str(url).startswith('http'):
+        backend.spawn(['xdg-open', url])
+    return result
 
 
 def _download_dir():
@@ -316,6 +351,17 @@ def handlers(app):
         'brein.summary': lambda a: _brein().summary(),
         'brein.export': lambda a: _brein().write_export(_download_dir()),
         'brein.forget_all': lambda a: _brein().forget_all(a.get('bevestig') if 'bevestig' in a else a.get('confirm', '')) or {'vergeten': 'alles'},
+        'accounts.list': lambda a: _accounts().list_public(),
+        'accounts.clients': lambda a: _accounts().clients_public(),
+        'accounts.client': lambda a: _accounts().save_client(a.get('provider'), a.get('client_id'), a.get('client_secret') or None),
+        'accounts.oauth_start': _oauth_start,
+        'accounts.oauth_poll': lambda a: _accounts().poll_oauth(a.get('flow')),
+        'accounts.imap': lambda a: _accounts().add_imap(a.get('naam'), a.get('adres'), a.get('imap_host'), a.get('smtp_host'), a.get('user'), a.get('password'), a.get('imap_port'), a.get('smtp_port')),
+        'accounts.caldav': lambda a: _accounts().add_caldav(a.get('naam'), a.get('adres'), a.get('url'), a.get('user'), a.get('password')),
+        'accounts.disconnect': lambda a: _accounts().disconnect(a.get('id')),
+        'scherm.status': lambda a: _screen().status(),
+        'scherm.toestaan': lambda a: _grant_screen(True),
+        'scherm.intrekken': lambda a: _grant_screen(False),
     }
 
 
@@ -340,7 +386,10 @@ class ControlCenter(Gtk.Application):
             return
         bridge = Bridge(handlers(self), threaded={'updates.channel.set', 'network.status', 'status', 'audio.outputs', 'audio.select', 'wifi.list', 'wifi.connect', 'users.add', 'users.remove', 'users.admin',
                                                    'users.password', 'account.password', 'timezone.set', 'updates.status', 'keyboard.set',
-                                                   'locale.set', 'bluetooth.get', 'updates.refresh', 'updates.install', 'claude.status'}, log=lambda *args: None)
+                                                   'locale.set', 'bluetooth.get', 'updates.refresh', 'updates.install', 'claude.status',
+                                                   'accounts.list', 'accounts.clients', 'accounts.client', 'accounts.oauth_start',
+                                                   'accounts.oauth_poll', 'accounts.imap', 'accounts.caldav', 'accounts.disconnect',
+                                                   'scherm.status', 'scherm.toestaan', 'scherm.intrekken'}, log=lambda *args: None)
         self.window = Gtk.ApplicationWindow(application=self, title='Controlecentrum')
         self.window.set_default_size(1040, 720)
         self.window.set_icon_name('preferences-system')
