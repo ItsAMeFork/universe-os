@@ -6,6 +6,7 @@ import {debugFPS,afterPaint} from './performance.js';
 import {SETTINGS} from './settings-index.js';
 import {keepTab} from './focus.js';
 import {distFor} from './space.js';
+import {mountNebula} from './brein-nevel.js';
 // The 3D desktop (Axel, 10 Oct: "the desktop in 3D, every program a planet somewhere that you arrange yourself,
 // zoom in and out, also turn in 3D"). The Earth in the middle is the personal folder; folders and files from the
 // Bureaublad circle it; every program is a planet in a galaxy, grouped by kind. Wheel = zoom, drag empty space = move,
@@ -17,7 +18,7 @@ import {distFor} from './space.js';
 const KIND={local:['local','Werkt lokaal'],online:['online','Internet nodig'],mixed:['mixed','Lokaal + online']};
 let config=null,settings={},user={},current=null,lastFocus=null,appsCache=null;
 let layout={planets:{},items:[],orbit:true,dock:[],icons:{},hiddenIcons:[],start:null,space:{pos:{},hidden:[],camera:null}};
-let travelToken=0,backgroundBusy=false,initialFocus=true;
+let travelToken=0,backgroundBusy=false,initialFocus=true,nebulaDispose=null;
 on('background-busy',v=>{backgroundBusy=!!v;});
 const root=h('main',{class:'universe','aria-label':'Bureaublad van Universe OS'});
 const sky=h('canvas',{class:'space-canvas','aria-hidden':'true'});
@@ -602,7 +603,8 @@ async function land(p,{chooseBrowser=false}={}){
  ++travelToken;openRoom(p);
 }
 function leave(){
- if(!current)return;travelToken++;current=null;room.hidden=true;room.replaceChildren();layer.inert=false;
+ if(!current)return;travelToken++;nebulaDispose?.();nebulaDispose=null;current=null;
+ room.hidden=true;room.classList.remove('room-nebula');room.replaceChildren();layer.inert=false;
  (lastFocus&&lastFocus.isConnected?lastFocus:layer.firstChild)?.focus({preventScroll:true});
 }
 function withMenu(el,entries){
@@ -612,6 +614,13 @@ function withMenu(el,entries){
 
 function openRoom(p){
  room.style.setProperty('--hue',p.hue);room.setAttribute('aria-label',p.name);
+ room.classList.toggle('room-nebula',p.id==='brein');
+ if(p.id==='brein'){
+  const token=travelToken;
+  room.replaceChildren();room.hidden=false;
+  nebulaDispose=mountNebula(room,{call,leave,alive:()=>token===travelToken});
+  return;
+ }
  const [kind,kindText]=KIND[p.kind]||KIND.local;
  const back=h('button',{class:'room-back',type:'button'},icon('back'),'Terug naar het bureaublad');back.addEventListener('click',leave);
  const side=h('aside',{class:'room-side'},back,planetGlobe(p,Math.min(220,innerWidth*.2)),h('h1',{},p.name),h('span',{class:`badge ${kind}`},kindText),h('p',{},p.description));

@@ -21,6 +21,25 @@ import config  # noqa: E402
 import session  # noqa: E402
 from webview import Bridge, emit, make_view  # noqa: E402
 
+def _brein():
+    folder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'claude')
+    if folder not in sys.path:
+        sys.path.insert(0, folder)
+    import brein
+    return brein
+
+
+def _download_dir():
+    try:
+        out = subprocess.run(['xdg-user-dir', 'DOWNLOAD'], capture_output=True, text=True, timeout=2)
+        folder = out.stdout.strip()
+        if out.returncode == 0 and folder and os.path.isdir(os.path.dirname(folder) or folder):
+            return folder
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return os.path.join(os.path.expanduser('~'), 'Downloads')
+
+
 HELPER = '/usr/lib/universe-os/universe-admin-helper'
 LANGUAGES = [('nl_NL.UTF-8', 'Nederlands (Nederland)'), ('nl_BE.UTF-8', 'Nederlands (België)'), ('en_US.UTF-8', 'English (United States)'),
              ('en_GB.UTF-8', 'English (United Kingdom)'), ('de_DE.UTF-8', 'Deutsch'), ('fr_FR.UTF-8', 'Français'), ('es_ES.UTF-8', 'Español')]
@@ -294,6 +313,9 @@ def handlers(app):
         'claude.install': lambda a: claude_install(),
         'claude.open': lambda a: backend.spawn(['universe-ctl', 'claude']),
         'window.page': lambda a: app.pending_page,
+        'brein.summary': lambda a: _brein().summary(),
+        'brein.export': lambda a: _brein().write_export(_download_dir()),
+        'brein.forget_all': lambda a: _brein().forget_all(a.get('bevestig') if 'bevestig' in a else a.get('confirm', '')) or {'vergeten': 'alles'},
     }
 
 

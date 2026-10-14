@@ -12,7 +12,7 @@ export const SETTINGS=[
  {id:'users',name:'Accounts',icon:'user',words:'gebruikers account beheerder wachtwoord toevoegen verwijderen sudo'},
  {id:'shortcuts',name:'Sneltoetsen',icon:'keyboard',words:'sneltoetsen toetsencombinaties windows super alt tab'},
  {id:'updates',name:'Software en updates',icon:'update',words:'updates bijwerken beveiliging herstarten pakketten apt'},
- {id:'security',name:'Beveiliging',icon:'shield',words:'firewall privacy beveiliging ufw'},
+ {id:'security',name:'Beveiliging',icon:'shield',words:'firewall privacy beveiliging ufw brein herinneringen vergeten exporteren tweede brein nevel'},
  {id:'claude',name:'Claude',icon:'chat',words:'claude code ai assistent installeren inloggen personage bureaublad'},
  {id:'about',name:'Over Universe OS',icon:'info',words:'versie systeem informatie licenties hardware'}
 ];

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<title>Brein-nevel</title>
+<link rel="stylesheet" href="../../pakket/universe-os/usr/share/universe-os/ui/common.css">
+<link rel="stylesheet" href="../../pakket/universe-os/usr/share/universe-os/ui/world.css">
+<style>html,body{height:100%;background:#050815}</style>
+</head>
+<body>
+<section id="room" class="room room-nebula" aria-label="Brein"></section>
+<script type="module">
+import {mountNebula} from '../../pakket/universe-os/usr/share/universe-os/ui/brein-nevel.js';
+
+const ster=(id,soort,tekst,labels,helderheid)=>({id,soort,tekst,labels,helderheid,bijgewerkt:Date.now()/1000- (1-helderheid)*9*86400,aangemaakt:Date.now()/1000});
+const sterren=[
+ ster(1,'voorkeur','Houdt van koffie in de ochtend','koffie, ochtend',1),
+ ster(2,'voorkeur','Zwarte koffie, zonder suiker','koffie',.92),
+ ster(3,'voorkeur','Werkt het liefst met weinig afleiding','focus',.84),
+ ster(4,'voorkeur','Korte zinnen, geen uitleg tenzij gevraagd','taal',.7),
+ ster(5,'voorkeur','Koffie na het ontbijt, niet ervoor','koffie, ochtend',.96),
+ ster(6,'notitie','De planten in de tuin hebben water nodig','tuin',.88),
+ ster(7,'notitie','Tuinieren op zaterdag, vooral de planten','tuin',.62),
+ ster(8,'notitie','Notitie over de stille muziek tijdens het schrijven','muziek',.55),
+ ster(9,'notitie','Idee: de nevel moet ook op een trage pc licht blijven','nevel',.78),
+ ster(10,'feit','Debian, vensterbeheerder labwc','computer',.9),
+ ster(11,'feit','Beeldscherm staat links van het raam','huis',.48),
+ ster(12,'feit','Account is geen beheerder op deze computer','account',.4),
+ ster(13,'notitie','Boodschap: papier en inkt','boodschap',.33),
+ ster(14,'voorkeur','Donker thema, teal als accent','vormgeving',.73),
+ ster(15,'feit','Firefox is de standaardbrowser','browser',.66),
+ ster(16,'notitie','Verjaardag van de buurvrouw in november','mensen',.36),
+ ster(17,'feit','De map Documenten staat op deze computer','bestanden',.58),
+ ster(18,'notitie','Een regel die later nog van pas komt','later',.44),
+];
+const lijnen=[
+ {van:1,naar:2,via:'koffie'},{van:2,naar:5,via:'koffie'},{van:1,naar:5,via:'ochtend'},
+ {van:6,naar:7,via:'tuin'},{van:6,naar:9,via:'planten'},{van:10,naar:15,via:'computer'},
+ {van:3,naar:4,via:'taal'},{van:14,naar:4,via:'vormgeving'},{van:11,naar:17,via:'huis'},
+];
+const spoor=[
+ {soort:'app',naam:'Bestanden',wat:'org.gnome.Nautilus.desktop'},
+ {soort:'file',naam:'brief.odt',wat:'/home/brief.odt'},
+ {soort:'app',naam:'Firefox',wat:'firefox.desktop'},
+ {soort:'file',naam:'foto.jpg',wat:'/home/foto.jpg'},
+ {soort:'app',naam:'Terminal',wat:'org.gnome.Terminal.desktop'},
+ {soort:'file',naam:'notities.txt',wat:'/home/notities.txt'},
+ {soort:'app',naam:'Muziek',wat:'rhythmbox.desktop'},
+ {soort:'file',naam:'tuin.png',wat:'/home/tuin.png'},
+];
+const manen=[
+ {naam:'koffie.txt',pad:'/home/Documenten/koffie.txt'},
+ {naam:'ochtend.odt',pad:'/home/Documenten/ochtend.odt'},
+ {naam:'recept.pdf',pad:'/home/Documenten/recept.pdf'},
+];
+const room=document.getElementById('room');
+mountNebula(room,{
+ focus:false,
+ leave(){},
+ call:async()=>({}),
+ data:{sterren,lijnen,spoor,manen,treffers:[1,2,5],zoek:'koffie'},
+});
+document.documentElement.dataset.nebula=room.dataset.nebula||'ready';
+</script>
+</body>
+</html>
