@@ -21,6 +21,11 @@ SOCKET = os.path.join(os.environ.get('XDG_RUNTIME_DIR', '/tmp'), 'universe-shell
 PROTOCOL = '2025-06-18'
 PLANETS = {'home': 'Thuiswereld (persoonlijke map)', 'apps': 'Applicaties', 'store': 'Softwarewinkel',
            'control': 'Controlecentrum', 'chat': 'Internet', 'games': 'Gamehal'}
+# Names the shell already plays (universe_shell.ANIMATIONS): planet flights, back to space, buddy states and walks.
+ANIMATIONS = ('planeet-thuis', 'planeet-applicaties', 'planeet-winkel', 'planeet-controle', 'planeet-internet',
+              'planeet-games', 'ruimte', 'buddy-rust', 'buddy-luisteren', 'buddy-denken', 'buddy-werken',
+              'buddy-aandacht', 'buddy-blij', 'buddy-naar-huis', 'buddy-naar-dock', 'buddy-naar-wereld',
+              'buddy-naar-paneel')
 TOOLS_FOR_RUN = ('files', 'terminal', 'monitor', 'software', 'control', 'pavucontrol', 'wdisplays', 'blueman-manager', 'network-editor')
 
 
@@ -134,6 +139,14 @@ def t_planet(a):
     return 'Planeet geopend: %s' % PLANETS[pid]
 
 
+def t_animation(a):
+    name = a.get('naam')
+    if name not in ANIMATIONS:
+        raise ToolError('Onbekende animatie. Kies uit: %s' % ', '.join(ANIMATIONS))
+    shell('claude.anim', {'naam': name})
+    return 'Animatie getoond: %s' % name
+
+
 def t_search(a):
     data = shell('search', {'q': str(a.get('zoek') or '')})
     return {'programmas': [slim_app(x) for x in data.get('apps', [])], 'bestanden': data.get('files', [])}
@@ -191,9 +204,14 @@ def t_power(a):
     try:
         shell('claude.power', {'action': action})
     except ToolError as error:
-        # The shell is unreachable or still the version from before the update (it only learns claude.power after
-        # logging in again): do it directly, without animation, so the request never fails (Axel, 13 Oct).
-        direct_power(action, error)
+        # Only when the socket is down, or this shell is still the version from before the update (it answers
+        # "niet toegestaan: claude.power" until the user logs in again). A refusal or a handler error must reach
+        # Claude: falling through to systemctl would power off anyway (13 Oct).
+        text = str(error)
+        if text.startswith('De Universe-shell is niet bereikbaar') or text == 'niet toegestaan: claude.power':
+            direct_power(action, error)
+        else:
+            raise
     return {'lock': 'Het scherm wordt vergrendeld (met de animatie).', 'logout': 'Je wordt afgemeld.',
             'reboot': 'De computer start opnieuw op.', 'poweroff': 'De computer wordt afgesloten.',
             'suspend': 'De computer gaat in slaapstand.'}[action]
@@ -315,6 +333,12 @@ TOOLS = {
     'bureaublad_tonen': ('Minimize all windows to show the 3D desktop (the space world).', S({}), t_desktop, False),
     'planeet_openen': ('Fly to a planet in the space world: ' + ', '.join('%s = %s' % kv for kv in PLANETS.items()) + '.',
                        S({'id': {'type': 'string', 'enum': list(PLANETS)}}, ['id']), t_planet, False),
+    'animatie_tonen': ('Play one animation the desktop already has. naam must be one of: planet flights '
+                       '(planeet-thuis, planeet-applicaties, planeet-winkel, planeet-controle, planeet-internet, '
+                       'planeet-games), back to the space world (ruimte), a buddy state (buddy-rust, buddy-luisteren, '
+                       'buddy-denken, buddy-werken, buddy-aandacht, buddy-blij) or a buddy walk (buddy-naar-huis, '
+                       'buddy-naar-dock, buddy-naar-wereld, buddy-naar-paneel).',
+                       S({'naam': {'type': 'string', 'enum': list(ANIMATIONS)}}, ['naam']), t_animation, False),
     'zoeken': ('Search programs and files (like the start menu search).', S({'zoek': STR}, ['zoek']), t_search, True),
     'pad_openen': ('Open a file or folder with its default program (~ allowed).', S({'pad': STR}, ['pad']), t_open_path, False),
     'hulpmiddel_openen': ('Open a system tool: ' + ', '.join(TOOLS_FOR_RUN) + '. For control, "page" picks a page; '
