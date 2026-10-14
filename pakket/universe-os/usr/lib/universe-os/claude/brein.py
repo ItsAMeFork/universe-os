@@ -520,15 +520,19 @@ def list_agenda(limit=12, query='', now=None):
         return [_agenda_row(r) for r in rows]
 
 
-def log_actie(hulpmiddel, samenvatting, status, detail='', ongedaan=''):
-    """Audit row. Callers must not put passwords or tokens in samenvatting or detail."""
+def log_actie(hulpmiddel, samenvatting, status, detail='', ongedaan='', volledig=False):
+    """Audit row. Callers must not put passwords or tokens in samenvatting or detail.
+
+    volledig keeps an auto-sent message intact. Other rows stay short.
+    """
     if status not in ACTIE_STATUS:
         raise ValueError('Status moet een van %s zijn' % ', '.join(ACTIE_STATUS))
+    limit = 100000 if volledig else 400
     with connect() as db:
         cur = db.execute(
             'INSERT INTO acties(op, hulpmiddel, samenvatting, status, detail, ongedaan) VALUES (?, ?, ?, ?, ?, ?)',
             (time.time(), str(hulpmiddel or '')[:80], str(samenvatting or '')[:400], status,
-             str(detail or '')[:400], str(ongedaan or '')[:400]))
+             str(detail or '')[:limit], str(ongedaan or '')[:400]))
         return cur.lastrowid
 
 

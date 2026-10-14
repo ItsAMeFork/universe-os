@@ -77,8 +77,8 @@ export async function mountAccounts(root, api={}){
      return 'Gekoppeld: '+(done.account?.adres||naam);
     })));
   };
-  return card(naam,
-   note('OAuth op deze computer (loopback) of een apparaatcode. Mail en agenda. Het token gaat naar de sleutelbos, niet naar een bestand.'),
+  return card(naam+' (optioneel)',
+   note('Alleen als je geen browserweg wilt. OAuth op deze computer of een apparaatcode. Het token gaat naar de sleutelbos, niet naar een bestand.'),
    field('Client-id',client),field('Clientgeheim (optioneel)',secret),
    button('Koppelen via browser',()=>show('loopback')),
    button('Koppelen met apparaatcode',()=>show('device')));
@@ -86,14 +86,25 @@ export async function mountAccounts(root, api={}){
 
  const imapName=input(),imapMail=input(),imapHost=input(),imapPort=input('number','993'),smtpHost=input(),smtpPort=input('number','465'),imapUser=input(),imapPw=input('password');
  const davName=input(),davMail=input(),davUrl=input(),davUser=input(),davPw=input('password');
+ let browser = {tekst:'Log gewoon in in Chrome. Gmail en Outlook hebben geen OAuth-client nodig.'};
+ try{browser=await call('chrome.status');}catch(e){}
+ const browserState=h('p',{class:'switch-state '+(browser.verbonden?'aan':'uit')},browser.tekst||'Log gewoon in in Chrome.');
  root.append(
-  note('Koppel je mail en agenda één keer. De assistent gebruikt daarna die accounts, welke AI je ook kiest. Versturen en afspraken maken vragen altijd eerst om toestemming op het scherm.'),
-  note('Google maakt dit lastig. De apparaatcode werkt niet voor Gmail, en Google moet de app controleren voordat iemand anders dan een testgebruiker kan koppelen. Voor de meeste mensen is IMAP eenvoudiger. Gebruik een desktop-client en koppel via de browser.'),
+  card('Mail via de browser',
+   note('Log gewoon in in Chrome. Gmail en Outlook Web werken in de browser waar jij al bent aangemeld. Er is geen OAuth-client en geen app-controle bij Google nodig.'),
+   note('Lezen, sorteren, concepten en formulieren gaan door. Een kort antwoord naar iemand die je al schrijft mag mee als automatisch toestaan aan staat. Belangrijke mail, betalen, wissen en wachtwoorden blijven een vraag.'),
+   browserState,
+   button('Claude in Chrome openen',async()=>{
+    const next=await call('chrome.setup');
+    browserState.textContent=(next&&next.tekst)||'De extensiepagina opent.';
+    return browserState.textContent;
+   })),
+  note('IMAP en OAuth hieronder zijn een extra weg, voor een eigen server of als je de browser niet wilt gebruiken. Ze zijn niet nodig voor Gmail of Outlook in Chrome.'),
   live, flowBox,
   providerCard('google','Google'),
   providerCard('microsoft','Microsoft'),
-  card('IMAP en SMTP',
-   note('Voor een provider zonder OAuth. Het wachtwoord gaat alleen naar de sleutelbos.'),
+  card('IMAP en SMTP (optioneel)',
+   note('Voor een eigen server, als je de browserweg niet gebruikt. Het wachtwoord gaat alleen naar de sleutelbos.'),
    field('Naam',imapName),field('E-mailadres',imapMail),field('IMAP-server',imapHost),field('IMAP-poort',imapPort),
    field('SMTP-server',smtpHost),field('SMTP-poort',smtpPort),field('Gebruikersnaam',imapUser),field('Wachtwoord',imapPw),
    button('IMAP koppelen',async()=>{

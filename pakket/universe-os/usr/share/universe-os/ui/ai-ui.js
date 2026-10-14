@@ -143,12 +143,15 @@ export async function mountAi(root, api={}){
   autoDuur.append(h('option',{value:id},label));
  }
  autoDuur.value='30m';
+ const regels=h('textarea',{rows:'4'});
+ regels.setAttribute('aria-label','Belangrijke domeinen en woorden');
  function paintAuto(next){
   const on=!!(next&&next.aan);
   autoBox.checked=on;
   autoState.textContent=on?(next.tekst||'Aan'):'Uit';
   autoState.className='switch-state '+(on?'aan':'uit');
   if(next&&next.duur) autoDuur.value=next.duur;
+  if(next&&Array.isArray(next.regels)&&document.activeElement!==regels) regels.value=next.regels.join('\n');
  }
  autoBox.addEventListener('change',async()=>{
   try{paintAuto(await call('auto.set',{aan:autoBox.checked,duur:autoDuur.value}));}
@@ -181,8 +184,15 @@ export async function mountAi(root, api={}){
    h('span',{class:'switch-copy'},
     h('span',{class:'switch-title'},'Automatisch toestaan'),
     autoState)),
-  note('Voor als je weg bent. Gewone stappen gaan door; betalen, wissen, versturen, wachtwoorden en systeemwijzigingen blijven wachten.'),
-  field('Duur',autoDuur));
+  note('Voor als je weg bent. Gewone stappen gaan door, en een kort antwoord naar iemand die je al schrijft ook. Belangrijke mail, betalen, wissen en wachtwoorden blijven wachten.'),
+  field('Duur',autoDuur),
+  field('Belangrijke domeinen en woorden',regels),
+  note('Eén per regel. Mail die zo’n woord bevat, of een nieuwe ontvanger, een bijlage of meer dan drie ontvangers, gaat nooit automatisch weg.'),
+  button('Regels bewaren',async()=>{
+   const saved=await call('auto.regels',{regels:regels.value});
+   paintAuto(saved);
+   return 'Regels bewaard.';
+  }));
  const routes=h('div');
  for(const item of [
   ['claude','Claude (direct)'],
@@ -215,11 +225,23 @@ export async function mountAi(root, api={}){
    paintRoute(saved);
    return 'Deze sessie gaat weer naar Claude.';
   }));
+ const chromeState=h('p',{class:'switch-state uit'},'Nog niet gecontroleerd.');
+ const chromeCard=h('section',{class:'card token-hero'},
+  h('h3',{},'Claude in Chrome'),
+  note('De officiële extensie in jouw Chrome. Gmail en Outlook werken zo, zonder OAuth-client. Log gewoon in.'),
+  chromeState,
+  button('Chrome en de extensie klaarzetten',async()=>{
+   const next=await call('chrome.setup');
+   chromeState.textContent=(next&&next.tekst)||'Klaar.';
+   chromeState.className='switch-state '+((next&&next.verbonden)?'aan':'uit');
+   return next&&next.tekst||'De pagina van de extensie opent.';
+  }));
  root.append(
+  chromeCard,
   autoSwitch,
   tokenSwitch,
   modelCard,
-  note('Kies wie antwoordt. Het personage, de herinneringen en de vragen op het scherm blijven hetzelfde. Welke AI je ook kiest: een e-mail, een afspraak en het scherm gaan alleen door als jij op Toestaan drukt.'),
+  note('Kies wie antwoordt. Het personage, de herinneringen en de vragen op het scherm blijven hetzelfde. Lezen, concepten en formulieren gaan door. Belangrijke mail, betalen, wissen en wachtwoorden blijven een vraag met Toestaan.'),
   card('Gebruik',
    h('label',{class:'check'},learn,'Leren van taken (korte les, alleen als die minder kost dan de taak)'),
    button('Leervoorkeur bewaren',async()=>{
@@ -281,5 +303,10 @@ export async function mountAi(root, api={}){
   }));
  paintRoute(status);
  try{paintAuto(await call('auto.status'));}catch(e){paintAuto({aan:false,tekst:'Uit'});}
+ try{
+  const chrome=await call('chrome.status');
+  chromeState.textContent=(chrome&&chrome.tekst)||chromeState.textContent;
+  chromeState.className='switch-state '+((chrome&&chrome.verbonden)?'aan':'uit');
+ }catch(e){}
  root.dataset.ai='ready';
 }

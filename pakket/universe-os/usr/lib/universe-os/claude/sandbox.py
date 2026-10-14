@@ -49,15 +49,27 @@ def visible_binds(binary, binds, home):
     return list(binds) + [parent]
 
 
-def command(inner, cwd, home, binds, socket_path, runtime, bwrap='bwrap'):
-    """argv for bwrap. Secrets stay in the environment, never in this list."""
+def command(inner, cwd, home, binds, socket_path, runtime, bwrap='bwrap', share_host=False):
+    """argv for bwrap. Secrets stay in the environment, never in this list.
+
+    share_host keeps /tmp and the real runtime directory, so Claude in Chrome's
+    native host (started by Chrome, outside this sandbox) can reach the session.
+    The session bus, Wayland and /dev/uinput stay hidden.
+    """
     argv = [bwrap, '--die-with-parent']
     for path in binds:
         argv += ['--ro-bind', path, path]
     argv += ['--bind', home, home, '--dev', '/dev', '--ro-bind', '/dev/null', '/dev/uinput',
-             '--proc', '/proc', '--tmpfs', '/tmp']
+             '--proc', '/proc']
+    if share_host:
+        argv += ['--bind', '/tmp', '/tmp']
+    else:
+        argv += ['--tmpfs', '/tmp']
     argv += ['--unsetenv', 'DBUS_SESSION_BUS_ADDRESS', '--unsetenv', 'WAYLAND_DISPLAY', '--unsetenv', 'DISPLAY']
-    if socket_path:
+    if share_host and socket_path:
+        host_runtime = os.path.dirname(socket_path) or '/tmp'
+        argv += ['--bind', host_runtime, host_runtime]
+    elif socket_path:
         argv += ['--bind', runtime, runtime,
                  '--ro-bind', socket_path, os.path.join(runtime, 'universe-shell.sock'),
                  '--setenv', 'XDG_RUNTIME_DIR', runtime]

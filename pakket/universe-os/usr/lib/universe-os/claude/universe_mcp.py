@@ -362,9 +362,12 @@ def t_mail_draft(a):
 
 
 def t_mail_send(a):
-    """The shell shows the recipients, subject and body and sends only after Toestaan. This tool cannot skip that."""
-    return shell('mail.send', {'account': a.get('account'), 'naar': a.get('naar') or a.get('to'),
-                                'onderwerp': a.get('onderwerp') or a.get('subject'), 'tekst': a.get('tekst') or a.get('body') or ''}, timeout=180)
+    """The shell applies the mail gate. This tool cannot skip it by claiming the user already agreed."""
+    return shell('mail.send', {
+        'account': a.get('account'), 'naar': a.get('naar') or a.get('to'),
+        'onderwerp': a.get('onderwerp') or a.get('subject'), 'tekst': a.get('tekst') or a.get('body') or '',
+        'belangrijk': bool(a.get('belangrijk')), 'bijlagen': a.get('bijlagen') or 0, 'via': a.get('via') or '',
+    }, timeout=180)
 
 
 def t_calendar_list(a):
@@ -473,9 +476,14 @@ TOOLS = {
                     S({'q': STR, 'account': STR, 'max': {'type': 'integer'}}), t_mail_search, True),
     'mail_read': ('Read one message (id from mail_search).', S({'account': STR, 'id': STR}, ['account', 'id']), t_mail_read, True),
     'mail_draft': ('Save a draft. Does not send.', S({'account': STR, 'naar': {}, 'onderwerp': STR, 'tekst': STR}, ['onderwerp']), t_mail_draft, False),
-    'mail_send': ('Send an email. ALWAYS opens a confirmation dialog on the user\'s screen showing recipients, subject and body. '
+    'mail_send': ('Approve an email before it goes out, in Chrome or through a linked account. '
+                  'Ordinary short replies to known people can pass when auto-accept is on. '
+                  'Set belangrijk true for a new recipient, employer, bank, government, insurance, landlord, money, '
+                  'a contract, legal, health or job matters, an attachment, or more than 3 recipients. '
+                  'The full text is stored under Acties. Do not click Send in the browser until this returns mag true. '
                   'Nothing is sent if the user presses Weigeren. There is no way to skip the dialog.',
-                  S({'account': STR, 'naar': {}, 'onderwerp': STR, 'tekst': STR}, ['naar', 'onderwerp']), t_mail_send, False),
+                  S({'account': STR, 'naar': {}, 'onderwerp': STR, 'tekst': STR,
+                     'belangrijk': {'type': 'boolean'}, 'bijlagen': {'type': 'integer'}, 'via': STR}, ['naar', 'onderwerp']), t_mail_send, False),
     'calendar_list': ('Upcoming events on a connected Google, Microsoft or CalDAV calendar. Also stored as Agenda stars.',
                       S({'account': STR}), t_calendar_list, True),
     'calendar_create': ('Create a calendar event. ALWAYS asks the user to confirm title, start, end and place first.',

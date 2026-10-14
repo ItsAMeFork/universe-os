@@ -10,7 +10,7 @@ export const SETTINGS=[
  {id:'datetime',name:'Datum en tijd',icon:'clock',words:'tijdzone klok datum amsterdam'},
  {id:'power',name:'Energie',icon:'battery',words:'batterij energie slaapstand vergrendelen scherm uit'},
  {id:'users',name:'Gebruikers',icon:'user',words:'gebruikers beheerder wachtwoord toevoegen verwijderen sudo gebruikersaccount'},
- {id:'accounts',name:'Accounts',icon:'mail',words:'accounts google microsoft mail e-mail agenda imap smtp caldav oauth koppelen scherm bedienen ai assistent'},
+ {id:'accounts',name:'Accounts',icon:'mail',words:'accounts google microsoft mail e-mail agenda imap smtp caldav oauth koppelen scherm bedienen ai assistent chrome gmail outlook browser'},
  {id:'shortcuts',name:'Sneltoetsen',icon:'keyboard',words:'sneltoetsen toetsencombinaties windows super alt tab'},
  {id:'updates',name:'Software en updates',icon:'update',words:'updates bijwerken beveiliging herstarten pakketten apt'},
  {id:'security',name:'Beveiliging',icon:'shield',words:'firewall privacy beveiliging ufw brein herinneringen vergeten exporteren tweede brein nevel'},

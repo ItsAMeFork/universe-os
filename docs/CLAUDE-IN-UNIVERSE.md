@@ -72,13 +72,15 @@ Die praten alleen met de shell (`universe-ctl call`), op een vaste lijst.
 | Hulpmiddel | Wat het doet | Toestemming |
 |---|---|---|
 | `mail_search`, `mail_read`, `mail_draft` | zoeken, lezen, concept | concept schrijft, verstuurt niet |
-| `mail_send` | versturen | altijd een zenity-venster met ontvangers, onderwerp en tekst |
+| `mail_send` | versturen | kort antwoord naar een bekend adres mag mee als automatisch toestaan aan staat; belangrijke mail blijft een vraag |
 | `calendar_list` | komende afspraken | lezen |
 | `calendar_create` | afspraak zetten | altijd een venster met titel, begin, einde en plek |
 | `scherm_muis`, `scherm_klik`, `scherm_typ`, `scherm_toets`, `scherm_scroll`, `scherm_focus` | scherm overnemen | alleen als "AI mag scherm bedienen" aan staat voor deze aanmelding |
 
 `scherm.toestaan` staat niet op de lijst die Claude mag aanroepen. De schakelaar zit
 in het Controlecentrum. Super+Escape (`universe-ctl scherm-stop`) zet hem uit.
+
+Gmail en Outlook gaan via Claude in Chrome (`claude --chrome` en de officiële extensie). De gebruiker logt in in zijn eigen Chrome. Er is geen OAuth-client. IMAP en OAuth blijven een extra weg.
 
 Invoer op labwc: `wtype` voor toetsen (protocol van de compositor), `python3-evdev`
 via `/dev/uinput` voor muis en scroll. `ydotool` heeft voorrang als `ydotoold` draait;

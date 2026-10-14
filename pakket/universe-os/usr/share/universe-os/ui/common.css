@@ -14,6 +14,7 @@ button.primary{background:#94efd31f;border-color:#85ffe366;color:var(--accent-st
 button.danger{border-color:#ff8a9a55;color:#ffd0d6}
 button:disabled{opacity:.45;cursor:default}
 input[type=text],input[type=search],input[type=password],select,textarea{background:#0d1628;border:1px solid var(--line);border-radius:10px;padding:9px 12px;outline:none}
+textarea{width:100%;resize:vertical}
 select option{background:#0d1628}
 /* Keyboard focus must always be obvious (also on planets and cards). */
 :focus-visible{outline:3px solid var(--accent)!important;outline-offset:3px;box-shadow:0 0 0 6px #85ffe322,0 0 24px #85ffe355!important}

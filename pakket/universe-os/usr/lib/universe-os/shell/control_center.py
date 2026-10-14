@@ -259,6 +259,32 @@ def ai_install(provider):
     return True
 
 
+def chrome_setup():
+    """One button: confirm, install Chrome from Google's apt repo if needed, open the extension page."""
+    import confirm
+    agent = _chrome_agent()
+    info = agent.status()
+    if not confirm.ask(
+            'Chrome en Claude in Chrome',
+            'Chrome wordt, als het er nog niet is, geïnstalleerd uit de officiële apt-bron van Google. '
+            'Daarna opent de pagina van de officiële Claude-extensie. Je logt zelf in.'):
+        raise PermissionError('Geannuleerd. Er is niets geïnstalleerd.')
+    plan = agent.plan_setup(info['chrome'])
+    if plan['script']:
+        if not shutil.which('xfce4-terminal'):
+            raise RuntimeError('Er is geen terminal beschikbaar om Chrome te installeren.')
+        backend.spawn(['xfce4-terminal', '--title', 'Chrome installeren', '-x', 'bash', '-c', plan['script']])
+    elif plan['open']:
+        backend.spawn(plan['open'])
+    return agent.status()
+
+
+def _chrome_agent():
+    _claude()
+    import chrome_agent
+    return chrome_agent
+
+
 def plugin_terminal(plugin_id):
     """User-started install. Rules are not copied; the script itself refuses a copy."""
     if not shutil.which('xfce4-terminal'):
@@ -415,6 +441,10 @@ def handlers(app):
         'ai.litellm': lambda a: _ai().set_litellm_url(a.get('url') or ''),
         'auto.status': lambda a: _auto().public(),
         'auto.set': lambda a: _auto().set_choice(bool(a.get('aan')), a.get('duur') or '30m'),
+        'auto.regels': lambda a: _auto().set_regels(a.get('regels') if 'regels' in a else a.get('lijst') or ''),
+        'chrome.status': lambda a: _chrome_agent().status(),
+        'chrome.setup': lambda a: chrome_setup(),
+        'ai.mail': lambda a: _ai().set_mail_via(a.get('via') or a.get('route') or 'browser'),
         'window.page': lambda a: app.pending_page,
         'brein.summary': lambda a: _brein().summary(),
         'brein.export': lambda a: _brein().write_export(_download_dir()),
@@ -460,7 +490,8 @@ class ControlCenter(Gtk.Application):
                                                    'ai.status', 'ai.set', 'ai.key', 'ai.install', 'ai.leren',
                                                    'ai.compressie', 'ai.omniroute.add', 'ai.omniroute.remove', 'ai.omniroute.router',
                                                    'ai.plugins', 'ai.plugins.set', 'ai.plugins.install', 'ai.plugins.terminal',
-                                                   'ai.sessie', 'ai.litellm', 'auto.status', 'auto.set',
+                                                   'ai.sessie', 'ai.litellm', 'ai.mail', 'auto.status', 'auto.set', 'auto.regels',
+                                                   'chrome.status', 'chrome.setup',
                                                    'accounts.list', 'accounts.clients', 'accounts.client', 'accounts.oauth_start',
                                                    'accounts.oauth_poll', 'accounts.imap', 'accounts.caldav', 'accounts.disconnect',
                                                    'scherm.status', 'scherm.toestaan', 'scherm.intrekken'}, log=lambda *args: None)
