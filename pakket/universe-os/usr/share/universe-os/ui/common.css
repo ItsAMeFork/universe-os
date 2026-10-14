@@ -31,8 +31,8 @@ html.reduce-motion *{animation-duration:.001ms!important;animation-iteration-cou
 html.no-motion *{animation:none!important;transition:none!important}
 .toast{position:fixed;left:50%;bottom:28px;translate:-50% 0;padding:10px 16px;border-radius:12px;z-index:99}
 .token-hero{border-color:#85ffe366;background:#102033}
-label.switch-row{flex-direction:row;align-items:center;gap:18px;margin:0 0 8px;cursor:pointer}
-.switch{position:relative;width:76px;height:42px;flex:none}
+label.switch-row{display:flex;flex-direction:row;align-items:center;gap:18px;margin:0 0 8px;cursor:pointer}
+.switch{display:inline-block;position:relative;width:76px;height:42px;flex:none}
 .switch input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer;z-index:1}
 .switch-track{position:absolute;inset:0;border-radius:999px;background:#1a2740;border:2px solid #869cae}
 .switch-track::after{content:"";position:absolute;top:3px;left:3px;width:32px;height:32px;border-radius:50%;background:#e2e6fa}
