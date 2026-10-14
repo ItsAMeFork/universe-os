@@ -190,6 +190,24 @@ def _mail_kwargs(args):
             'body': args.get('tekst') if 'tekst' in args else args.get('body') or ''}
 
 
+def _mail_via(args):
+    if args.get('via') in ('browser', 'account'):
+        return args.get('via')
+    _claude_dir()
+    import ai_provider
+    return ai_provider.load().get('mail_via') or 'browser'
+
+
+def _mail_send(args):
+    """Browser is the default. A linked account is used only when the user chose that route."""
+    kwargs = _mail_kwargs(args)
+    extra = {'bijlagen': args.get('bijlagen') or 0, 'vlag': bool(args.get('belangrijk'))}
+    if _mail_via(args) == 'browser':
+        return _accounts().authorize_browser(to=kwargs['to'], subject=kwargs['subject'], body=kwargs['body'],
+                                              confirmer=_confirm, **extra)
+    return _accounts().send_mail(confirmer=_confirm, **kwargs, **extra)
+
+
 class Surface:
     def __init__(self, shell, name, page, layer, anchors, keyboard, size=None, monitor=None, transparent=False, namespace=None):
         self.name = name
@@ -651,11 +669,12 @@ class Shell:
             'brein.ongedaan': lambda a: _brein().undo_actie(a.get('id')),
             'auto.status': lambda a: _auto().public(),
             'auto.set': lambda a: self._auto_set(a),
+            'auto.regels': lambda a: self._auto_regels(a),
             'mail.search': lambda a: _accounts().search_mail(a.get('q') if 'q' in a else a.get('zoek') or '', a.get('account'), a.get('max') or 8),
             'mail.read': lambda a: _accounts().read_mail(a.get('account'), a.get('id')),
             'mail.draft': lambda a: _accounts().draft_mail(**_mail_kwargs(a)),
             # confirmer is always the on-screen dialog. A "bevestig" field from Claude is ignored.
-            'mail.send': lambda a: _accounts().send_mail(confirmer=_confirm, **_mail_kwargs(a)),
+            'mail.send': lambda a: _mail_send(a),
             'agenda.list': lambda a: _accounts().list_events(a.get('account')),
             'agenda.create': lambda a: _accounts().create_event(a.get('account'), a.get('titel') or a.get('title'), a.get('start'),
                                                                 a.get('eind') if 'eind' in a else a.get('end'), a.get('plek') or a.get('location') or '',
@@ -716,6 +735,11 @@ class Shell:
 
     def _auto_set(self, args):
         info = _auto().set_choice(bool(args.get('aan')), args.get('duur') or '30m')
+        self.broadcast('auto', info)
+        return info
+
+    def _auto_regels(self, args):
+        info = _auto().set_regels(args.get('regels') if 'regels' in args else args.get('lijst') or '')
         self.broadcast('auto', info)
         return info
 

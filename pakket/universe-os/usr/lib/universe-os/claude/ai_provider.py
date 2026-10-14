@@ -244,6 +244,7 @@ def load():
         'provider': provider, 'model': model, 'ollama_url': url, 'leren': leren,
         'compressie': compressie, 'omniroute_providers': upstreams, 'omniroute_router': router,
         'sessie_route': route, 'litellm_url': litellm,
+        'mail_via': 'account' if raw.get('mail_via') == 'account' else 'browser',
     }
 
 
@@ -323,6 +324,16 @@ def set_sessie(route):
     if route == 'omniroute' and not data['omniroute_providers']:
         raise ValueError('Voeg eerst een aanbieder toe. OmniRoute blijft uit tot die er is.')
     data['sessie_route'] = route
+    _write(data)
+    return public_status()
+
+
+def set_mail_via(route):
+    """browser is the default: Gmail and Outlook in the signed-in Chrome. account uses IMAP or OAuth."""
+    if route not in ('browser', 'account'):
+        raise ValueError('Kies mail via de browser, of via een gekoppeld account.')
+    data = load()
+    data['mail_via'] = route
     _write(data)
     return public_status()
 
@@ -441,6 +452,7 @@ def public_status(which=None, access=None, sandbox_on=None):
         'omniroute_providers': list(cfg.get('omniroute_providers') or []),
         'omniroute_router': bool(cfg.get('omniroute_router')),
         'omniroute_waarschuwing': WAARSCHUWING_GRATIS,
+        'mail_via': cfg.get('mail_via') or 'browser',
         'sessie_route': cfg.get('sessie_route') or 'claude',
         'litellm_url': cfg.get('litellm_url') or LITELLM_DEFAULT,
         'litellm_sleutel': has_key('litellm'),
@@ -688,6 +700,12 @@ def launch_plan(fresh=False, env=None, which=None, access=None):
         extra = {}
     if extra:
         _attach_mcp(provider, writes, argv, here, work, extra)
+    chrome_on = False
+    if provider == 'claude':
+        import chrome_agent
+        if chrome_agent.binary(which):
+            argv.append('--chrome')
+            chrome_on = True
     # Headroom wraps Claude only. OmniRoute compression is the other choice, never both.
     if cfg.get('compressie') == 'headroom' and provider == 'claude':
         argv = ['/usr/bin/universe-ai-headroom'] + argv[1:]
@@ -720,4 +738,4 @@ def launch_plan(fresh=False, env=None, which=None, access=None):
             env.pop(spec['key_env'], None)
     env['UNIVERSE_AI'] = provider
     return {'ok': True, 'provider': provider, 'argv': argv, 'env': env, 'cwd': work, 'writes': writes,
-            'binary': binary, 'key_env': spec['key_env'], 'key': key}
+            'binary': binary, 'key_env': spec['key_env'], 'key': key, 'chrome': chrome_on}

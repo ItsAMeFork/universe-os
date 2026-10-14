@@ -30,7 +30,7 @@ def prepare(fresh=False, env=None):
         socket_path = os.path.join(plan['env'].get('XDG_RUNTIME_DIR') or '/tmp', 'universe-shell.sock')
         binds = sandbox.visible_binds(plan.get('binary'), sandbox.roots(), home)
         socket = socket_path if os.path.exists(socket_path) else ''
-        inner = sandbox.command(inner, plan['cwd'], home, binds, socket, runtime)
+        inner = sandbox.command(inner, plan['cwd'], home, binds, socket, runtime, share_host=bool(plan.get('chrome')))
         used = True
     plan['exec_argv'] = inner
     plan['exec_env'] = child

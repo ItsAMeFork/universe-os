@@ -38,6 +38,8 @@ const accounts = [
 const call = async (cmd) => {
  if (cmd === 'accounts.list') return accounts;
  if (cmd === 'scherm.status') return {toegestaan:true, bezig:false, backend:'wtype', compositor:'labwc', paniek:'Super+Escape', muis:false};
+ if (cmd === 'chrome.status') return {chrome:true, extensie:true, verbonden:true, tekst:'Verbonden. Log gewoon in in Chrome. Gmail en Outlook werken zonder OAuth-client.'};
+ if (cmd === 'chrome.setup') return {verbonden:true, tekst:'De pagina van de extensie opent.'};
  if (cmd === 'accounts.disconnect') return {ontkoppeld:true};
  return {};
 };

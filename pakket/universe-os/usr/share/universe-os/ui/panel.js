@@ -74,7 +74,7 @@ function renderPanel(){
   h('div',{class:'top'},h('div',{},h('div',{class:'clock'},fmtTime(now)),h('div',{class:'date'},fmtDate(now))),close),
   h('section',{class:'card token-hero'},
    h('label',{class:'switch-row'},h('span',{class:'switch'},awayBox,h('span',{class:'switch-track','aria-hidden':'true'})),h('span',{class:'switch-copy'},h('span',{class:'switch-title'},'Automatisch toestaan'),awayState)),
-   h('p',{class:'small'},'Gewone stappen gaan door. Betalen, wissen, versturen, wachtwoorden en systeemwijzigingen blijven wachten.'),
+   h('p',{class:'small'},'Gewone stappen gaan door, en een kort antwoord naar een bekende ook. Belangrijke mail, betalen, wissen en wachtwoorden blijven wachten.'),
    awayDuur),
   h('h2',{class:'panel-heading'},'Geluid en verbinding'),
   h('div',{class:'card'},h('div',{class:'line'},volumeLabel,mute),status.volume?slider:h('div',{class:'small'},'Geen geluidsapparaat gevonden.'),deferred('Geluidsuitgang kiezen',audioView)),

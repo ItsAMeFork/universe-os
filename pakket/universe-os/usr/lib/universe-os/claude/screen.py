@@ -405,3 +405,22 @@ def perform(kind, args, confirmer=None, runner=None, have=None):
         _mark(False)
     brein.log_actie('scherm_' + kind, summary, outcome)
     return {'gelukt': True, 'backend': backend, 'status': outcome}
+
+
+def desktop_mouse_script():
+    """Opt-in route for a real mouse on Debian. Not installed until the user runs it.
+
+    The browser path does not need this: Claude in Chrome moves through the signed-in window.
+    """
+    return (
+        'echo "Opt-in. ydotool komt uit Debian-backports. De udev-regel maakt /dev/uinput leesbaar voor de groep input."\n'
+        'echo "deb http://deb.debian.org/debian trixie-backports main" | sudo tee /etc/apt/sources.list.d/trixie-backports.list\n'
+        'sudo apt-get update\n'
+        'sudo apt-get install -y -t trixie-backports ydotoold\n'
+        'echo \'KERNEL=="uinput", GROUP="input", MODE="0660"\' | sudo tee /etc/udev/rules.d/99-universe-uinput.rules\n'
+        'sudo udevadm control --reload-rules && sudo udevadm trigger\n'
+        'sudo usermod -aG input "$USER"\n'
+        'echo "Meld opnieuw aan. Voor websites heb je dit niet nodig: Claude in Chrome bedient de browser."\n'
+        'echo "Druk op Enter om dit venster te sluiten."\n'
+        'read -r _\n'
+    )

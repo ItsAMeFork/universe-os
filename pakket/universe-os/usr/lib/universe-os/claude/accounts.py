@@ -746,30 +746,71 @@ def _deliver(item, recipients, subject, body, http, smtp_factory):
             pass
 
 
-def send_mail(account=None, to=None, subject='', body='', confirmer=None, http=None, smtp_factory=None):
-    """Sends only after confirmer(title, text) returns True. No confirmer means no send."""
+def _mail_packet(to, subject, body):
     recipients = _addresses(to)
     subject = _header(subject, 'Onderwerp')
     body = str(body or '')
     if len(body) > 100000:
         raise ValueError('Bericht is te lang')
-    item = _one(_need(account, ('google', 'microsoft', 'imap')), account)
     summary = 'Naar %s: %s' % (', '.join(recipients), subject)
-    preview = 'Ontvangers: %s\nOnderwerp: %s\n\n%s' % (', '.join(recipients), subject, body[:4000])
+    full = 'Ontvangers: %s\nOnderwerp: %s\n\n%s' % (', '.join(recipients), subject, body)
+    return recipients, subject, body, summary, full
+
+
+def _release_mail(recipients, subject, body, summary, full, confirmer, bijlagen, vlag, deliver):
+    """Ordinary short mail to a known person can leave while auto-accept is on.
+
+    Important mail, and every send while auto-accept is off, still needs the dialog.
+    deliver is None when the message goes out through the signed-in browser instead of SMTP.
+    """
+    import auto_accept
+    kind, reasons = auto_accept.mail_decision(recipients, subject, body, bijlagen=bijlagen, vlag=vlag)
+    why = ('\n\nDit blijft een vraag: %s.' % ', '.join(reasons)) if reasons else ''
+    if kind == 'automatisch':
+        if deliver is not None:
+            deliver()
+        auto_accept.remember_addresses(recipients)
+        brein.log_actie('mail_send', summary, 'automatisch', full, volledig=True)
+        return {'verstuurd': deliver is not None, 'mag': True, 'automatisch': True,
+                'naar': recipients, 'onderwerp': subject, 'via': 'account' if deliver else 'browser'}
+    if kind == 'wacht':
+        brein.log_actie('mail_send', summary, 'wacht', full + why, volledig=True)
+        raise PermissionError('Uitgesteld tot je terug bent. De mail staat in het brein onder Acties.')
+    preview = full[:4000] + why
     if confirmer is None or not confirmer('Claude wil een e-mail versturen', preview):
         import confirm
         if not confirm.deferred():
-            brein.log_actie('mail_send', summary, 'geweigerd')
+            brein.log_actie('mail_send', summary, 'geweigerd', full[:4000])
         raise PermissionError(confirm.refused_message('Versturen geannuleerd. Er is niets verzonden.'))
-    try:
-        _deliver(item, recipients, subject, body, http, smtp_factory)
-    except PermissionError:
-        raise
-    except Exception as error:
-        brein.log_actie('mail_send', summary, 'mislukt')
-        raise RuntimeError('Versturen mislukt.') from error
-    brein.log_actie('mail_send', summary, 'goedgekeurd')
-    return {'verstuurd': True, 'naar': recipients, 'onderwerp': subject}
+    if deliver is not None:
+        deliver()
+    auto_accept.remember_addresses(recipients)
+    brein.log_actie('mail_send', summary, 'goedgekeurd', full, volledig=True)
+    return {'verstuurd': deliver is not None, 'mag': True, 'automatisch': False,
+            'naar': recipients, 'onderwerp': subject, 'via': 'account' if deliver else 'browser'}
+
+
+def authorize_browser(to=None, subject='', body='', confirmer=None, bijlagen=0, vlag=False):
+    """Lets Claude press Send in Chrome after the same gate. Nothing is sent from this process."""
+    recipients, subject, body, summary, full = _mail_packet(to, subject, body)
+    return _release_mail(recipients, subject, body, summary, full, confirmer, bijlagen, vlag, None)
+
+
+def send_mail(account=None, to=None, subject='', body='', confirmer=None, http=None, smtp_factory=None, bijlagen=0, vlag=False):
+    """Sends through a linked account only after the mail gate says yes. No confirmer means no send, unless auto-accept covers an ordinary reply."""
+    recipients, subject, body, summary, full = _mail_packet(to, subject, body)
+    item = _one(_need(account, ('google', 'microsoft', 'imap')), account)
+
+    def deliver():
+        try:
+            _deliver(item, recipients, subject, body, http, smtp_factory)
+        except PermissionError:
+            raise
+        except Exception as error:
+            brein.log_actie('mail_send', summary, 'mislukt')
+            raise RuntimeError('Versturen mislukt.') from error
+
+    return _release_mail(recipients, subject, body, summary, full, confirmer, bijlagen, vlag, deliver)
 
 
 def _timestamp(value):
