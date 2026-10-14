@@ -4,7 +4,7 @@ import {animate,isLight} from './motion.js';
 import {call,on,applySettings,motionAllowed,toast,h,icon} from './api.js';
 import {alpha,globe,earth,paintEarths,earthsPainted,starfield,pixelSize} from './globe.js';
 import {sharpenPlanet,sharpenEarth} from './planets-hq.js';
-import {debugFPS,afterPaint} from './performance.js';
+import {debugFPS,afterPaint,perfMark} from './performance.js';
 import {SETTINGS} from './settings-index.js';
 import {keepTab} from './focus.js';
 import {distFor} from './space.js';
@@ -241,7 +241,8 @@ const shown=o=>shownAt(o,mix);
 function render(){
  // Animation loops also render directly. Cancel a queued input render to avoid
  // drawing twice in the same frame and losing the queued callback's handle.
- if(frame)cancelAnimationFrame(frame);frame=0;drawSky();
+ if(frame)cancelAnimationFrame(frame);frame=0;
+ const t0=performance.now();drawSky();const t1=performance.now();perfMark('sky',t1-t0);
  for(const o of objects){
   const el=o.el;if(!el)continue;
   const v=shown(o),p=project(v.pos),px=p?p.s*v.size:0;
@@ -264,6 +265,7 @@ function render(){
   const op=fade*inside<1?(fade*inside).toFixed(2):'';
   if(el._op!==op){el._op=op;el.style.opacity=op;}
  }
+ perfMark('obj',performance.now()-t1);
  sharpenSoon();
 }
 // ----- sharp planets: once the view rests, every visible planet is painted at the size it is shown (planets-hq.js) -----

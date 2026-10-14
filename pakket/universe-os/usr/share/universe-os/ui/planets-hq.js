@@ -4,6 +4,7 @@
 // atmosphere at the edge) at the resolution it is shown on screen. Painting happens in short slices between frames,
 // largest planet first, so the desktop never waits for it.
 import {noise3,remember,cached,earthRows} from './globe.js';
+import {perfMark} from './performance.js';
 
 const clamp=v=>v<0?0:v>1?1:v;
 const ss=(a,b,v)=>{const t=clamp((v-a)/(b-a));return t*t*(3-2*t);};
@@ -107,7 +108,10 @@ function draw(canvas,src,px){
 }
 let current=null;
 function work(){
- const end=performance.now()+SLICE;
+ const t0=performance.now();try{workSlice(t0);}finally{perfMark('paint',performance.now()-t0);}
+}
+function workSlice(t0){
+ const end=t0+SLICE;
  while(performance.now()<end){
   if(!current){
    let best=null;for(const j of queue.values()){for(const t of j.targets)if(!t.isConnected)j.targets.delete(t);if(!j.targets.size){queue.delete(j.key);continue;}if(!best||j.priority>best.priority)best=j;}

@@ -8,6 +8,7 @@
 import json
 import subprocess
 import sys
+import time
 
 sys.path.insert(0, '/usr/lib/universe-os/shell')
 import config  # noqa: E402
@@ -27,7 +28,31 @@ def outputs():
     return result
 
 
+def _preferred_missing():
+    """Screens that do not run their preferred mode. In the VM (virtio-gpu) the screen reports 640x480 while the
+    session starts and the real size a moment later; labwc keeps the first mode, so the whole session stayed at
+    640x480 (14 Oct). On a normal pc current and preferred are the same and nothing happens."""
+    try:
+        data = json.loads(subprocess.run(['wlr-randr', '--json'], capture_output=True, text=True, timeout=5).stdout or '[]')
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        return []
+    names = []
+    for o in data:
+        modes = o.get('modes', [])
+        pref = next((m for m in modes if m.get('preferred')), None)
+        cur = next((m for m in modes if m.get('current')), None)
+        if o.get('enabled', True) and pref and cur and (pref['width'], pref['height']) != (cur['width'], cur['height']):
+            names.append(o.get('name'))
+    return names
+
+
 def apply():
+    # The preferred mode can arrive a few seconds after login: check a few times, then stop.
+    for attempt in range(6):
+        for name in _preferred_missing():
+            subprocess.run(['wlr-randr', '--output', name, '--preferred'], check=False, timeout=10)
+        if attempt < 5:
+            time.sleep(1.5)
     scales = config.settings().get('displayScales') or {}
     for o in outputs():
         if o['name'] in scales and abs(scales[o['name']] - o['scale']) > 0.01:
