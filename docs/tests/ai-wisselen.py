@@ -88,7 +88,8 @@ assert KEY not in ' '.join(plan['argv'])
 
 ai_provider.set_choice('claude', '')
 plan = ai_provider.launch_plan(fresh=True, which=which, access=access)
-assert plan['argv'][0] == '/usr/bin/claude'
+assert plan['argv'][0].endswith('/universe-claude-wrap')
+assert plan['env'].get('UNIVERSE_CLAUDE_BIN') == '/usr/bin/claude'
 assert '--model' in plan['argv'] and 'haiku' in plan['argv']
 assert '--mcp-config' in plan['argv'] and '--settings' in plan['argv']
 assert '--continue' not in plan['argv']

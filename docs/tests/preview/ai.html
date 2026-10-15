@@ -46,6 +46,21 @@ const status = {
  omniroute_providers: [],
  omniroute_router: false,
  omniroute_waarschuwing: 'Gratis aanbieders kunnen je vragen lezen. Zet OmniRoute alleen aan als je dat wilt.',
+ agenten: [
+  {id:'reviewer', naam:'Reviewer', aan:true, rechten:'Alleen lezen', uitleg:'Leest code en meldt fouten. Past niets aan.'},
+  {id:'tester', naam:'Tester', aan:true, rechten:'Lezen, tests schrijven en draaien', uitleg:'Schrijft en draait tests. Geen mail en geen wissen.'},
+  {id:'researcher', naam:'Onderzoeker', aan:true, rechten:'Alleen lezen, lokaal zoeken', uitleg:'Zoekt in bestanden en in het brein.'},
+  {id:'planner', naam:'Planner', aan:true, rechten:'Alleen lezen', uitleg:'Maakt een kort plan. Schrijft geen bestanden.'},
+  {id:'security-auditor', naam:'Beveiliging', aan:false, rechten:'Alleen lezen', uitleg:'Rapporteert. Herstelt niet zelf.'},
+  {id:'mail-assistent', naam:'Mail-assistent', aan:true, rechten:'Alleen mail en agenda', uitleg:'Leest en maakt concepten. Versturen blijft een vraag.'},
+  {id:'opruimer', naam:'Opruimer', aan:true, rechten:'Alleen het bureaublad', uitleg:'De prullenbak vraagt altijd eerst.'}
+ ],
+ ruflo: {
+  aan:false,
+  tekst:'Uit',
+  waarom:'Universe OS is de standaard: alleen op deze computer, zonder telemetrie, wolk of federatie. De zwerm, de daemon en de federatie blijven uit.',
+  uitleg:'Alleen ruflo-core 0.2.11, vastgezet, in een apart profiel. De wrapper haalt --dangerously-skip-permissions weg.'
+ },
  trend: [
   {tokens: 4200, gereedschap: 6, schatting: false, taak: 'Agenda nakijken'},
   {tokens: 900, gereedschap: 1, schatting: true, taak: 'Korte vraag'}
@@ -94,6 +109,15 @@ const call = async (cmd, args) => {
   return status.plugins;
  }
  if (cmd === 'ai.plugins.install') return {tekst: 'Plugins bijgewerkt.'};
+ if (cmd === 'ai.agents.set') {
+  status.agenten = status.agenten.map(item => item.id === args.id ? {...item, aan: !!args.aan} : item);
+  return status.agenten;
+ }
+ if (cmd === 'ai.ruflo.set') {
+  status.ruflo = {...status.ruflo, aan: !!args.aan, tekst: args.aan ? 'Aan, plugin nog niet geïnstalleerd. Tot die tijd blijft de sessie bij Universe.' : 'Uit'};
+  return status.ruflo;
+ }
+ if (cmd === 'ai.ruflo.terminal') return true;
  return {};
 };
 const buddy = document.createElement('p');

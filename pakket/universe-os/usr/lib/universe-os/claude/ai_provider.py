@@ -245,6 +245,7 @@ def load():
         'compressie': compressie, 'omniroute_providers': upstreams, 'omniroute_router': router,
         'sessie_route': route, 'litellm_url': litellm,
         'mail_via': 'account' if raw.get('mail_via') == 'account' else 'browser',
+        'ruflo': bool(raw.get('ruflo')),
     }
 
 
@@ -264,6 +265,14 @@ def set_choice(provider, model='', ollama_url=None):
 def set_leren(on):
     data = load()
     data['leren'] = bool(on)
+    _write(data)
+    return public_status()
+
+
+def set_ruflo(on):
+    """Off by default. The separate profile and the plugin install live in ruflo_mode."""
+    data = load()
+    data['ruflo'] = bool(on)
     _write(data)
     return public_status()
 
@@ -442,6 +451,16 @@ def public_status(which=None, access=None, sandbox_on=None):
         plugins = plugin_catalog.public_list()
     except Exception:
         plugins = []
+    try:
+        import premade
+        agenten = premade.public_list()
+    except Exception:
+        agenten = []
+    try:
+        import ruflo_mode
+        ruflo = ruflo_mode.public()
+    except Exception:
+        ruflo = {'aan': False, 'tekst': 'Uit'}
     return {
         'provider': cfg['provider'],
         'model': cfg['model'],
@@ -458,6 +477,8 @@ def public_status(which=None, access=None, sandbox_on=None):
         'litellm_sleutel': has_key('litellm'),
         'trend': trend,
         'plugins': plugins,
+        'agenten': agenten,
+        'ruflo': ruflo,
         'naam': naam,
         'regel': regel,
         'sandbox': bool(sandbox_on) if sandbox_on is not None else _sandbox_on(),
@@ -515,6 +536,11 @@ def instructions():
             text = handle.read()
     except OSError:
         text = ''
+    try:
+        import premade
+        text += premade.line()
+    except Exception:
+        pass
     if not load().get('leren', True):
         return text
     try:
@@ -706,7 +732,18 @@ def launch_plan(fresh=False, env=None, which=None, access=None):
         if chrome_agent.binary(which):
             argv.append('--chrome')
             chrome_on = True
+    if provider == 'claude':
+        import ruflo_mode
+        env['UNIVERSE_CLAUDE_BIN'] = binary
+        argv = [ruflo_mode.wrap_path()] + ruflo_mode.strip_skip(argv[1:])
+        if ruflo_mode.active_for_launch():
+            env.update(ruflo_mode.launch_env())
+            settings_path = os.path.join(ruflo_mode.profile_dir(), 'settings.json')
+            writes.append({'path': settings_path, 'text': ruflo_mode.merged_settings_text()})
+            if '--settings' in argv:
+                argv[argv.index('--settings') + 1] = settings_path
     # Headroom wraps Claude only. OmniRoute compression is the other choice, never both.
+    # The headroom script calls universe-claude-wrap, which still strips the bypass flag.
     if cfg.get('compressie') == 'headroom' and provider == 'claude':
         argv = ['/usr/bin/universe-ai-headroom'] + argv[1:]
         env['HEADROOM_BEACON'] = 'off'

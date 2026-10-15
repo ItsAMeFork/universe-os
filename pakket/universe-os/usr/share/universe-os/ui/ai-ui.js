@@ -135,6 +135,53 @@ export async function mountAi(root, api={}){
   }
  }
  drawPlugins(status.plugins||[]);
+ const agents=h('div');
+ function drawAgents(list){
+  agents.replaceChildren();
+  const rows=Array.isArray(list)?list:(list&&list.agenten)||[];
+  if(!rows.length) agents.append(note('Geen premade agenten.'));
+  for(const item of rows){
+   const box=h('input',{type:'checkbox'});
+   box.checked=!!item.aan;
+   box.setAttribute('aria-label',item.naam);
+   box.addEventListener('change',async()=>{
+    try{drawAgents(await call('ai.agents.set',{id:item.id,aan:box.checked}));}
+    catch(e){box.checked=!box.checked;}
+   });
+   agents.append(h('div',{},h('label',{class:'check'},box,item.naam+' · '+item.rechten),note(item.uitleg||'')));
+  }
+ }
+ drawAgents(status.agenten||[]);
+ const rufloInfo=status.ruflo||{};
+ const rufloBox=h('input',{type:'checkbox',role:'switch'});
+ rufloBox.setAttribute('aria-label','Ruflo-modus');
+ const rufloState=h('span',{class:'switch-state uit'},'Uit');
+ function paintRuflo(next){
+  const on=!!(next&&next.aan);
+  rufloBox.checked=on;
+  rufloState.textContent=(next&&next.tekst)||(on?'Aan':'Uit');
+  rufloState.className='switch-state '+(on?'aan':'uit');
+ }
+ paintRuflo(rufloInfo);
+ rufloBox.addEventListener('change',async()=>{
+  try{paintRuflo(await call('ai.ruflo.set',{aan:rufloBox.checked}));}
+  catch(e){rufloBox.checked=!rufloBox.checked;}
+ });
+ const agentCard=card('Premade agenten',
+  note('Lokaal, met weinig rechten. Aan of uit per agent. Ze werken als subagent, niet als zwerm. Mail, wissen en het scherm blijven een vraag.'),
+  agents);
+ const rufloCard=h('section',{class:'card token-hero'},
+  h('label',{class:'switch-row'},
+   h('span',{class:'switch'},rufloBox,h('span',{class:'switch-track','aria-hidden':'true'})),
+   h('span',{class:'switch-copy'},
+    h('span',{class:'switch-title'},'Ruflo-modus'),
+    rufloState)),
+  note(rufloInfo.waarom||'Universe OS is de standaard. Ruflo-modus staat uit.'),
+  note(rufloInfo.uitleg||'Alleen ruflo-core, vastgezet, in een apart profiel. Telemetrie, wolk en federatie uit.'),
+  button('Ruflo-core installeren',async()=>{
+   await call('ai.ruflo.terminal');
+   return 'Er opent een terminal. Alleen de vastgezette ruflo-core, in een apart profiel.';
+  }));
  const autoBox=h('input',{type:'checkbox',role:'switch'});
  autoBox.setAttribute('aria-label','Automatisch toestaan');
  const autoState=h('span',{class:'switch-state uit'},'Uit');
@@ -237,6 +284,8 @@ export async function mountAi(root, api={}){
    return next&&next.tekst||'De pagina van de extensie opent.';
   }));
  root.append(
+  agentCard,
+  rufloCard,
   chromeCard,
   autoSwitch,
   tokenSwitch,

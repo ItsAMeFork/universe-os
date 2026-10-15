@@ -28,6 +28,15 @@ def main():
     event = data.get('hook_event_name', '')
     tool = str(data.get('tool_name') or '')
     info = {}
+    context = ''
+    try:
+        folder = os.path.dirname(os.path.abspath(__file__))
+        if folder not in sys.path:
+            sys.path.insert(0, folder)
+        import taken
+        context = taken.observe(event, data) or ''
+    except Exception:
+        context = ''
     if event == 'UserPromptSubmit':
         kind = 'think'
     elif event == 'PreToolUse':
@@ -55,7 +64,7 @@ def main():
                     }) + '\n')
         except Exception:
             pass
-    elif event == 'PostToolUse':
+    elif event in ('PostToolUse', 'PostToolUseFailure', 'SubagentStop'):
         kind = 'tool-done'
         short = tool.split('__')[-1] if tool.startswith('mcp__universe__') else ''
         # A new memory: the shell flashes a star when the Brein nebula is open. The tool-done event still follows.
@@ -66,6 +75,9 @@ def main():
                                'labels': str(raw.get('labels') or '')[:200]})
             except Exception:
                 pass
+    elif event == 'SubagentStart':
+        kind = 'tool'
+        info = {'tool': 'subagent', 'agent': str(data.get('agent_type') or data.get('subagent_type') or '')[:40]}
     elif event == 'Notification':
         message = str(data.get('message') or '').lower()
         if data.get('notification_type') == 'permission_prompt' or 'permission' in message:
@@ -84,6 +96,13 @@ def main():
             pass
     else:
         return
+    if context:
+        sys.stdout.write(json.dumps({
+            'hookSpecificOutput': {
+                'hookEventName': 'UserPromptSubmit',
+                'additionalContext': context[:2000],
+            },
+        }) + '\n')
     send(kind, info)
 
 

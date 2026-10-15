@@ -67,10 +67,31 @@ def connect():
             duur REAL NOT NULL DEFAULT 0, taak TEXT NOT NULL DEFAULT '', soort TEXT NOT NULL DEFAULT 'sessie',
             les_id INTEGER, overgeslagen TEXT NOT NULL DEFAULT '');
         CREATE INDEX IF NOT EXISTS efficientie_op ON efficientie(op);
+        CREATE TABLE IF NOT EXISTS taken (id INTEGER PRIMARY KEY, titel TEXT NOT NULL, soort TEXT NOT NULL DEFAULT '',
+            start REAL NOT NULL, eind REAL, status TEXT NOT NULL DEFAULT 'bezig');
+        CREATE INDEX IF NOT EXISTS taken_start ON taken(start);
+        CREATE TABLE IF NOT EXISTS stappen (id INTEGER PRIMARY KEY, taak_id INTEGER NOT NULL, titel TEXT NOT NULL,
+            agent TEXT NOT NULL DEFAULT '', status TEXT NOT NULL, volgorde INTEGER NOT NULL DEFAULT 0, op REAL NOT NULL);
+        CREATE INDEX IF NOT EXISTS stappen_taak ON stappen(taak_id);
+        CREATE TABLE IF NOT EXISTS patronen (id INTEGER PRIMARY KEY, soort TEXT NOT NULL, werkte TEXT NOT NULL,
+            les TEXT NOT NULL DEFAULT '', tokens INTEGER NOT NULL DEFAULT 0, stappen INTEGER NOT NULL DEFAULT 0,
+            op REAL NOT NULL);
+        CREATE INDEX IF NOT EXISTS patronen_soort ON patronen(soort, op);
+        CREATE VIRTUAL TABLE IF NOT EXISTS patronen_fts USING fts5(soort, werkte, les, content='patronen', content_rowid='id');
+        CREATE TRIGGER IF NOT EXISTS patronen_ai AFTER INSERT ON patronen BEGIN
+            INSERT INTO patronen_fts(rowid, soort, werkte, les) VALUES (new.id, new.soort, new.werkte, new.les); END;
+        CREATE TRIGGER IF NOT EXISTS patronen_ad AFTER DELETE ON patronen BEGIN
+            INSERT INTO patronen_fts(patronen_fts, rowid, soort, werkte, les) VALUES ('delete', old.id, old.soort, old.werkte, old.les); END;
+        CREATE TRIGGER IF NOT EXISTS patronen_au AFTER UPDATE ON patronen BEGIN
+            INSERT INTO patronen_fts(patronen_fts, rowid, soort, werkte, les) VALUES ('delete', old.id, old.soort, old.werkte, old.les);
+            INSERT INTO patronen_fts(rowid, soort, werkte, les) VALUES (new.id, new.soort, new.werkte, new.les); END;
     """)
     columns = [row['name'] for row in db.execute('PRAGMA table_info(acties)')]
     if 'ongedaan' not in columns:
         db.execute("ALTER TABLE acties ADD COLUMN ongedaan TEXT NOT NULL DEFAULT ''")
+    if 'taak_id' not in columns:
+        db.execute('ALTER TABLE acties ADD COLUMN taak_id INTEGER')
+    db.execute('CREATE INDEX IF NOT EXISTS acties_taak ON acties(taak_id)')
     return db
 
 
@@ -520,19 +541,24 @@ def list_agenda(limit=12, query='', now=None):
         return [_agenda_row(r) for r in rows]
 
 
-def log_actie(hulpmiddel, samenvatting, status, detail='', ongedaan='', volledig=False):
+def log_actie(hulpmiddel, samenvatting, status, detail='', ongedaan='', volledig=False, taak_id=None):
     """Audit row. Callers must not put passwords or tokens in samenvatting or detail.
 
     volledig keeps an auto-sent message intact. Other rows stay short.
+    Without taak_id the row hangs on the open task, when there is one.
     """
     if status not in ACTIE_STATUS:
         raise ValueError('Status moet een van %s zijn' % ', '.join(ACTIE_STATUS))
     limit = 100000 if volledig else 400
     with connect() as db:
+        if taak_id is None:
+            open_row = db.execute('SELECT id FROM taken WHERE eind IS NULL ORDER BY id DESC LIMIT 1').fetchone()
+            taak_id = int(open_row['id']) if open_row else None
         cur = db.execute(
-            'INSERT INTO acties(op, hulpmiddel, samenvatting, status, detail, ongedaan) VALUES (?, ?, ?, ?, ?, ?)',
+            '''INSERT INTO acties(op, hulpmiddel, samenvatting, status, detail, ongedaan, taak_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?)''',
             (time.time(), str(hulpmiddel or '')[:80], str(samenvatting or '')[:400], status,
-             str(detail or '')[:limit], str(ongedaan or '')[:400]))
+             str(detail or '')[:limit], str(ongedaan or '')[:400], taak_id))
         return cur.lastrowid
 
 
@@ -575,9 +601,11 @@ def _trash_file(raw):
 
 
 def _actie_row(r):
+    keys = r.keys()
     return {'id': r['id'], 'op': r['op'], 'tijd': _clock(r['op']), 'hulpmiddel': r['hulpmiddel'],
             'samenvatting': r['samenvatting'], 'status': r['status'], 'detail': r['detail'],
-            'ongedaan': r['ongedaan'] if 'ongedaan' in r.keys() else ''}
+            'ongedaan': r['ongedaan'] if 'ongedaan' in keys else '',
+            'taak_id': r['taak_id'] if 'taak_id' in keys else None}
 
 
 def list_acties(limit=80, query='', status=None):

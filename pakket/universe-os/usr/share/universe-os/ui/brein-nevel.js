@@ -2,6 +2,7 @@
 // tags and words, the timeline as a comet, file hits as moons. No libraries, no shadows, no
 // per-frame gradients except the comet head. The loop sleeps unless motion is allowed.
 import {h,icon} from './api.js';
+import {mountActiviteit,mountTaakbord} from './brein-werk.js';
 
 export const STAR_CAP=160;
 const TRAIL_CAP=36;
@@ -94,14 +95,35 @@ export function mountNebula(parent,api={}){
  privacy.addEventListener('click',()=>call('run',{tool:'control',page:'security'}).catch(e=>{status.textContent=e.message;}));
  const title=h('div',{class:'nebula-title'},h('strong',{},'Brein'),h('span',{},'Herinneringen in de nevel'));
  const listBtn=h('button',{type:'button','aria-pressed':'true'},'Lijst');
- const hud=h('div',{class:'nebula-hud'},back,title,search,legend,listBtn,privacy);
+ const viewButtons=h('div',{class:'nebula-filters','aria-label':'Weergave van het brein'});
+ const hud=h('div',{class:'nebula-hud'},back,title,search,legend,listBtn,viewButtons,privacy);
  const chips=h('div',{class:'nebula-chips'});
  const list=h('aside',{class:'nebula-list','aria-label':'Lijst van mail, agenda en acties'});
  const caption=h('p',{class:'nebula-caption'},'Komeetspoor · programma’s en bestanden die je opende');
  const hover=h('div',{class:'nebula-hover',hidden:true});
  const card=h('article',{class:'nebula-card',hidden:true,'aria-live':'polite'});
  const status=h('p',{class:'nebula-status',role:'alert'});
- parent.replaceChildren(canvas,hud,chips,list,caption,hover,card,status);
+ const stage=h('div',{class:'nebula-stage',hidden:true});
+ parent.replaceChildren(canvas,hud,chips,list,caption,hover,card,stage,status);
+ let closeStage=()=>{};
+ const viewName={current:api.view||'nevel'};
+ function showView(name){
+  viewName.current=name;
+  closeStage();
+  closeStage=()=>{};
+  stage.hidden=name==='nevel';
+  list.hidden=name!=='nevel';
+  for(const button of viewButtons.querySelectorAll('button')) button.setAttribute('aria-pressed',button.dataset.view===name?'true':'false');
+  if(name==='nevel'){paint();return;}
+  stage.replaceChildren();
+  const opener=name==='activiteit'?mountActiviteit:mountTaakbord;
+  closeStage=opener(stage,{call,alive:()=>alive&&still()})||(()=>{});
+ }
+ for(const [id,naam] of [['nevel','Nevel'],['activiteit','AI-activiteit'],['taakbord','Taakbord']]){
+  const button=h('button',{type:'button','data-view':id,'aria-pressed':id===(api.view||'nevel')?'true':'false'},naam);
+  button.addEventListener('click',()=>showView(id));
+  viewButtons.append(button);
+ }
 
  const state={stars:[],lines:[],trail:[],moons:[],rows:[],filter:'alles',match:null,hover:null,flash:null,selected:null};
  const hits={stars:[],moons:[]};
@@ -483,9 +505,10 @@ export function mountNebula(parent,api={}){
  });
  if(api.focus!==false)search.focus({preventScroll:true});
  arm();
+ if(api.view&&api.view!=='nevel')showView(api.view);
 
  return ()=>{
-  alive=false;clearTimeout(timer);clearTimeout(searchTimer);
+  alive=false;closeStage();clearTimeout(timer);clearTimeout(searchTimer);
   removeEventListener('universe:brein-flash',onFlash);
   document.removeEventListener('visibilitychange',onVis);
   ro.disconnect();mo.disconnect();

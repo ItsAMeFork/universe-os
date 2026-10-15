@@ -87,6 +87,12 @@ def _brein():
     return brein
 
 
+def _taken():
+    _brein()
+    import taken
+    return taken
+
+
 def _brein_files(query, limit=10):
     """Recoll hits as moons; without Recoll, the shell's own file-name search."""
     query = str(query or '').strip()
@@ -667,6 +673,10 @@ class Shell:
             'brein.forget_all': _brein_forget_all,
             'brein.lijst': lambda a: _brein().lijst(a.get('soort') or a.get('filter') or 'alles', a.get('q') if 'q' in a else a.get('zoek') or '', a.get('max') or 40),
             'brein.ongedaan': lambda a: _brein().undo_actie(a.get('id')),
+            'brein.activiteit': lambda a: _taken().activiteit(a.get('max') or 20),
+            'brein.activiteit.export': lambda a: _taken().export_file(os.path.join(os.path.expanduser('~'), 'Downloads'), a.get('id')),
+            'brein.activiteit.replay': lambda a: _taken().replay(a.get('id')),
+            'brein.taakbord': lambda a: _taken().bord(a.get('max') or 20),
             'auto.status': lambda a: _auto().public(),
             'auto.set': lambda a: self._auto_set(a),
             'auto.regels': lambda a: self._auto_regels(a),

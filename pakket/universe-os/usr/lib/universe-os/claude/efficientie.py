@@ -244,6 +244,14 @@ def trend(limit=8):
     return rows
 
 
+def _pattern(stats):
+    try:
+        import patronen
+        patronen.remember_task(stats)
+    except Exception:
+        return None
+
+
 def _record(provider, model, stats, skipped=''):
     return brein.log_efficientie(
         provider, model, stats.get('tokens_in') or 0, stats.get('tokens_out') or 0, stats.get('schatting'),
@@ -272,8 +280,11 @@ def capture_stats(provider, model, stats, spawn=None):
     allowed, reason = decide(stats, spent, _enabled())
     if not allowed or not _reflect_allowed():
         why = reason or 'uit'
-        return _record(provider, model, stats, why)
+        row_id = _record(provider, model, stats, why)
+        _pattern(stats)
+        return row_id
     row_id = _record(provider, model, stats, '')
+    _pattern(stats)
     if spawn is not None:
         try:
             spawn(row_id)

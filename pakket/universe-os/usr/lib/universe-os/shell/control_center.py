@@ -64,6 +64,18 @@ def _plugins():
     return plugins
 
 
+def _premade():
+    _claude()
+    import premade
+    return premade
+
+
+def _ruflo():
+    _claude()
+    import ruflo_mode
+    return ruflo_mode
+
+
 def _shell_json(command, timeout=8):
     """Ask the running shell. Screen control lives there, not in a file this process could write."""
     done = subprocess.run(['universe-ctl', command], capture_output=True, text=True, timeout=timeout)
@@ -285,6 +297,15 @@ def _chrome_agent():
     return chrome_agent
 
 
+def ruflo_terminal():
+    """User-started install of pinned ruflo-core into the separate profile. Not silent."""
+    if not shutil.which('xfce4-terminal'):
+        raise RuntimeError('Er is geen terminal beschikbaar om de installatie te starten.')
+    script = _ruflo().install_script()
+    backend.spawn(['xfce4-terminal', '--title', 'Ruflo-core installeren', '-x', 'bash', '-c', script])
+    return True
+
+
 def plugin_terminal(plugin_id):
     """User-started install. Rules are not copied; the script itself refuses a copy."""
     if not shutil.which('xfce4-terminal'):
@@ -437,6 +458,9 @@ def handlers(app):
         'ai.plugins.set': lambda a: _plugins().set_enabled(a.get('id'), a.get('aan')),
         'ai.plugins.install': lambda a: _plugins().ensure(),
         'ai.plugins.terminal': lambda a: plugin_terminal(a.get('id')),
+        'ai.agents.set': lambda a: _premade().set_enabled(a.get('id'), a.get('aan')),
+        'ai.ruflo.set': lambda a: _ruflo().set_enabled(a.get('aan')),
+        'ai.ruflo.terminal': lambda a: ruflo_terminal(),
         'ai.sessie': lambda a: _ai().set_sessie(a.get('route') or a.get('sessie') or 'claude'),
         'ai.litellm': lambda a: _ai().set_litellm_url(a.get('url') or ''),
         'auto.status': lambda a: _auto().public(),
@@ -490,6 +514,7 @@ class ControlCenter(Gtk.Application):
                                                    'ai.status', 'ai.set', 'ai.key', 'ai.install', 'ai.leren',
                                                    'ai.compressie', 'ai.omniroute.add', 'ai.omniroute.remove', 'ai.omniroute.router',
                                                    'ai.plugins', 'ai.plugins.set', 'ai.plugins.install', 'ai.plugins.terminal',
+                                                   'ai.agents.set', 'ai.ruflo.set', 'ai.ruflo.terminal',
                                                    'ai.sessie', 'ai.litellm', 'ai.mail', 'auto.status', 'auto.set', 'auto.regels',
                                                    'chrome.status', 'chrome.setup',
                                                    'accounts.list', 'accounts.clients', 'accounts.client', 'accounts.oauth_start',

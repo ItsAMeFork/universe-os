@@ -1,0 +1,29 @@
+#!/usr/bin/python3
+"""Drops --dangerously-skip-permissions before Claude starts.
+
+Auto-accept stays in universe_mcp.py and the zenity dialog. Ruflo mode cannot
+bypass that by adding the flag.
+"""
+import os
+import sys
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_LIB = os.path.join(os.path.dirname(_HERE), 'lib', 'universe-os', 'claude')
+sys.path.insert(0, _LIB)
+import ruflo_mode  # noqa: E402
+
+
+def main(argv):
+    real = os.environ.get('UNIVERSE_CLAUDE_BIN') or ''
+    if not real or not os.access(real, os.X_OK) or os.path.basename(real) == 'universe-claude-wrap':
+        sys.stderr.write('Claude Code ontbreekt.\n')
+        return 1
+    os.execv(real, [real] + ruflo_mode.strip_skip(argv))
+
+
+if __name__ == '__main__':
+    try:
+        raise SystemExit(main(sys.argv[1:]))
+    except OSError as error:
+        sys.stderr.write('Starten mislukt: %s\n' % error)
+        raise SystemExit(1)

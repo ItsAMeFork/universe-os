@@ -47,6 +47,11 @@ def main(argv=None):
             print(outcome.get('tekst') or 'Plugins later opnieuw.')
     except Exception:
         pass
+    try:
+        import premade
+        premade.sync()
+    except Exception:
+        pass
     plan = prepare(fresh='--nieuw' in argv)
     if not plan['ok']:
         print(plan['fout'])

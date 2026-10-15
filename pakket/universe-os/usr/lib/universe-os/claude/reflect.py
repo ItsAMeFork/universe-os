@@ -39,6 +39,11 @@ def run(row_id, poster=None, key='', ollama_url='http://127.0.0.1:11434', provid
                           0, 0, 'reflectie', soort='reflectie')
     if lesson_id:
         brein.mark_efficientie(row['id'], '', lesson_id)
+        try:
+            import patronen
+            patronen.attach_lesson(row.get('taak') or '', text)
+        except Exception:
+            pass
         return {'gelukt': True, 'les': lesson_id}
     brein.mark_efficientie(row['id'], 'geen-les')
     return {'gelukt': False, 'reden': 'geen-les'}
