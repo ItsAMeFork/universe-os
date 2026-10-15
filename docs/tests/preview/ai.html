@@ -64,8 +64,11 @@ const status = {
   {id:'ollama', naam:'Op deze computer', uitleg:'Ollama draait het model hier. Een klein model is het enige dat een trage computer aankan.', geinstalleerd:true, sleutel_mogelijk:false, sleutel_bewaard:false, model_leeg:'qwen2.5:3b'}
  ]
 };
+const desk = {zen:false, god:false, buddy:true};
 const call = async (cmd, args) => {
  if (cmd === 'ai.status') return status;
+ if (cmd === 'config.get') return {settings:{...desk}};
+ if (cmd === 'config.set') { desk[args.key] = !!args.value; return {settings:{...desk}}; }
  if (cmd === 'ai.set') return {naam: args.provider};
  if (cmd === 'ai.key') return {bewaard: !!args.sleutel};
  if (cmd === 'ai.open' || cmd === 'ai.install') return true;

@@ -126,6 +126,8 @@ Een Claude-sessie kan naar OmniRoute of naar LiteLLM (`http://127.0.0.1:4000`) w
 
 Automatisch toestaan staat uit. De schakelaar staat op de pagina AI en in het bedieningspaneel, met een duur van 30 minuten, 1 uur, 2 uur of tot je het uitzet. Daarna gaat hij zelf uit. Gewone bevestigingen (programma openen, bestanden, concepten, agenda lezen) gaan dan door. Betalen, wissen, versturen, wachtwoorden en systeemwijzigingen worden niet uitgevoerd; ze wachten in het brein onder Acties. Waar het kan, staat er Ongedaan maken. Super+Escape zet de stand direct uit. Zolang hij aan staat, is er een balk op het scherm.
 
+Zen en God staan uit. De schakelaars staan op de pagina AI en in het bedieningspaneel. Zen maakt het bureaublad rustig: de taakbalk en de planeten verdwijnen, het personage en een invoerveld blijven. De vraag gaat het paneel in; Enter verstuurt. God laat de assistent gewone stappen zelf doen. Versturen, betalen, wissen en wachtwoorden blijven een venster. Super+Escape zet God uit, samen met automatisch toestaan en schermbediening. De assistent kan God niet zelf aanzetten.
+
 ## Fasen
 1. **Deze stap:** starter, MCP-server met hulpmiddelen en brein (notities en voorkeuren), hooks, socketopdrachten,
    paneel met terminal, eenvoudig tijdelijk personage. Testen in de VM.
