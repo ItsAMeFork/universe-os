@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="nl" class="reduce-motion" style="background:#050815">
+<head>
+<meta charset="utf-8">
+<title>AI-wissel controle</title>
+<link rel="stylesheet" href="/pakket/universe-os/usr/share/universe-os/ui/common.css">
+<style>
+html,body{background:#050815;margin:0}
+#verslag{position:sticky;top:0;z-index:5;padding:12px 16px;background:#102033;border-bottom:1px solid var(--line);white-space:pre-wrap}
+article{padding:16px 20px}
+</style>
+</head>
+<body data-result="bezig">
+<p id="verslag">Bezig…</p>
+<article><div id="root"></div></article>
+<script type="module">
+import {mountAi} from '/pakket/universe-os/usr/share/universe-os/ui/ai-ui.js';
+const calls = [];
+const status = {
+ provider: 'claude', model: 'haiku', ollama_url: 'http://127.0.0.1:11434',
+ naam: 'Claude Code', sandbox: true, leren: true, compressie: 'geen',
+ sessie_route: 'claude', litellm_url: 'http://127.0.0.1:4000',
+ omniroute_providers: [], omniroute_router: false,
+ omniroute_waarschuwing: 'Gratis aanbieders kunnen je vragen lezen. Zet OmniRoute alleen aan als je dat wilt.',
+ trend: [], plugins: [],
+ providers: [
+  {id:'claude', naam:'Claude Code', uitleg:'Standaard.', geinstalleerd:true, sleutel_bewaard:false, model_leeg:'Haiku (snel, licht)'},
+  {id:'codex', naam:'ChatGPT', uitleg:'Codex.', geinstalleerd:false, sleutel_bewaard:false, model_leeg:'het model van Codex'},
+  {id:'gemini', naam:'Gemini', uitleg:'Gemini.', geinstalleerd:false, sleutel_bewaard:false, model_leeg:'het model van Gemini'},
+  {id:'ollama', naam:'Op deze computer', uitleg:'Ollama.', geinstalleerd:true, sleutel_bewaard:false, model_leeg:'qwen2.5:3b'},
+  {id:'opencode', naam:'OpenCode', uitleg:'MIT.', geinstalleerd:false, sleutel_bewaard:false, model_leeg:'het model van OpenCode'},
+  {id:'goose', naam:'Goose', uitleg:'Apache.', geinstalleerd:false, sleutel_bewaard:false, model_leeg:'het model van Goose'}
+ ]
+};
+const call = async (cmd, args) => {
+ calls.push({cmd, args});
+ if (cmd === 'ai.status') return status;
+ if (cmd === 'ai.set') {
+  status.provider = args.provider;
+  status.model = args.model || '';
+  if (args.ollama_url) status.ollama_url = args.ollama_url;
+  const row = status.providers.find(item => item.id === args.provider);
+  return Object.assign({}, status, {naam: row ? row.naam : args.provider});
+ }
+ if (cmd === 'ai.key') return {bewaard: !!args.sleutel};
+ if (cmd === 'ai.leren') return {leren: !!args.aan};
+ if (cmd === 'auto.status') return {aan:false, duur:'30m', tekst:'Uit', wacht:0, regels:['bank','wachtwoord']};
+ if (cmd === 'auto.regels') return {aan:false, duur:'30m', tekst:'Uit', wacht:0, regels:[]};
+ if (cmd === 'chrome.status') return {verbonden:false, tekst:'Chrome staat er.'};
+ if (cmd === 'chrome.setup') return {verbonden:false, tekst:'De pagina van de extensie opent.'};
+ if (cmd === 'auto.set') return {aan:!!args.aan, duur:args.duur||'30m', tekst:args.aan?'Aan tot 12:00.':'Uit', wacht:0};
+ if (cmd === 'ai.sessie') { status.sessie_route = args.route || 'claude'; return status; }
+ if (cmd === 'ai.litellm') return status;
+ if (cmd === 'ai.compressie') { status.compressie = args.modus; return status; }
+ if (cmd === 'ai.omniroute.add' || cmd === 'ai.omniroute.remove' || cmd === 'ai.omniroute.router') return status;
+ if (cmd === 'ai.plugins.terminal' || cmd === 'ai.plugins.install' || cmd === 'ai.open') return {tekst:'Klaar.'};
+ if (cmd === 'ai.plugins.set') return [];
+ return {};
+};
+const tick = () => new Promise(resolve => setTimeout(resolve, 40));
+const fails = [];
+const bad = (message) => fails.push(message);
+const buttonNamed = (name) => [...document.querySelectorAll('.ai-switch button')].find(item => item.querySelector('strong')?.textContent === name);
+const quickMessage = () => document.querySelector('.ai-switch').parentElement.querySelector('p.message');
+const pressed = () => [...document.querySelectorAll('.ai-switch button')].filter(item => item.getAttribute('aria-pressed') === 'true').map(item => item.querySelector('strong').textContent);
+try {
+ await mountAi(document.getElementById('root'), {call});
+ const model = document.querySelector('[aria-label="Model"]');
+ if (pressed().join() !== 'Claude') bad('start niet Claude: ' + pressed().join());
+ if (model.value !== 'haiku') bad('model begon niet op haiku');
+ if (!document.body.textContent.includes('Claude in Chrome')) bad('Claude in Chrome weg');
+ if (!document.body.textContent.includes('Automatisch toestaan')) bad('automatisch toestaan weg');
+ if (!document.body.textContent.includes('Tokens besparen (Headroom)')) bad('Headroom weg');
+ if (!document.body.textContent.includes('Route van deze sessie')) bad('sessieroute weg');
+ if (!document.body.textContent.includes('Terug naar Claude')) bad('Terug naar Claude weg');
+ for (const [name, id] of [['ChatGPT','codex'],['Gemini','gemini'],['Lokaal','ollama'],['Claude','claude']]) {
+  const before = calls.filter(item => item.cmd === 'ai.set').length;
+  buttonNamed(name).click();
+  await tick();
+  const sets = calls.filter(item => item.cmd === 'ai.set');
+  if (sets.length !== before + 1) bad(name + ' riep ai.set niet één keer aan');
+  const last = sets.at(-1).args;
+  if (last.provider !== id || last.model !== '') bad(name + ' stuurde ' + JSON.stringify(last));
+  if (pressed().join() !== name) bad('na ' + name + ' actief: ' + pressed().join());
+  if (model.value !== '') bad('model bleef staan na ' + name);
+  if (document.body.textContent.includes('Antwoordt nu: ' + name) === false) bad('status mist ' + name);
+ }
+ const again = calls.filter(item => item.cmd === 'ai.set').length;
+ buttonNamed('Claude').click();
+ await tick();
+ if (calls.filter(item => item.cmd === 'ai.set').length !== again) bad('tweede tik op Claude bewaarde opnieuw');
+ if (!quickMessage().textContent.includes('Claude antwoordt al.')) bad('geen melding dat Claude al antwoordt');
+ const head = document.querySelector('[aria-label="Tokens besparen (Headroom)"]');
+ head.click();
+ await tick();
+ const compress = calls.filter(item => item.cmd === 'ai.compressie').at(-1);
+ if (!compress || compress.args.modus !== 'headroom') bad('Headroom zette compressie niet aan');
+ if (pressed().join() !== 'Claude') bad('Headroom wisselde de assistent');
+ const auto = document.querySelector('[aria-label="Automatisch toestaan"]');
+ auto.click();
+ await tick();
+ const autoCall = calls.filter(item => item.cmd === 'auto.set').at(-1);
+ if (!autoCall || autoCall.args.aan !== true) bad('automatisch toestaan ging niet aan');
+ const chrome = [...document.querySelectorAll('button')].find(item => item.textContent.includes('Chrome en de extensie'));
+ chrome.click();
+ await tick();
+ if (!calls.some(item => item.cmd === 'chrome.setup')) bad('chrome.setup niet aangeroepen');
+ const back = [...document.querySelectorAll('button')].find(item => item.textContent === 'Terug naar Claude');
+ back.click();
+ await tick();
+ if (!calls.some(item => item.cmd === 'ai.sessie' && item.args.route === 'claude')) bad('Terug naar Claude raakte de sessie niet');
+ model.value = 'qwen2.5:3b';
+ const openCode = [...document.querySelectorAll('input[name=ai-provider]')][0];
+ openCode.click();
+ await tick();
+ if (pressed().join() !== 'Claude') bad('OpenCode-radio wisselde meteen');
+ const save = [...document.querySelectorAll('button')].find(item => item.textContent === 'Keuze bewaren');
+ save.click();
+ await tick();
+ const saved = calls.filter(item => item.cmd === 'ai.set').at(-1).args;
+ if (saved.provider !== 'opencode' || saved.model !== 'qwen2.5:3b') bad('Keuze bewaren stuurde ' + JSON.stringify(saved));
+ if (pressed().length !== 0) bad('OpenCode liet een van de vier knoppen aan');
+ if (!document.body.textContent.includes('Antwoordt nu: OpenCode')) bad('status mist OpenCode');
+ if (quickMessage().textContent.includes('antwoordt al')) bad('oude melding bleef staan: ' + quickMessage().textContent);
+} catch (error) {
+ bad(error && error.message || String(error));
+}
+document.body.dataset.result = fails.length ? 'fail' : 'pass';
+document.body.dataset.detail = fails.join(' | ');
+document.getElementById('verslag').textContent = fails.length ? fails.join('\n') : 'PASS';
+</script>
+</body>
+</html>

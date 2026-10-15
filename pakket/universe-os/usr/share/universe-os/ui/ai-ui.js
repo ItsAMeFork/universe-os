@@ -1,4 +1,4 @@
-// AI page: pick Claude Code, ChatGPT (Codex), Gemini or a local Ollama model.
+// AI page: one tap switches Claude, ChatGPT, Gemini or a local model.
 // Keys go to the shell (keyring). This page never receives a key back.
 import {call as shellCall, h} from './api.js';
 
@@ -35,9 +35,22 @@ export async function mountAi(root, api={}){
  secret.setAttribute('aria-label','API-sleutel');
  secret.placeholder='Leeg laten als je in het paneel inlogt';
  const picks=h('div');
+ const QUICK=[
+  ['claude','Claude','Account'],
+  ['codex','ChatGPT','Codex'],
+  ['gemini','Gemini','Google'],
+  ['ollama','Lokaal','Op deze computer'],
+ ];
+ function labelFor(id){
+  const quick=QUICK.find(row=>row[0]===id);
+  if(quick) return quick[1];
+  const row=status.providers.find(item=>item.id===id);
+  return row?row.naam:id;
+ }
  function draw(){
   picks.replaceChildren();
   for(const provider of status.providers){
+   if(QUICK.some(row=>row[0]===provider.id)) continue;
    const on=provider.id===chosen;
    const box=card(provider.naam,
     note(provider.uitleg),
@@ -208,8 +221,55 @@ export async function mountAi(root, api={}){
   });
   routes.append(h('label',{class:'check'},input,item[1]));
  }
+ const quickRow=h('div',{class:'ai-switch',role:'group','aria-label':'Wissel van AI'});
+ const quickState=h('p',{class:'switch-state aan',role:'status'});
+ const quickNote=h('p',{class:'message',role:'status'});
+ function paintQuick(){
+  const active=status.provider||chosen;
+  quickState.textContent='Antwoordt nu: '+labelFor(active);
+  quickRow.replaceChildren();
+  for(const [id,name,sub] of QUICK){
+   const spec=status.providers.find(item=>item.id===id);
+   const missing=spec&&spec.geinstalleerd===false;
+   const pressed=active===id;
+   const b=h('button',{type:'button','aria-pressed':pressed?'true':'false'},
+    h('strong',{},name),h('small',{},missing?sub+' · nog niet geïnstalleerd':sub));
+   b.addEventListener('click',async()=>{
+    const buttons=[...quickRow.querySelectorAll('button')];
+    buttons.forEach(item=>{item.disabled=true;});
+    quickNote.className='message';
+    quickNote.textContent='Bezig…';
+    if(id===(status.provider||chosen)){
+     buttons.forEach(item=>{item.disabled=false;});
+     quickNote.textContent=name+' antwoordt al.';
+     return;
+    }
+    try{
+     const saved=await call('ai.set',{provider:id,model:'',ollama_url:url.value.trim()});
+     status.provider=(saved&&saved.provider)||id;
+     status.model=(saved&&'model' in saved)?saved.model:'';
+     chosen=status.provider;
+     model.value=status.model||'';
+     model.placeholder=status.providers.find(item=>item.id===chosen)?.model_leeg||'';
+     draw();
+     paintQuick();
+     quickNote.textContent='Antwoordt nu: '+name+'. Open het paneel met Windows+C.';
+    }catch(e){
+     buttons.forEach(item=>{item.disabled=false;});
+     quickNote.className='message error';
+     quickNote.textContent=e.message||'Mislukt.';
+    }
+   });
+   quickRow.append(b);
+  }
+ }
+ paintQuick();
+ const switchCard=h('section',{class:'card token-hero'},
+  h('h3',{},'Wie antwoordt'),
+  note('Eén tik wisselt meteen tussen Claude, ChatGPT, Gemini en lokaal. Lezen, concepten en formulieren gaan door. Belangrijke mail, betalen, wissen en wachtwoorden blijven een vraag met Toestaan.'),
+  quickRow,quickState,quickNote);
  const modelCard=h('section',{class:'card'},
-  h('h3',{},'Model deze sessie'),
+  h('h3',{},'Route van deze sessie'),
   note('Geen OpenClaude. Dat is een ongeautoriseerde afgeleide, met standaard een betaalde gateway en zoeken via Exa.'),
   note('Deze sessie wijst Claude naar OmniRoute of LiteLLM. Terug naar Claude haalt dat adres weer weg. Een andere agent, als je die wilt, is OpenCode (MIT) of Goose (Apache-2.0).'),
   routes,
@@ -237,11 +297,12 @@ export async function mountAi(root, api={}){
    return next&&next.tekst||'De pagina van de extensie opent.';
   }));
  root.append(
+  switchCard,
   chromeCard,
   autoSwitch,
   tokenSwitch,
   modelCard,
-  note('Kies wie antwoordt. Het personage, de herinneringen en de vragen op het scherm blijven hetzelfde. Lezen, concepten en formulieren gaan door. Belangrijke mail, betalen, wissen en wachtwoorden blijven een vraag met Toestaan.'),
+  note('Een eigen modelnaam, of OpenCode of Goose, stel je hieronder in. Daarna Keuze bewaren. Het personage en de herinneringen blijven hetzelfde.'),
   card('Gebruik',
    h('label',{class:'check'},learn,'Leren van taken (korte les, alleen als die minder kost dan de taak)'),
    button('Leervoorkeur bewaren',async()=>{
@@ -277,8 +338,18 @@ export async function mountAi(root, api={}){
    field('Model',model),
    field('Ollama-adres (alleen deze computer)',url),
    button('Keuze bewaren',async()=>{
-    const saved=await call('ai.set',{provider:chosen,model:model.value.trim(),ollama_url:url.value.trim()});
-    return 'Gekozen: '+(saved.naam||chosen)+'. Open daarna het paneel met Windows+C.';
+    const typed=model.value.trim();
+    const saved=await call('ai.set',{provider:chosen,model:typed,ollama_url:url.value.trim()});
+    status.provider=(saved&&saved.provider)||chosen;
+    status.model=(saved&&'model' in saved)?saved.model:typed;
+    chosen=status.provider;
+    model.value=status.model||'';
+    model.placeholder=status.providers.find(item=>item.id===chosen)?.model_leeg||'';
+    draw();
+    paintQuick();
+    quickNote.className='message';
+    quickNote.textContent='';
+    return 'Gekozen: '+(saved.naam||labelFor(chosen))+'. Open daarna het paneel met Windows+C.';
    })),
   card('Sleutel',
    note('Alleen nodig als je niet in het paneel wilt aanmelden. De sleutel gaat naar de sleutelbos en komt niet in een bestand. Dit scherm krijgt hem niet terug.'),

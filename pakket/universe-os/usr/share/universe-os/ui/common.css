@@ -43,3 +43,11 @@ label.switch-row{display:flex;flex-direction:row;align-items:center;gap:18px;mar
 .switch-state{font-size:1.05em;font-weight:800;letter-spacing:.04em}
 .switch-state.uit{color:#ffc98a}
 .switch-state.aan{color:#85ffe3}
+.ai-switch{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:8px 0 12px}
+.ai-switch button{margin:0;min-width:0;min-height:72px;padding:12px 10px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:4px;text-align:left;white-space:normal}
+.ai-switch button strong{font-size:1.05em;overflow-wrap:anywhere}
+.ai-switch button small{color:var(--muted);font-weight:500;overflow-wrap:anywhere}
+.ai-switch button[aria-pressed=true]{background:#94efd31f;border-color:#85ffe3;color:var(--accent-strong);box-shadow:inset 0 0 0 1px #85ffe355}
+.ai-switch button[aria-pressed=true] small{color:var(--accent)}
+@media(max-width:1100px){.ai-switch{grid-template-columns:1fr 1fr}}
+@media(max-width:520px){.ai-switch{grid-template-columns:1fr}}
