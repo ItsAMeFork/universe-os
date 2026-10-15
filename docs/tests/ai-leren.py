@@ -145,7 +145,7 @@ assert plugins._copies_rules('cp -R rules/ecc "$HOME/.claude/rules"\n') is True
 assert plugins._copies_rules('cp skills/x "$HOME"\n') is True
 wrapper = (ROOT / 'pakket/universe-os/usr/bin/universe-ai-headroom').read_text(encoding='utf-8')
 assert 'HEADROOM_BEACON=off' in wrapper and 'DO_NOT_TRACK=1' in wrapper
-assert 'headroom wrap --code-memory none claude' in wrapper
+assert 'headroom wrap --code-memory none /usr/bin/universe-claude-wrap' in wrapper
 assert ai_provider.load()['compressie'] == 'geen'
 assert ai_provider.public_status()['omniroute_router'] is False
 try:
@@ -171,7 +171,9 @@ ai_provider.set_compressie('omniroute')
 ai_provider.set_sessie('omniroute')
 which = lambda name: {'claude': '/usr/bin/claude'}.get(name)
 routed = ai_provider.launch_plan(fresh=True, which=which, access=lambda *_a: True)
-assert routed['argv'][0] == '/usr/bin/claude'
+assert routed['argv'][0].endswith('/universe-claude-wrap')
+assert routed['env'].get('UNIVERSE_CLAUDE_BIN') == '/usr/bin/claude'
+assert '--dangerously-skip-permissions' not in routed['argv']
 assert '/usr/bin/universe-ai-headroom' not in routed['argv']
 assert routed['env'].get('ANTHROPIC_BASE_URL') == 'http://127.0.0.1:20128'
 assert routed['env'].get('OMNIROUTE_COMPRESSION') == 'standard'

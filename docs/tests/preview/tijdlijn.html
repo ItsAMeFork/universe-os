@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="nl" class="reduce-motion" style="background:#050815">
+<head>
+<meta charset="utf-8">
+<title>Tijdlijn</title>
+<link rel="stylesheet" href="/pakket/universe-os/usr/share/universe-os/ui/common.css">
+<link rel="stylesheet" href="/pakket/universe-os/usr/share/universe-os/ui/world.css">
+<style>html,body{height:100%;background:#050815}#room{position:fixed;inset:0}</style>
+</head>
+<body>
+<div id="room" class="room room-nebula"></div>
+<script type="module">
+import {mountNebula} from '/pakket/universe-os/usr/share/universe-os/ui/brein-nevel.js';
+const beelden = [
+ {id:1, tijd:'2026-10-15 08:40', app:'firefox', titel:'Ochtend', tekst:'Koffie op het bureau. Agenda tandarts om tien uur.'},
+ {id:2, tijd:'2026-10-15 09:05', app:'thunar', titel:'Documenten', tekst:'Brief van de school, ouderavond donderdag.'},
+ {id:3, tijd:'2026-10-15 09:20', app:'gedit', titel:'Notitie', tekst:'Doel: de sterren leren, stap voor stap.'}
+];
+const call = async (cmd, args={}) => {
+ if (cmd === 'brein.list') return {sterren: []};
+ if (cmd === 'brein.links') return {lijnen: []};
+ if (cmd === 'brein.timeline') return {spoor: []};
+ if (cmd === 'brein.lijst') return {rijen: [], sterren: []};
+ if (cmd === 'brein.scherm.lijst') return beelden;
+ if (cmd === 'brein.scherm.zoek') {
+  const q = (args.q || '').toLowerCase();
+  return beelden.filter(row => (row.tekst + row.titel).toLowerCase().includes(q));
+ }
+ if (cmd === 'brein.scherm.pauze') return {pauze: !!args.pauze, tekst: args.pauze ? 'Pauze' : 'Aan'};
+ if (cmd === 'brein.scherm.wissen') return {aan: false};
+ return {};
+};
+mountNebula(document.getElementById('room'), {call, focus:false, view:'tijdlijn'});
+document.body.dataset.ready = '1';
+</script>
+</body>
+</html>

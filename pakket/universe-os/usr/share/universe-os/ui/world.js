@@ -8,6 +8,7 @@ import {SETTINGS} from './settings-index.js';
 import {keepTab} from './focus.js';
 import {distFor} from './space.js';
 import {mountNebula} from './brein-nevel.js';
+import {fillMission, fillBlik} from './leven-ui.js';
 // The 3D desktop (Axel, 10 Oct: "the desktop in 3D, every program a planet somewhere that you arrange yourself,
 // zoom in and out, also turn in 3D"). The Earth in the middle is the personal folder; folders and files from the
 // Bureaublad circle it; every program is a planet in a galaxy, grouped by kind. Wheel = zoom, drag empty space = move,
@@ -61,12 +62,32 @@ on('launch-countdown',({seconds=10,version=''}={})=>{
  requestAnimationFrame(tick);
 });
 on('logout-error',message=>{logoutOverlay?.remove();launchPanel?.remove();launchPanel=null;logoutOverlay=null;root.inert=false;mix=1;requestRender();toast('Afmelden mislukt: '+message);});
+const mission=h('section',{class:'mission',hidden:true,'aria-label':'Ochtendbriefing'});
+const blik=h('aside',{class:'ai-blik',hidden:true,'aria-label':'Wat de AI doet'});
+const zenForm=h('form',{class:'zen-input'},
+ h('input',{type:'text','aria-label':'Vraag aan de buddy',placeholder:'Vraag de buddy…'}),
+ h('button',{type:'submit'},'Vraag'));
+zenForm.addEventListener('submit',event=>{
+ event.preventDefault();
+ const field=zenForm.querySelector('input');
+ const tekst=(field.value||'').trim();
+ if(!tekst)return;
+ field.value='';
+ call('buddy.vraag',{tekst}).catch(error=>toast(error.message));
+});
+root.append(mission,blik,zenForm);
+function paintDesk(){
+ call('briefing.nu').then(data=>fillMission(mission,data)).catch(()=>{});
+ if(document.documentElement.classList.contains('mode-zen')){blik.hidden=true;return;}
+ call('brein.activiteit').then(data=>fillBlik(blik,data)).catch(()=>{});
+}
 document.body.append(root);
 
 async function start(){
  config=await call('config.get');
  if(!config?.world?.planets?.length)throw new Error('De wereldindeling ontbreekt.');
  settings=config.settings;user=config.user||{};layout=config.layout||layout;applySettings({...settings,colors:config.world.colors});
+ paintDesk();
  if(layout.space?.camera)cam={...cam,...layout.space.camera};
  // Just logged in: everything starts inside the Earth (as the login screen left it) until the space is loaded.
  let intro=false;try{intro=await call('intro.claim');}catch{}
@@ -766,5 +787,5 @@ addEventListener('keydown',e=>{
 on('open-planet',({id})=>{const p=config?.world.planets.find(x=>x.id===id);if(!p)return;if(current)leave();land(p);});
 on('show-space',()=>leave());
 on('apps-changed',()=>{appsCache=null;refreshSpace();});
-on('config',c=>{if(current)leave();config=c;settings=c.settings;user=c.user||user;if(c.layout)layout=c.layout;applySettings({...settings,colors:c.world.colors});build();});
+on('config',c=>{if(current)leave();config=c;settings=c.settings;user=c.user||user;if(c.layout)layout=c.layout;applySettings({...settings,colors:c.world.colors});build();paintDesk();});
 start();

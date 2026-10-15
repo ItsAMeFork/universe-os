@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="nl" class="reduce-motion" style="background:#050815">
+<head>
+<meta charset="utf-8">
+<title>Taakbord</title>
+<link rel="stylesheet" href="/pakket/universe-os/usr/share/universe-os/ui/common.css">
+<link rel="stylesheet" href="/pakket/universe-os/usr/share/universe-os/ui/world.css">
+<style>html,body{height:100%;background:#050815}#room{position:fixed;inset:0}</style>
+</head>
+<body>
+<div id="room" class="room room-nebula"></div>
+<script type="module">
+import {mountNebula} from '/pakket/universe-os/usr/share/universe-os/ui/brein-nevel.js';
+const call = async (cmd) => {
+ if (cmd === 'brein.list') return {sterren: []};
+ if (cmd === 'brein.links') return {lijnen: []};
+ if (cmd === 'brein.timeline') return {spoor: []};
+ if (cmd === 'brein.lijst') return {rijen: [], sterren: []};
+ if (cmd === 'brein.taakbord') return {taken: [
+  {
+   id: 7, titel: '/bouw de schakelaar', soort: 'bouw', status: 'bezig', tijd: '2026-10-15 09:12',
+   stappen: [
+    {titel:'Plan', agent:'planner', status:'klaar'},
+    {titel:'Bouwen', agent:'hoofd', status:'bezig'},
+    {titel:'Testen', agent:'tester', status:'todo'},
+    {titel:'Review', agent:'reviewer', status:'todo'}
+   ]
+  },
+  {
+   id: 8, titel: '/mail-ochtend', soort: 'mail-ochtend', status: 'geblokkeerd', tijd: '2026-10-15 08:02',
+   stappen: [{titel:'Ochtendmail', agent:'mail-assistent', status:'geblokkeerd'}]
+  }
+ ]};
+ return {};
+};
+mountNebula(document.getElementById('room'), {call, focus:false, view:'taakbord'});
+document.body.dataset.ready = '1';
+</script>
+</body>
+</html>

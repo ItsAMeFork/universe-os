@@ -56,7 +56,7 @@ const pages={
     return 'Alles is vergeten.';
    })));
  },
- ai:async root=>{await mountAi(root,{buddy:setting('Personage op het bureaublad','buddy','checkbox')});},
+ ai:async root=>{await mountAi(root,{buddy:setting('Personage op het bureaublad','buddy','checkbox'),blik:setting('Blik','aiBlik','select',[['god','God: alles wat de AI doet'],['zen','Zen: alleen de buddy en het invoerveld']])});},
  about:async root=>{const a=await call('about');root.append(card('Universe OS',details(a,{universe:'Versie',base:'Linuxbasis',kernel:'Kernel',cpu:'Processor',memoryMB:'Geheugen (MB)',machine:'Computer',labwc:'Vensterbeheerder',secureBoot:'Secure Boot'}),note(a.efi?'Opgestart met UEFI.':'Niet opgestart met UEFI.')));}
 };
 function navigation(){const q=document.getElementById('search').value.toLowerCase();nav.replaceChildren();for(const s of SETTINGS.filter(v=>(v.name+' '+v.words).toLowerCase().includes(q))){const b=h('button',{type:'button','aria-current':s.id===current?'page':undefined},icon(s.icon),s.name);b.addEventListener('click',()=>open(s.id));nav.append(b);}}

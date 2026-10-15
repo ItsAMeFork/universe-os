@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="nl" class="reduce-motion" style="background:#050815">
+<head>
+<meta charset="utf-8">
+<title>AI-activiteit</title>
+<link rel="stylesheet" href="/pakket/universe-os/usr/share/universe-os/ui/common.css">
+<link rel="stylesheet" href="/pakket/universe-os/usr/share/universe-os/ui/world.css">
+<style>html,body{height:100%;background:#050815}#room{position:fixed;inset:0}</style>
+</head>
+<body>
+<div id="room" class="room room-nebula"></div>
+<script type="module">
+import {mountNebula} from '/pakket/universe-os/usr/share/universe-os/ui/brein-nevel.js';
+const taken = [{
+ id: 7,
+ titel: '/bouw de schakelaar',
+ soort: 'bouw',
+ status: 'geblokkeerd',
+ tijd: '2026-10-15 09:12',
+ acties: [
+  {id:1, tijd:'09:12', hulpmiddel:'planner', samenvatting:'Subagent planner', status:'uitgevoerd'},
+  {id:2, tijd:'09:14', hulpmiddel:'mail_send', samenvatting:'Concept niet verstuurd', status:'wacht'},
+  {id:3, tijd:'09:15', hulpmiddel:'bureaublad_bestand', samenvatting:'Prullenbak geweigerd: klad.txt', status:'geweigerd'},
+  {id:4, tijd:'09:16', hulpmiddel:'tester', samenvatting:'Subagent tester', status:'mislukt'}
+ ]
+}];
+const call = async (cmd, args={}) => {
+ if (cmd === 'brein.list') return {sterren: []};
+ if (cmd === 'brein.links') return {lijnen: []};
+ if (cmd === 'brein.timeline') return {spoor: []};
+ if (cmd === 'brein.lijst') return {rijen: [], sterren: []};
+ if (cmd === 'brein.activiteit') return {taken, los: [
+  {tijd:'08:40', hulpmiddel:'brein_zoeken', samenvatting:'Oudere zoekactie zonder taak', status:'uitgevoerd'}
+ ]};
+ if (cmd === 'brein.activiteit.export') return {pad: '/home/preview/Downloads/ai-activiteit-20261015-0916.json'};
+ if (cmd === 'brein.activiteit.replay') return {afspelen:'alleen terugkijken', stappen: taken[0].acties};
+ if (cmd === 'brein.taakbord') return {taken: []};
+ return {};
+};
+mountNebula(document.getElementById('room'), {call, focus:false, view:'activiteit'});
+document.body.dataset.ready = '1';
+</script>
+</body>
+</html>

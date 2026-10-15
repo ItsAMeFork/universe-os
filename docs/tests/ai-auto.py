@@ -41,7 +41,8 @@ assert plan['env'].get('ANTHROPIC_BASE_URL') == 'http://127.0.0.1:20128'
 ai_provider.set_sessie('claude')
 back = ai_provider.launch_plan(fresh=True, which=which, access=lambda *_a: True)
 assert back['env'].get('ANTHROPIC_BASE_URL') is None
-assert back['argv'][0] == '/usr/bin/claude'
+assert back['argv'][0].endswith('/universe-claude-wrap')
+assert back['env'].get('UNIVERSE_CLAUDE_BIN') == '/usr/bin/claude'
 try:
     ai_provider.set_litellm_url('https://gateway.example/v1')
     raise SystemExit('litellm buiten de computer')

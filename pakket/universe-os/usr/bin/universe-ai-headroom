@@ -7,4 +7,4 @@ if ! command -v headroom >/dev/null 2>&1; then
   echo "Headroom ontbreekt. Op de pagina AI: uv tool install \"headroom-ai[all]==0.40.0\""
   exit 1
 fi
-exec headroom wrap --code-memory none claude "$@"
+exec headroom wrap --code-memory none /usr/bin/universe-claude-wrap "$@"

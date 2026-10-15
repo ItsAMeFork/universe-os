@@ -80,7 +80,7 @@ CATALOG = (
         'id': 'headroom', 'naam': 'Headroom', 'maker': 'headroomlabs-ai', 'licentie': 'Apache-2.0',
         'soort': 'programma', 'standaard': False, 'providers': ('claude',),
         'pakket': 'headroom-ai[all]==0.40.0',
-        'review': 'Versie 0.40.0, commit %s. Het anonieme baken staat bij Headroom aan. universe-ai-headroom zet HEADROOM_BEACON=off en DO_NOT_TRACK=1 en start daarna headroom wrap claude. Serena (code-memory) wordt niet mee geïnstalleerd. Tokens besparen staat uit tot je het aanzet, en nooit tegelijk met de compressie van OmniRoute.' % COMMIT['headroom'][:12],
+        'review': 'Versie 0.40.0, commit %s. Het anonieme baken staat bij Headroom aan. universe-ai-headroom zet HEADROOM_BEACON=off en DO_NOT_TRACK=1 en start daarna headroom wrap --code-memory none /usr/bin/universe-claude-wrap. Serena (code-memory) wordt niet mee geïnstalleerd. Tokens besparen staat uit tot je het aanzet, en nooit tegelijk met de compressie van OmniRoute.' % COMMIT['headroom'][:12],
         'opdracht': (
             'if ! command -v uv >/dev/null 2>&1; then echo "uv ontbreekt. Headroom installeer je daarmee, niet via apt."; echo; echo "Druk op Enter."; read -r _; exit 1; fi\n'
             'uv tool install "headroom-ai[all]==0.40.0"\n'

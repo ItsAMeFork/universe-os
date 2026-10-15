@@ -256,8 +256,17 @@ def t_desktop_file(a):
     if action == 'hernoemen':
         return shell('desktop.rename', {'path': path, 'name': a.get('naam')})
     if action == 'prullenbak':
+        import confirm
+        name = os.path.basename(path) or path
+        allowed = confirm.ask('Naar de prullenbak', 'Dit bestand gaat naar de prullenbak:\n%s' % name[:300])
+        if not allowed:
+            if not confirm.deferred():
+                brein.log_actie('bureaublad_bestand', 'Prullenbak geweigerd: %s' % name[:180], 'geweigerd')
+            raise ToolError(confirm.refused_message('Niet verplaatst. Je hebt geweigerd of het venster ontbreekt.'))
+        if getattr(confirm._last, 'kind', '') != 'automatisch':
+            brein.log_actie('bureaublad_bestand', 'Prullenbak: %s' % name[:180], 'goedgekeurd')
         shell('desktop.trash', {'path': path})
-        return 'Naar de prullenbak verplaatst: %s' % path
+        return 'Naar de prullenbak verplaatst: %s' % name
     if action == 'openen':
         shell('desktop.launch', {'path': path})
         return 'Geopend: %s' % path
