@@ -134,6 +134,14 @@ export function mountNebula(parent,api={}){
    const article=h('article',{});
    article.append(h('div',{class:'kind'},label+(row.tijd?' · '+row.tijd:'')),h('strong',{},row.titel||label),h('p',{},row.tekst||''));
    if(row.soort==='les'&&row.id){
+    const take=h('input',{type:'checkbox'});
+    take.checked=row.aan!==false;
+    take.setAttribute('aria-label','Les meenemen');
+    take.addEventListener('change',async()=>{
+     try{await call('brein.les',{id:row.id,aan:take.checked});}
+     catch(e){take.checked=!take.checked;status.textContent=e.message||'De les kon niet worden gezet.';}
+    });
+    article.append(h('label',{class:'check'},take,'Meenemen'));
     const edit=h('button',{type:'button'},'Bewerken');
     const drop=h('button',{type:'button'},'Verwijderen');
     edit.addEventListener('click',async()=>{

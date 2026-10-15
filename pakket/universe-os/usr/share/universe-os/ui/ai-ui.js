@@ -113,6 +113,25 @@ export async function mountAi(root, api={}){
   trend.append(note((row.schatting?'ongeveer ':'')+tokens+' tokens · '+(row.gereedschap||0)+' stappen'+(row.taak?' · '+row.taak:'')));
  }
  if(!(status.trend||[]).length) trend.append(note('Nog geen afgeronde taak. Het gebruik verschijnt hier na een sessie.'));
+ const lessons=h('div');
+ function drawLessons(list){
+  lessons.replaceChildren();
+  if(!(list||[]).length){
+   lessons.append(note('Nog geen les. Na een afgeronde taak verschijnt die hier.'));
+   return;
+  }
+  for(const item of list){
+   const box=h('input',{type:'checkbox'});
+   box.checked=item.aan!==false;
+   box.setAttribute('aria-label','Les meenemen');
+   box.addEventListener('change',async()=>{
+    try{await call('brein.les',{id:item.id,aan:box.checked});}
+    catch(e){box.checked=!box.checked;}
+   });
+   lessons.append(h('label',{class:'check'},box,item.tekst||''));
+  }
+ }
+ drawLessons(status.lessen||[]);
  const plugins=h('div');
  function drawPlugins(list){
   plugins.replaceChildren();
@@ -243,12 +262,13 @@ export async function mountAi(root, api={}){
   modelCard,
   note('Kies wie antwoordt. Het personage, de herinneringen en de vragen op het scherm blijven hetzelfde. Lezen, concepten en formulieren gaan door. Belangrijke mail, betalen, wissen en wachtwoorden blijven een vraag met Toestaan.'),
   card('Gebruik',
-   h('label',{class:'check'},learn,'Leren van taken (korte les, alleen als die minder kost dan de taak)'),
+   h('label',{class:'check'},learn,'Leren van taken (korte les in het brein na een taak)'),
    button('Leervoorkeur bewaren',async()=>{
     await call('ai.leren',{aan:learn.checked});
     return learn.checked?'Leren staat aan.':'Leren staat uit. Cijfers blijven wel bewaard.';
    }),
-   trend),
+   trend,
+   lessons),
   card('OmniRoute',
    note(status.omniroute_waarschuwing||'Gratis aanbieders kunnen je vragen lezen. Zet OmniRoute alleen aan als je dat wilt.'),
    note('Lokale router op http://127.0.0.1:20128. Blijft uit tot je zelf een aanbieder toevoegt. Gemini en Ollama gaan hier niet heen.'),
