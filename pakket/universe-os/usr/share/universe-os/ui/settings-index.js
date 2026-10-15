@@ -13,7 +13,7 @@ export const SETTINGS=[
  {id:'accounts',name:'Accounts',icon:'mail',words:'accounts google microsoft mail e-mail agenda imap smtp caldav oauth koppelen scherm bedienen ai assistent chrome gmail outlook browser'},
  {id:'shortcuts',name:'Sneltoetsen',icon:'keyboard',words:'sneltoetsen toetsencombinaties windows super alt tab'},
  {id:'updates',name:'Software en updates',icon:'update',words:'updates bijwerken beveiliging herstarten pakketten apt'},
- {id:'security',name:'Beveiliging',icon:'shield',words:'firewall privacy beveiliging ufw brein herinneringen vergeten exporteren tweede brein nevel'},
+ {id:'security',name:'Beveiliging',icon:'shield',words:'firewall privacy beveiliging ufw brein herinneringen vergeten exporteren tweede brein nevel ghost modus logboek wolk'},
  {id:'ai',name:'AI',icon:'chat',words:'ai claude code chatgpt openai codex gemini google ollama opencode goose lokaal model assistent installeren inloggen personage bureaublad sleutel plugins lessen gebruik headroom omniroute litellm tokens besparen automatisch toestaan frontend'},
  {id:'about',name:'Over Universe OS',icon:'info',words:'versie systeem informatie licenties hardware'}
 ];

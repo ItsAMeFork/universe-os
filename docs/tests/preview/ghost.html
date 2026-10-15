@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ghost-modus</title>
+<link rel="stylesheet" href="../../../pakket/universe-os/usr/share/universe-os/ui/common.css">
+<style>
+html,body{background:#050815}
+body{padding:28px;max-width:760px}
+h2,h3{color:var(--accent)}
+.card{padding:18px;margin:16px 0;border-radius:24px;background:#0b1021e6;border:1px solid var(--line)}
+.message{min-height:1.5em}
+.message.error{color:var(--danger)}
+</style>
+</head>
+<body>
+<h2>Beveiliging</h2>
+<div id="root"></div>
+<script type="module">
+import {h} from '../../../pakket/universe-os/usr/share/universe-os/ui/api.js';
+import {mountGhost} from '../../../pakket/universe-os/usr/share/universe-os/ui/ghost-ui.js';
+const root = document.getElementById('root');
+let on = false;
+mountGhost(root, h, {aan: false, tekst: 'Uit', uitleg: 'Uit. Logboek, bestandsindex, updatecontrole en wolk-assistenten werken zoals altijd.'}, async (next) => {
+ on = !!next;
+ return {
+  aan: on,
+  tekst: on ? 'Aan' : 'Uit',
+  uitleg: on
+   ? 'Aan. Minder logboek: geen tijdlijn van wat je opent, geen tokenlog, geen bestandsindex en kortere shell-regels. Geen automatische updatecontrole. Wolk-assistenten starten niet; het lokale model blijft. Handmatig bijwerken kan nog via Software en updates.'
+   : 'Uit. Logboek, bestandsindex, updatecontrole en wolk-assistenten werken zoals altijd.'
+ };
+});
+</script>
+</body>
+</html>

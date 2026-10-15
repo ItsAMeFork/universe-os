@@ -9,6 +9,7 @@ state: checking | waiting | downloading | installing | current | available | sta
 import json
 import os
 import subprocess
+import sys
 import time
 
 STATUS = '/var/lib/universe-os/updates/status.json'
@@ -82,8 +83,25 @@ def refresh():
     return install()
 
 
+def _ghost_on():
+    """True when Ghost mode should skip this automatic cloud check. A broken switch does not block updates."""
+    try:
+        folder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'claude')
+        if folder not in sys.path:
+            sys.path.insert(0, folder)
+        import ghost_modus
+        return ghost_modus.enabled()
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def check_at_login():
-    """Bij inloggen: echte controle als de laatste geslaagde controle ouder is dan LOGIN_AFTER. Fouten alleen loggen."""
+    """Bij inloggen: echte controle als de laatste geslaagde controle ouder is dan LOGIN_AFTER. Fouten alleen loggen.
+
+    Ghost-modus slaat deze automatische controle over. Handmatig bijwerken blijft.
+    """
+    if _ghost_on():
+        return False
     checked = _read().get('checkedAt')
     if checked and 0 <= time.time() - checked < LOGIN_AFTER:
         return False
