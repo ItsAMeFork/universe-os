@@ -278,5 +278,8 @@ html.reduce-motion .launch-number.beat,html.no-motion .launch-number.beat{animat
 .badge.geblokkeerd,.badge.geweigerd,.badge.mislukt{color:#ff8b8b}
 .badge.todo{color:var(--muted)}
 .replay-on{outline:1px solid var(--accent);border-radius:8px}
+.comet{position:relative;margin:8px 0 8px 16px;padding-left:16px;border-left:2px solid #85ffe355}
+.comet article{position:relative}
+.comet article::before{content:"";position:absolute;left:-21px;top:14px;width:8px;height:8px;border-radius:50%;background:#85ffe3}
 html.reduce-motion .room.room-nebula,html.no-motion .room.room-nebula{animation:none}
 @media(prefers-reduced-motion:reduce){.room.room-nebula{animation:none}}

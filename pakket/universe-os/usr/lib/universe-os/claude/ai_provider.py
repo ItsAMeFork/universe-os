@@ -541,6 +541,11 @@ def instructions():
         text += premade.line()
     except Exception:
         pass
+    try:
+        import doelen
+        text += doelen.line()
+    except Exception:
+        pass
     if not load().get('leren', True):
         return text
     try:

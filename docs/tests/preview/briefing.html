@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="nl" class="reduce-motion mode-god" style="background:#050815">
+<head>
+<meta charset="utf-8">
+<title>Mission Control</title>
+<link rel="stylesheet" href="/pakket/universe-os/usr/share/universe-os/ui/common.css">
+<style>
+html,body{height:100%;background:#050815}
+.sky{position:fixed;inset:0;background:radial-gradient(circle at 30% 40%, #123 0, #050815 55%)}
+</style>
+</head>
+<body>
+<div class="sky"></div>
+<section id="mission" class="mission" aria-label="Ochtendbriefing"></section>
+<aside id="blik" class="ai-blik" aria-label="Wat de AI doet"></aside>
+<script type="module">
+import {fillMission, fillBlik} from '/pakket/universe-os/usr/share/universe-os/ui/leven-ui.js';
+fillMission(document.getElementById('mission'), {
+ aan: true,
+ aftellen: {titel: 'Tandarts', tekst: 'over 2 uur', plek: 'Centrum'},
+ regels: ['Tandarts over 2 uur', 'Mail: Ouderavond', 'Dienst: Nachtdienst', 'Taak: leer de sterren']
+});
+fillBlik(document.getElementById('blik'), {taken: [{acties: [
+ {hulpmiddel: 'planner', samenvatting: 'Subagent planner', status: 'uitgevoerd'},
+ {hulpmiddel: 'mail_send', samenvatting: 'Concept niet verstuurd', status: 'wacht'},
+ {hulpmiddel: 'brein_zoeken', samenvatting: 'Sterren in het brein', status: 'uitgevoerd'}
+]}]});
+document.body.dataset.ready = '1';
+</script>
+</body>
+</html>

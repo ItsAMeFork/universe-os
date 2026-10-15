@@ -137,3 +137,55 @@ export function mountTaakbord(parent,api={}){
  load();
  return ()=>{};
 }
+
+/**
+ * Local screen history. Replay is the stored text, not a new screenshot.
+ * @param {HTMLElement} parent
+ * @param {{call?:Function,alive?:Function}} api
+ */
+export function mountTijdlijn(parent,api={}){
+ const call=api.call||(async()=>({}));
+ const still=api.alive||(()=>true);
+ const status=h('p',{class:'nebula-status',role:'status'});
+ const query=h('input',{type:'search',placeholder:'Zoek in de tijdlijn…','aria-label':'Zoek in de schermgeschiedenis'});
+ const list=h('div',{class:'comet'});
+ const pause=h('button',{type:'button'},'Pauze');
+ let paused=false;
+ parent.replaceChildren(
+  h('h2',{},'Tijdlijn'),
+  h('p',{class:'muted'},'Schermafbeeldingen en herkende tekst, alleen op deze computer. Pauze stopt meteen.'),
+  h('div',{},query,pause,h('button',{type:'button',onclick:async()=>{
+   try{await call('brein.scherm.wissen');status.textContent='Geschiedenis gewist.';await load();}
+   catch(e){status.textContent=e.message||'Wissen mislukt.';}
+  }},'Wissen')),
+  status, list);
+ pause.addEventListener('click',async()=>{
+  paused=!paused;
+  try{
+   await call('brein.scherm.pauze',{pauze:paused});
+   pause.textContent=paused?'Verder':'Pauze';
+   status.textContent=paused?'Pauze. Er wordt niets bewaard.':'De tijdlijn loopt weer.';
+  }catch(e){paused=!paused;status.textContent=e.message||'Pauze mislukt.';}
+ });
+ query.addEventListener('input',()=>load());
+ async function load(){
+  let rows=[];
+  try{
+   const q=(query.value||'').trim();
+   const data=q?await call('brein.scherm.zoek',{q}):await call('brein.scherm.lijst');
+   rows=Array.isArray(data)?data:(data&&data.beelden)||[];
+  }catch(e){if(still())status.textContent=e.message||'De tijdlijn kon niet worden gelezen.';}
+  if(!still())return;
+  list.replaceChildren();
+  if(!rows.length) list.append(h('p',{class:'muted'},'Nog geen beeld. De tijdlijn staat uit tot je hem aanzet op de pagina AI.'));
+  for(const row of rows){
+   list.append(h('article',{},
+    h('div',{class:'kind'},(row.tijd||'')+(row.app?' · '+row.app:'')),
+    h('strong',{},row.titel||row.app||'Beeld'),
+    h('p',{},row.tekst||'Geen herkende tekst.')));
+  }
+  parent.dataset.tijdlijn='ready';
+ }
+ load();
+ return ()=>{};
+}

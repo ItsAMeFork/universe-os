@@ -50,6 +50,10 @@ class Hints:
         self.volumes.connect('mount-added', self.mount_added)
         GLib.timeout_add_seconds(90, self.check_habits)  # first look shortly after login
         GLib.timeout_add_seconds(HABIT_EVERY, self.check_habits_repeat)
+        GLib.timeout_add_seconds(75, self.screen_tick)
+        GLib.timeout_add_seconds(180, self.morning_tick)
+        GLib.timeout_add_seconds(900, self.ghost_tick)
+        GLib.timeout_add_seconds(45, self.voice_tick)
         GLib.timeout_add_seconds(BATTERY_EVERY, self.check_battery)
         self.indexer = None
         GLib.timeout_add_seconds(300, self.update_index)  # not during login
@@ -180,6 +184,120 @@ class Hints:
         return False
 
     # ----- battery -----
+    def _focused(self):
+        try:
+            windows = self.ui.shell.toplevels.list() if self.ui.shell.toplevels else []
+        except Exception:  # noqa: BLE001
+            return '', ''
+        for window in windows:
+            if window.get('activated'):
+                return window.get('appId') or '', window.get('title') or ''
+        return '', ''
+
+    def screen_tick(self):
+        app, title = self._focused()
+
+        def work():
+            try:
+                import schermgeschiedenis
+                schermgeschiedenis.grab(app, title)
+            except Exception:  # noqa: BLE001
+                pass
+        threading.Thread(target=work, daemon=True).start()
+        return True
+
+    def morning_tick(self):
+        def work():
+            try:
+                import briefing
+                info = briefing.due()
+            except Exception:  # noqa: BLE001
+                return
+            if info:
+                GLib.idle_add(self.offer_morning, info)
+        threading.Thread(target=work, daemon=True).start()
+        return True
+
+    def offer_morning(self, info):
+        import briefing
+        text = info['aftellen']['tekst'] if info.get('aftellen') else (info['regels'][0] if info.get('regels') else 'Goedemorgen.')
+        title = info['aftellen']['titel'] if info.get('aftellen') else 'Goedemorgen'
+        shown = self.suggest('briefing:%s' % info.get('dag'), '%s — %s' % (title, text), [], wait=True)
+        if shown:
+            briefing.mark_seen()
+        return False
+
+    def ghost_tick(self):
+        def work():
+            try:
+                import ghost
+                import doelen
+                item = ghost.pick()
+                plan = doelen.tick()
+            except Exception:  # noqa: BLE001
+                return
+            GLib.idle_add(self.offer_ghost, item, plan)
+        threading.Thread(target=work, daemon=True).start()
+        return True
+
+    def voice_tick(self):
+        """Local wake word. The thread records only while Hé Buddy is on."""
+        if getattr(self, '_voice_busy', False):
+            return True
+        try:
+            import stem
+            if not stem.enabled():
+                return True
+        except Exception:  # noqa: BLE001
+            return True
+        self._voice_busy = True
+
+        def work():
+            try:
+                import stem
+                while stem.enabled():
+                    result = stem.listen_once()
+                    if result.get('reden') in ('stil', 'uit') or result.get('pad') == 'dicht':
+                        break
+                    if result.get('gehoord'):
+                        GLib.idle_add(self.offer_voice, result.get('tekst') or '')
+                        time.sleep(3)
+                    elif result.get('pad') != 'wekwoord':
+                        time.sleep(12)
+            except Exception:  # noqa: BLE001
+                pass
+            finally:
+                self._voice_busy = False
+        threading.Thread(target=work, daemon=True).start()
+        return True
+
+    def offer_voice(self, text):
+        rest = str(text or '')
+        low = rest.lower()
+        for phrase in ('hé buddy', 'hee buddy', 'hey buddy'):
+            at = low.find(phrase)
+            if at >= 0:
+                rest = rest[at + len(phrase):].strip(' ,.!?')
+                break
+        if rest:
+            self.ui.ask(rest)
+        else:
+            self.suggest('stem-wek', 'Hé. Zeg daarna wat ik in het paneel moet zetten.', [], wait=True)
+        return False
+
+    def offer_ghost(self, item, plan):
+        import ghost
+        if item and self.suggest(item['key'], item['tekst'], [], wait=True):
+            ghost.mark()
+        if plan.get('starten') and plan.get('prompt'):
+            self.suggest('doel-stap:%s' % plan.get('taak_id'), 'Volgende stap: %s.' % plan.get('stap'),
+                         [('In het paneel', lambda: self.ui.ask(plan['prompt']))], wait=True)
+        elif plan.get('wacht'):
+            self.suggest('doel-wacht:%s' % plan.get('taak_id'),
+                         'Dit blijft een vraag: %s.' % (plan.get('stap') or plan.get('titel') or 'doel'),
+                         [], wait=True)
+        return False
+
     def check_battery(self):
         try:
             bat = backend.battery()

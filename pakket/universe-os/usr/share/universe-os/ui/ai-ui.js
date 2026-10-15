@@ -1,6 +1,7 @@
 // AI page: pick Claude Code, ChatGPT (Codex), Gemini or a local Ollama model.
 // Keys go to the shell (keyring). This page never receives a key back.
 import {call as shellCall, h} from './api.js';
+import {mountLeven} from './leven-ui.js';
 
 const note=t=>h('p',{class:'muted'},t);
 const card=(title,...items)=>h('section',{class:'card'},h('h3',{},title),...items);
@@ -20,7 +21,7 @@ function button(title,action){
 
 /**
  * @param {HTMLElement} root
- * @param {{call?:Function, buddy?:Node}} api
+ * @param {{call?:Function, buddy?:Node, blik?:Node}} api
  */
 export async function mountAi(root, api={}){
  const call=api.call||shellCall;
@@ -283,9 +284,16 @@ export async function mountAi(root, api={}){
    chromeState.className='switch-state '+((next&&next.verbonden)?'aan':'uit');
    return next&&next.tekst||'De pagina van de extensie opent.';
   }));
+ const leven=h('div');
+ await mountLeven(leven,{call});
+ const blikCard=api.blik?card('Blik',
+  note('Zen is alleen de buddy en het invoerveld. God laat het bureaublad zien, en wat de AI doet.'),
+  api.blik):null;
  root.append(
   agentCard,
   rufloCard,
+  blikCard,
+  leven,
   chromeCard,
   autoSwitch,
   tokenSwitch,

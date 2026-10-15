@@ -85,6 +85,20 @@ def connect():
         CREATE TRIGGER IF NOT EXISTS patronen_au AFTER UPDATE ON patronen BEGIN
             INSERT INTO patronen_fts(patronen_fts, rowid, soort, werkte, les) VALUES ('delete', old.id, old.soort, old.werkte, old.les);
             INSERT INTO patronen_fts(rowid, soort, werkte, les) VALUES (new.id, new.soort, new.werkte, new.les); END;
+        CREATE TABLE IF NOT EXISTS scherm_beelden (id INTEGER PRIMARY KEY, op REAL NOT NULL, app TEXT NOT NULL DEFAULT '',
+            titel TEXT NOT NULL DEFAULT '', tekst TEXT NOT NULL DEFAULT '', pad TEXT NOT NULL DEFAULT '');
+        CREATE INDEX IF NOT EXISTS scherm_beelden_op ON scherm_beelden(op);
+        CREATE VIRTUAL TABLE IF NOT EXISTS scherm_fts USING fts5(app, titel, tekst, content='scherm_beelden', content_rowid='id');
+        CREATE TRIGGER IF NOT EXISTS scherm_ai AFTER INSERT ON scherm_beelden BEGIN
+            INSERT INTO scherm_fts(rowid, app, titel, tekst) VALUES (new.id, new.app, new.titel, new.tekst); END;
+        CREATE TRIGGER IF NOT EXISTS scherm_ad AFTER DELETE ON scherm_beelden BEGIN
+            INSERT INTO scherm_fts(scherm_fts, rowid, app, titel, tekst) VALUES ('delete', old.id, old.app, old.titel, old.tekst); END;
+        CREATE TRIGGER IF NOT EXISTS scherm_au AFTER UPDATE ON scherm_beelden BEGIN
+            INSERT INTO scherm_fts(scherm_fts, rowid, app, titel, tekst) VALUES ('delete', old.id, old.app, old.titel, old.tekst);
+            INSERT INTO scherm_fts(rowid, app, titel, tekst) VALUES (new.id, new.app, new.titel, new.tekst); END;
+        CREATE TABLE IF NOT EXISTS doelen (id INTEGER PRIMARY KEY, titel TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'bezig',
+            taak_id INTEGER, op REAL NOT NULL);
+        CREATE INDEX IF NOT EXISTS doelen_op ON doelen(op);
     """)
     columns = [row['name'] for row in db.execute('PRAGMA table_info(acties)')]
     if 'ongedaan' not in columns:
@@ -287,6 +301,15 @@ def forget_all(confirm):
         db.execute('DELETE FROM agenda_items')
         db.execute('DELETE FROM acties')
         db.execute('DELETE FROM efficientie')
+        db.execute('DELETE FROM stappen WHERE taak_id IN (SELECT taak_id FROM doelen WHERE taak_id IS NOT NULL)')
+        db.execute('DELETE FROM taken WHERE id IN (SELECT taak_id FROM doelen WHERE taak_id IS NOT NULL)')
+        db.execute('DELETE FROM doelen')
+        db.execute('DELETE FROM scherm_beelden')
+    try:
+        import schermgeschiedenis
+        schermgeschiedenis.remove_files()
+    except Exception:
+        pass
     return True
 
 

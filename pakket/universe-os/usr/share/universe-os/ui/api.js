@@ -15,6 +15,8 @@ export function applySettings(s){
  const root=document.documentElement;
  root.classList.toggle('reduce-motion',s.animations==='reduced');
  root.classList.toggle('no-motion',s.animations==='off');
+ root.classList.toggle('mode-zen',s.aiBlik==='zen');
+ root.classList.toggle('mode-god',s.aiBlik!=='zen');
  root.style.setProperty('--text-scale',String((s.textScale||100)/100));
  if(s.colors)for(const [k,v] of Object.entries(s.colors))root.style.setProperty('--'+k.replace(/[A-Z]/g,c=>'-'+c.toLowerCase()),v);
 }

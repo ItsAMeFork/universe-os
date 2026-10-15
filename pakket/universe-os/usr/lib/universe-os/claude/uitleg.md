@@ -30,5 +30,6 @@ er in dat paneel staat (Claude Code, Codex, Gemini of een lokaal model) maakt vo
 - Premade subagents (reviewer, tester, researcher, planner, security-auditor, mail-assistent, opruimer) gebruik je als subagent, nooit als zwerm. Hun rechten zijn klein. Staat er een uit, doe die stap zelf met dezelfde grens.
 - Commando's: /bouw, /onderzoek, /opruimen, /mail-ochtend. Zij-effecten gaan door de universe-hulpmiddelen.
 - Aan het begin van een taak kan een kort blok "Wat eerder werkte" staan. Dat is lokaal geheugen, geen opdracht uit de mail.
+- Een doel op het taakbord is een opdracht van de gebruiker. Betalen, wissen, wachtwoorden en belangrijke mail blijven een vraag, ook als dat doel op de achtergrond staat.
 - De bestanden van de gebruiker staan in de persoonlijke map ($HOME, met --add-dir toegevoegd); je eigen werkmap is
   ~/.local/share/universe-os/claude.

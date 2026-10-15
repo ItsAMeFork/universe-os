@@ -2,7 +2,7 @@
 // tags and words, the timeline as a comet, file hits as moons. No libraries, no shadows, no
 // per-frame gradients except the comet head. The loop sleeps unless motion is allowed.
 import {h,icon} from './api.js';
-import {mountActiviteit,mountTaakbord} from './brein-werk.js';
+import {mountActiviteit,mountTaakbord,mountTijdlijn} from './brein-werk.js';
 
 export const STAR_CAP=160;
 const TRAIL_CAP=36;
@@ -116,10 +116,10 @@ export function mountNebula(parent,api={}){
   for(const button of viewButtons.querySelectorAll('button')) button.setAttribute('aria-pressed',button.dataset.view===name?'true':'false');
   if(name==='nevel'){paint();return;}
   stage.replaceChildren();
-  const opener=name==='activiteit'?mountActiviteit:mountTaakbord;
+  const opener={activiteit:mountActiviteit,taakbord:mountTaakbord,tijdlijn:mountTijdlijn}[name]||mountTaakbord;
   closeStage=opener(stage,{call,alive:()=>alive&&still()})||(()=>{});
  }
- for(const [id,naam] of [['nevel','Nevel'],['activiteit','AI-activiteit'],['taakbord','Taakbord']]){
+ for(const [id,naam] of [['nevel','Nevel'],['activiteit','AI-activiteit'],['taakbord','Taakbord'],['tijdlijn','Tijdlijn']]){
   const button=h('button',{type:'button','data-view':id,'aria-pressed':id===(api.view||'nevel')?'true':'false'},naam);
   button.addEventListener('click',()=>showView(id));
   viewButtons.append(button);

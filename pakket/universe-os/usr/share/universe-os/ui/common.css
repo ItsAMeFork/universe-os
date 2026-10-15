@@ -30,6 +30,19 @@ select option{background:#0d1628}
 html.reduce-motion *{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.12s!important}
 html.no-motion *{animation:none!important;transition:none!important}
 .toast{position:fixed;left:50%;bottom:28px;translate:-50% 0;padding:10px 16px;border-radius:12px;z-index:99}
+html.mode-zen .dock,.mode-zen .dock,
+html.mode-zen .space-layer,.mode-zen .space-layer,
+html.mode-zen .mission,.mode-zen .mission,
+html.mode-zen .ai-blik,.mode-zen .ai-blik{display:none!important}
+.zen-input{display:none;position:fixed;z-index:6;left:50%;bottom:28px;translate:-50% 0;gap:8px;align-items:center;padding:10px 12px;border-radius:18px;background:#0b1021f2;border:1px solid var(--line)}
+html.mode-zen .zen-input,.mode-zen .zen-input{display:flex}
+.zen-input input{min-width:280px}
+.mission{position:fixed;z-index:5;left:18px;bottom:84px;max-width:320px;padding:14px 16px;border-radius:18px;background:#0b1021f2;border:1px solid #85ffe355}
+.mission-kicker{margin:0;letter-spacing:.8px;text-transform:uppercase;font-size:.72em;color:var(--accent)}
+.mission-count{font-size:1.6em;font-weight:650;color:var(--accent);margin:4px 0}
+.mission p{margin:4px 0}
+.ai-blik{position:fixed;z-index:5;right:18px;top:18px;max-width:300px;padding:12px 14px;border-radius:18px;background:#0b1021f2;border:1px solid var(--line)}
+.ai-blik p{margin:4px 0;font-size:.86em}
 .token-hero{border-color:#85ffe366;background:#102033}
 label.switch-row{display:flex;flex-direction:row;align-items:center;gap:18px;margin:0 0 8px;cursor:pointer}
 .switch{display:inline-block;position:relative;width:76px;height:42px;flex:none}

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="nl" class="reduce-motion" style="background:#050815">
+<head>
+<meta charset="utf-8">
+<title>Leven</title>
+<link rel="stylesheet" href="/pakket/universe-os/usr/share/universe-os/ui/common.css">
+<link rel="stylesheet" href="/pakket/universe-os/usr/share/universe-os/ui/world.css">
+<style>
+html,body{background:#050815;margin:0}
+main{display:grid;grid-template-columns:1fr 280px;gap:16px;padding:18px;height:100vh}
+article{overflow:auto}
+.stage{display:flex;flex-direction:column;gap:12px}
+.fake{position:relative;height:220px;border-radius:18px;overflow:hidden;background:#071022;border:1px solid var(--line)}
+.fake .dock{position:absolute;left:12px;right:12px;bottom:10px;height:36px;border-radius:12px;background:#162335}
+.fake .space-layer{position:absolute;inset:20px 20px 56px;border-radius:50%;background:#123a}
+</style>
+</head>
+<body>
+<main>
+<article><h2>AI</h2><div id="root"></div></article>
+<div class="stage">
+ <div class="fake mode-god"><div class="space-layer"></div><div class="dock"></div>
+  <p class="mission" style="position:absolute;left:12px;bottom:56px">God: bureaublad en wat de AI doet</p></div>
+ <div class="fake mode-zen"><div class="space-layer"></div><div class="dock"></div>
+  <form class="zen-input" style="position:absolute"><input aria-label="Vraag aan de buddy" value="Wat staat er vanochtend?"><button type="button">Vraag</button></form></div>
+</div>
+</main>
+<script type="module">
+import {mountLeven} from '/pakket/universe-os/usr/share/universe-os/ui/leven-ui.js';
+const status = {
+ scherm: {aan:false, pauze:false, dagen:7, uitsluiten:['thunderbird'], tekst:'Uit',
+  uitleg:'Schermafbeeldingen blijven op deze computer. Uit tot je het aanzet. Wachtwoordbeheerders en bankieren worden nooit bewaard.'},
+ stem: {aan:false, tekst:'Uit', waarom:'Hé Buddy staat uit. openWakeWord, whisper.cpp en Piper draaien alleen hier.'},
+ briefing: {aan:true, tekst:'Aan', uitleg:'Ochtendoverzicht van agenda, belangrijke mail, diensten en taken.'},
+ ghost: {aan:false, tekst:'Uit', uitleg:'Hoogstens 3 per dag. Stil van 22:00 tot 07:30. Nooit zeuren.'},
+ doelen: {achtergrond:false, tekst:'Alleen op het bord', lijst:[{id:1, titel:'leer de sterren', status:'bezig'}],
+  uitleg:'Betalen, wissen, wachtwoorden en belangrijke mail blijven een vraag.'}
+};
+const call = async (cmd, args={}) => {
+ if (cmd === 'leven.status') return status;
+ if (cmd === 'leven.set') {
+  if (args.deel === 'doelen' && args.titel) status.doelen.lijst.push({id:2, titel:args.titel, status:'bezig'});
+  if (args.deel && args.deel !== 'doelen') status[args.deel] = {...status[args.deel], ...args, tekst: args.aan ? 'Aan' : status[args.deel].tekst};
+  return args.deel === 'doelen' ? status.doelen : status[args.deel];
+ }
+ if (cmd === 'stem.terminal') return true;
+ return {};
+};
+await mountLeven(document.getElementById('root'), {call});
+document.body.dataset.ready = '1';
+</script>
+</body>
+</html>

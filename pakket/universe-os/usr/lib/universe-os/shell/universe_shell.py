@@ -93,6 +93,18 @@ def _taken():
     return taken
 
 
+def _scherm():
+    _brein()
+    import schermgeschiedenis
+    return schermgeschiedenis
+
+
+def _briefing():
+    _brein()
+    import briefing
+    return briefing
+
+
 def _brein_files(query, limit=10):
     """Recoll hits as moons; without Recoll, the shell's own file-name search."""
     query = str(query or '').strip()
@@ -677,6 +689,12 @@ class Shell:
             'brein.activiteit.export': lambda a: _taken().export_file(os.path.join(os.path.expanduser('~'), 'Downloads'), a.get('id')),
             'brein.activiteit.replay': lambda a: _taken().replay(a.get('id')),
             'brein.taakbord': lambda a: _taken().bord(a.get('max') or 20),
+            'brein.scherm.lijst': lambda a: _scherm().lijst(a.get('max') or 40),
+            'brein.scherm.zoek': lambda a: _scherm().search(a.get('q') if 'q' in a else a.get('zoek') or ''),
+            'brein.scherm.pauze': lambda a: _scherm().configure({'pauze': a.get('pauze')}),
+            'brein.scherm.wissen': lambda a: _scherm().clear(),
+            'briefing.nu': lambda a: _briefing().compose(),
+            'buddy.vraag': lambda a: self._buddy_vraag(a),
             'auto.status': lambda a: _auto().public(),
             'auto.set': lambda a: self._auto_set(a),
             'auto.regels': lambda a: self._auto_regels(a),
@@ -700,6 +718,14 @@ class Shell:
             'scherm.toestaan': lambda a: self._screen_grant(True),
             'scherm.intrekken': lambda a: self._screen_grant(False),
         }
+
+    def _buddy_vraag(self, args):
+        """Put the zen-mode question in the panel. The user still sends it with Enter."""
+        text = ' '.join(str((args or {}).get('tekst') or '').split())[:500]
+        if not text or not self.claude:
+            return {'ok': False}
+        self.claude.ask(text)
+        return {'ok': True}
 
     def _focused_app(self):
         try:
