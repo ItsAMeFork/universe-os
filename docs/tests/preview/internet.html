@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="nl" class="reduce-motion" style="background:#050815">
+<head>
+<meta charset="utf-8">
+<title>Internet — Claude in Chrome</title>
+<link rel="stylesheet" href="/pakket/universe-os/usr/share/universe-os/ui/common.css">
+<link rel="stylesheet" href="/pakket/universe-os/usr/share/universe-os/ui/world.css">
+<style>
+html,body{background:#050815}
+.room{display:grid}
+</style>
+</head>
+<body>
+<section class="room glass" aria-label="Internet">
+<aside class="room-side">
+<h1>Internet</h1>
+<p>Claude in Chrome is de voorkeursroute. Andere browsers blijven beschikbaar.</p>
+</aside>
+<div class="room-main" id="main"></div>
+</section>
+<script type="module">
+import {mountClaudeRoute} from '/pakket/universe-os/usr/share/universe-os/ui/claude-route.js';
+const main=document.getElementById('main');
+const params=new URLSearchParams(location.search);
+const fail=params.has('fout');
+const ready=params.has('klaar');
+const call=async(cmd)=>{
+ if(fail) throw new Error(cmd==='browser.claude.setup'?'Geannuleerd. Er is niets geïnstalleerd.':'Status nu niet beschikbaar.');
+ if(cmd==='browser.claude') return ready
+  ? {chrome:true, extensie:true, verbonden:true, tekst:'Verbonden. Claude gebruikt jouw aangemelde Chrome. Log gewoon in in Gmail of Outlook.'}
+  : {chrome:false, extensie:false, verbonden:false, tekst:'Chrome ontbreekt nog. De knop installeert het uit de officiële bron van Google en opent de extensie.'};
+ if(cmd==='browser.claude.setup') return {chrome:false, extensie:false, verbonden:false, bezig:true, tekst:'De terminal installeert Chrome uit de officiële bron van Google. Daarna opent de extensiepagina. Log zelf in.'};
+ throw new Error(cmd);
+};
+mountClaudeRoute(main, call);
+const note=document.createElement('p');
+note.textContent='Kies een browser. Je keuze wordt opgeslagen voor jouw account; de Internet-planeet opent die browser daarna direct.';
+main.append(note);
+</script>
+</body>
+</html>

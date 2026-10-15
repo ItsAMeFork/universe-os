@@ -80,7 +80,7 @@ Die praten alleen met de shell (`universe-ctl call`), op een vaste lijst.
 `scherm.toestaan` staat niet op de lijst die Claude mag aanroepen. De schakelaar zit
 in het Controlecentrum. Super+Escape (`universe-ctl scherm-stop`) zet hem uit.
 
-Gmail en Outlook gaan via Claude in Chrome (`claude --chrome` en de officiële extensie). De gebruiker logt in in zijn eigen Chrome. Er is geen OAuth-client. IMAP en OAuth blijven een extra weg.
+Gmail en Outlook gaan via Claude in Chrome (`claude --chrome` en de officiële extensie). De gebruiker logt in in zijn eigen Chrome. Er is geen OAuth-client. IMAP en OAuth blijven een extra weg. Claude in Chrome is de voorkeursroute voor de browser: lezen, concepten, sorteren en formulieren gaan door; versturen, betalen, wissen, wachtwoorden en belangrijke mail blijven een vraag. Eén knop op de Internet-planeet (en dezelfde knop op Controlecentrum → AI) installeert Chrome uit de officiële bron van Google als het er nog niet is, en opent de extensie. Een klik op de Internet-planeet opent nog steeds de gekozen standaardbrowser.
 
 Invoer op labwc: `wtype` voor toetsen (protocol van de compositor), `python3-evdev`
 via `/dev/uinput` voor muis en scroll. `ydotool` heeft voorrang als `ydotoold` draait;

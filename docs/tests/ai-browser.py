@@ -150,16 +150,69 @@ assert chrome_agent.judge_browser('browser_navigate', {'url': 'https://mail.goog
 assert chrome_agent.judge_browser('browser_click', {'tekst': 'wachtwoord geheim'})[2] == 'Tekst niet opgeslagen.'
 assert chrome_agent.judge_browser('browser_click', {'name': 'Send'})[0] == 'automatisch'
 assert chrome_agent.judge_browser('mcp__universe__mail_send', {'name': 'Send'})[0] == 'vraag'
+assert chrome_agent.judge_browser('browser_click', {'name': 'Betalen'})[0] == 'wacht'
+assert chrome_agent.judge_browser('browser_click', {'name': 'Verwijderen'})[0] == 'wacht'
+
+opened = []
+
+
+def refuse_setup(*_a):
+    return False
+
+
+try:
+    chrome_agent.perform_setup(opened.append, refuse_setup, lambda _name: '/usr/bin/xfce4-terminal', which=lambda _name: None)
+    raise SystemExit('installatie zonder toestemming')
+except PermissionError as error:
+    assert 'niets geïnstalleerd' in str(error)
+assert opened == []
+
+
+def allow_setup(title, text):
+    assert 'apt-bron' in text and 'Claude' in title
+    return True
+
+
+started = chrome_agent.perform_setup(opened.append, allow_setup, lambda _name: '/usr/bin/xfce4-terminal', which=lambda _name: None)
+assert opened and opened[0][0] == 'xfce4-terminal' and 'google-chrome-stable' in opened[0][-1]
+assert started['bezig'] is True and started['route'] == 'claude-in-chrome'
+try:
+    chrome_agent.perform_setup(opened.append, allow_setup, lambda _name: None, which=lambda _name: None)
+    raise SystemExit('apt zonder terminal')
+except RuntimeError as error:
+    assert 'terminal' in str(error).lower()
+
+import confirm  # noqa: E402
+auto_accept.set_choice(True, 'tot-uit', now=time.time())
+forced = []
+assert confirm.ask('Chrome en Claude in Chrome', 'installeer uit de apt-bron', runner=lambda *_a: forced.append(1) or True, force=True) is True
+assert forced == [1]
+assert confirm.ask('Programma openen', 'Rekenmachine', runner=lambda *_a: forced.append(2) or True) is True
+assert forced == [1]
 
 ai = (UI / 'ai-ui.js').read_text(encoding='utf-8')
 page = (UI / 'accounts-ui.js').read_text(encoding='utf-8')
 assert 'Claude in Chrome' in ai and 'chrome.setup' in ai and 'Belangrijke domeinen en woorden' in ai
 assert 'auto.regels' in ai and '--chrome' not in ai
+assert 'voorkeursroute' in ai
 assert 'Log gewoon in in Chrome' in page
 assert 'Google maakt dit lastig' not in page
+route = (UI / 'claude-route.js').read_text(encoding='utf-8')
+world = (UI / 'world.js').read_text(encoding='utf-8')
+dock = (UI / 'dock.js').read_text(encoding='utf-8')
+shell = (ROOT / 'pakket/universe-os/usr/lib/universe-os/shell/universe_shell.py').read_text(encoding='utf-8')
+assert 'Claude in Chrome installeren' in route and 'browser.claude.setup' in route
+assert 'Versturen, betalen, wissen' in route
+assert 'mountClaudeRoute' in world
+assert "chooseBrowser:!!(data&&data.chooseBrowser)" in world or 'chooseBrowser' in world
+assert 'Claude in Chrome' in dock and 'chooseBrowser:true' in dock
+calls = shell.split('CLAUDE_CALLS = ')[1].split('}')[0]
+assert 'browser.claude' not in calls
+assert 'browser.claude.setup' in shell and 'force=True' in shell
 review = (ROOT / 'docs/REVIEW-AI-STACK.md').read_text(encoding='utf-8')
 assert 'dl.google.com/linux/chrome/deb' in review and 'trixie-backports' in review and 'OmniRoute' in review
 assert 'OpenClaude' in review
+assert 'Internet-planeet' in review
 center = (ROOT / 'pakket/universe-os/usr/lib/universe-os/shell/control_center.py').read_text(encoding='utf-8')
-assert 'chrome.setup' in center and 'confirm.ask' in center
+assert 'chrome.setup' in center and 'confirm.ask' in center and 'force=True' in center
 print('PASS: ai-browser')

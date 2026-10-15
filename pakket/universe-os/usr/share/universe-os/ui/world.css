@@ -265,5 +265,9 @@ html.reduce-motion .launch-number.beat,html.no-motion .launch-number.beat{animat
 .nebula-list article strong{display:block;margin:2px 0}
 .nebula-list article p{margin:2px 0;font-size:.86em;line-height:1.4}
 .nebula-list .kind{font-size:.72em;letter-spacing:.6px;text-transform:uppercase;color:var(--muted)}
+.claude-route h2{text-transform:none;letter-spacing:0;color:var(--accent-strong);font-size:1.25em;margin:0 0 8px}
+.claude-route p{margin:0 0 10px;line-height:1.45}
+.claude-route .primary{font-weight:700;padding:14px 20px;margin-top:6px;background:#85ffe3;color:#06221c;border-color:#85ffe3;font-size:1.05em}
+.claude-route .primary:hover{background:#baf7e8;color:#06221c}
 html.reduce-motion .room.room-nebula,html.no-motion .room.room-nebula{animation:none}
 @media(prefers-reduced-motion:reduce){.room.room-nebula{animation:none}}

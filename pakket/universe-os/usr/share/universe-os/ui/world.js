@@ -8,6 +8,7 @@ import {SETTINGS} from './settings-index.js';
 import {keepTab} from './focus.js';
 import {distFor} from './space.js';
 import {mountNebula} from './brein-nevel.js';
+import {mountClaudeRoute} from './claude-route.js';
 // The 3D desktop (Axel, 10 Oct: "the desktop in 3D, every program a planet somewhere that you arrange yourself,
 // zoom in and out, also turn in 3D"). The Earth in the middle is the personal folder; folders and files from the
 // Bureaublad circle it; every program is a planet in a galaxy, grouped by kind. Wheel = zoom, drag empty space = move,
@@ -706,6 +707,7 @@ const ROOMS={
   main.append(section('Instellingen',grid));
  },
  async chat(main){
+  mountClaudeRoute(main, call);
   main.append(h('p',{},'Kies een browser. Je keuze wordt opgeslagen voor jouw account; de Internet-planeet opent die browser daarna direct.'));
   const choices=h('div',{class:'tiles'});main.append(section('Browsers',choices));
   try{const b=await call('browser.list');for(const a of b.apps){const button=tile({name:a.name,sub:a.id===b.default?'Standaardbrowser':'Als standaardbrowser gebruiken',img:a.icon,onClick:async()=>{button.disabled=true;try{await call('browser.select',{id:a.id});await launch(a.id);leave();}catch(e){toast(e.message);}finally{button.disabled=false;}}});choices.append(button);}if(!b.apps.length)choices.append(h('p',{},'Nog geen browser beschikbaar. De downloadstatus van Chrome staat hieronder.'));}
@@ -763,7 +765,7 @@ addEventListener('keydown',e=>{
  if(d){e.preventDefault();cam.yaw+=d[0];cam.pitch=clamp(cam.pitch+d[1],-1.45,1.45);requestRender();saveCamera();}
 });
 // Commands from the shell: open a planet room (search results, start menu), settings changed, back to the desktop.
-on('open-planet',({id})=>{const p=config?.world.planets.find(x=>x.id===id);if(!p)return;if(current)leave();land(p);});
+on('open-planet',(data)=>{const id=data&&data.id;const p=config?.world.planets.find(x=>x.id===id);if(!p)return;if(current)leave();land(p,{chooseBrowser:!!(data&&data.chooseBrowser)});});
 on('show-space',()=>leave());
 on('apps-changed',()=>{appsCache=null;refreshSpace();});
 on('config',c=>{if(current)leave();config=c;settings=c.settings;user=c.user||user;if(c.layout)layout=c.layout;applySettings({...settings,colors:c.world.colors});build();});

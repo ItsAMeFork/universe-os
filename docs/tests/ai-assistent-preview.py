@@ -20,6 +20,7 @@ PREVIEWS = {
     'accounts': OUT / 'preview' / 'accounts.html',
     'brein': OUT / 'preview' / 'brein.html',
     'ai': OUT / 'preview' / 'ai.html',
+    'internet': OUT / 'preview' / 'internet.html',
 }
 BROWSER = next((shutil.which(name) for name in (
     'chromium', 'chromium-browser', 'google-chrome', 'google-chrome-stable')
