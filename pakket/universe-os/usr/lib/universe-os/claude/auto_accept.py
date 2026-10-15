@@ -213,12 +213,19 @@ def sensitive(title, text):
 
 
 def decide(title, text, now=None):
-    """vraag, automatisch, or wacht. Sensitive work never becomes automatisch."""
-    if not active(now):
-        return 'vraag'
-    if sensitive(title, text):
-        return 'wacht'
-    return 'automatisch'
+    """vraag, automatisch, or wacht.
+
+    Away mode still defers anything sensitive. God, when the user is here, says
+    yes to ordinary work and still asks for sending, paying, deleting and passwords.
+    """
+    import modes
+    if active(now):
+        if sensitive(title, text):
+            return 'wacht'
+        return 'automatisch'
+    if modes.god() and not modes.stops(title, text):
+        return 'automatisch'
+    return 'vraag'
 
 
 def record(title, text, status):

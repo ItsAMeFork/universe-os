@@ -45,7 +45,7 @@ CLAUDE_CALLS = {'status', 'apps.list', 'apps.launch', 'windows.list', 'windows.a
 # terminal is not here: the assistant must not open a shell it can then type into.
 CLAUDE_RUN = {'files', 'monitor', 'software', 'control', 'pavucontrol', 'wdisplays', 'blueman-manager', 'network-editor'}
 # Same set as universe_mcp.SECURITY_SETTINGS: `universe-ctl call config.set` must not bypass the MCP check.
-SECURITY_SETTINGS = {'lockMinutes'}
+SECURITY_SETTINGS = {'lockMinutes', 'god'}
 # Fixed list for claude.anim / animatie_tonen. Planet flights are the existing world.open route (open-planet);
 # ruimte leaves the room (show-space). Buddy states and walks are the ones claude_ui.Buddy already plays.
 ANIMATIONS = {
@@ -286,6 +286,7 @@ class Shell:
         GtkLayerShell.set_margin(self.dock.window, E.BOTTOM, DOCK_MARGIN)
         self.dock.window.show_all()
         self.resize_dock(420)
+        self.apply_zen_chrome()
         if self.claude:
             GLib.timeout_add_seconds(3, self.claude.update_buddy)  # the buddy comes last, after panel and dock
         return False
@@ -462,10 +463,30 @@ class Shell:
         self.broadcast('start-state', bool(open_))
         return True
 
+    def apply_zen_chrome(self):
+        """Zen hides the taskbar and gives that strip back. The buddy stays on its own surface."""
+        if not self.dock:
+            return False
+        if config.settings().get('zen'):
+            GtkLayerShell.set_exclusive_zone(self.dock.window, 0)
+            self.dock.window.hide()
+            if self.start and self.start.window.get_visible():
+                self.start.window.hide()
+                self.broadcast('start-state', False)
+            return True
+        if not self.dock.window.get_visible():
+            self.dock.window.show_all()
+            zoom = self.dock.view.get_zoom_level()
+            GtkLayerShell.set_exclusive_zone(self.dock.window, int(DOCK_HEIGHT * zoom))
+        return False
+
     def resize_dock(self, width, height=None):
         """The page reports the size of its contents (CSS pixels); the window follows, scaled with the zoom.
         height > DOCK_HEIGHT while its context menu is open (the surface grows upwards, the reserved space stays).
-        width 0 = the user removed everything from the dock: hide it and give the space back."""
+        width 0 = the user removed everything from the dock: hide it and give the space back.
+        Zen keeps the bar hidden even when the page reports a width."""
+        if self.apply_zen_chrome():
+            return True
         zoom = self.dock.view.get_zoom_level()
         if width <= 0:
             GtkLayerShell.set_exclusive_zone(self.dock.window, 0)
@@ -548,6 +569,7 @@ class Shell:
             for s in self.surfaces():
                 s.view.set_zoom_level(data['settings']['uiScale'] / 100)
             self.broadcast('config', data)
+            self.apply_zen_chrome()
             if self.claude:
                 self.claude.update_buddy()
 
@@ -656,6 +678,7 @@ class Shell:
             'intro.claim': lambda a: self.claim_intro(),
             'lock.ready': lambda a: True,
             'unlock.done': lambda a: self.unlock_done(),
+            'claude.ask': lambda a: self.claude_ask(a),
             'claude.available': lambda a: bool(self.claude and self.claude.available()),
             'claude.toggle': lambda a: bool(self.claude) and self.claude.toggle(a.get('open')),
             'brein.list': lambda a: {'sterren': _brein().list_memories(a.get('max'))},
@@ -846,16 +869,22 @@ class Shell:
                 for s in self.surfaces():
                     s.view.set_zoom_level(data['settings']['uiScale'] / 100)
                 self.broadcast('config', data)
+                self.apply_zen_chrome()
                 if self.claude:
                     self.claude.update_buddy()  # buddy switched on/off in the Control Center
             elif cmd == 'logout':  # the same animated logout as the start menu (also for scripts and tests)
                 GLib.idle_add(self.begin_logout)
             elif cmd == 'scherm-stop':
-                # Panic hotkey (Super+Escape). Drops screen control and auto-accept before the next action.
+                # Panic hotkey (Super+Escape). Drops screen control, auto-accept and God before the next action.
                 _claude_dir()
                 import auto_accept
                 self.broadcast('auto', auto_accept.stop())
                 self.broadcast('scherm', _screen().revoke())
+                if config.settings().get('god'):
+                    config.set_setting('god', False)
+                    data = backend.full_config()
+                    self.broadcast('config', data)
+                    self.apply_zen_chrome()
             elif cmd == 'scherm-aan':
                 import json
                 result = _screen().request_grant(_confirm)
@@ -1034,6 +1063,19 @@ class Shell:
             import threading
             threading.Thread(target=work, daemon=True).start()
         return True
+
+    def claude_ask(self, args):
+        """Puts the zen-field question in the panel. The user still sends it with Enter."""
+        text = ' '.join(str((args or {}).get('tekst') or (args or {}).get('text') or '').split())
+        if not text:
+            raise RuntimeError('Typ eerst een vraag.')
+        if len(text) > 2000:
+            raise RuntimeError('De vraag is te lang.')
+        if not (self.claude and self.claude.available()):
+            raise RuntimeError('De gekozen AI is niet geïnstalleerd.')
+        if not self.claude.ask(text):
+            raise RuntimeError('De vraag kon niet in het paneel.')
+        return {'klaar': True}
 
     def ready(self, data):
         if not self.world_ready:
