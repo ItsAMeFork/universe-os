@@ -238,13 +238,19 @@ html.reduce-motion .launch-number.beat,html.no-motion .launch-number.beat{animat
 .nebula-hud{position:absolute;z-index:2;left:0;right:0;top:0;display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;padding:16px 18px 28px;pointer-events:none;
  background:linear-gradient(#050815f2,#05081500)}
 .nebula-hud>*{pointer-events:auto}
+.nebula-voice{position:absolute;z-index:4;left:18px;top:120px;width:min(440px,calc(100% - min(380px,46%) - 48px));margin:0;padding:12px 16px 14px;border-radius:18px;pointer-events:auto}
+.nebula-voice .switch{width:92px;height:52px}
+.nebula-voice .switch-track::after{width:40px;height:40px;top:4px;left:4px}
+.nebula-voice .switch input:checked+.switch-track::after{transform:translateX(42px)}
+.nebula-voice .switch-title{font-size:1.7em}
+.nebula-voice .muted{display:block;margin-top:2px;font-size:.82em;font-weight:500;line-height:1.35}
 .nebula-title{display:flex;flex-direction:column;min-width:108px}
 .nebula-title strong{font-size:1.25em;letter-spacing:.8px;color:var(--accent);font-weight:650}
 .nebula-title span{color:var(--muted);font-size:.78em}
 .nebula-search{flex:1 1 180px;max-width:440px;background:#0b1021d4}
 .nebula-legend{display:flex;gap:12px;color:var(--muted);font-size:.78em}
 .nebula-legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;box-shadow:0 0 8px currentColor}
-.nebula-chips{position:absolute;z-index:2;left:18px;right:18px;top:72px;display:flex;gap:8px;flex-wrap:wrap;pointer-events:none}
+.nebula-chips{position:absolute;z-index:2;left:18px;right:min(398px,calc(46% + 28px));top:250px;display:flex;gap:8px;flex-wrap:wrap;pointer-events:none}
 .nebula-chips button{pointer-events:auto;padding:5px 10px;border-radius:999px;background:#0b1021cc;font-size:.78em}
 .nebula-caption{position:absolute;z-index:2;left:18px;bottom:16px;margin:0;color:var(--muted);font-size:.78em;text-shadow:0 1px 4px #000;pointer-events:none}
 .nebula-card{position:absolute;z-index:3;right:18px;bottom:18px;width:min(380px,calc(100% - 36px));max-height:min(440px,72%);overflow:auto;padding:16px;background:#0b1021f2;border:1px solid var(--line);border-radius:20px;box-shadow:0 16px 40px #000a}
@@ -254,7 +260,12 @@ html.reduce-motion .launch-number.beat,html.no-motion .launch-number.beat{animat
 .nebula-card textarea{width:100%;min-height:96px;resize:vertical}
 .nebula-hover{position:absolute;z-index:2;pointer-events:none;max-width:240px;padding:6px 9px;border-radius:10px;background:#0b1021f2;border:1px solid var(--line);font-size:.78em;line-height:1.35}
 .nebula-status{margin:6px 0 0;color:var(--danger);font-size:.85em}
-.room-nebula>.nebula-status{position:absolute;z-index:2;left:18px;top:108px;margin:0}
+.room-nebula>.nebula-status{position:absolute;z-index:2;left:18px;top:250px;margin:0}
+@media(max-width:760px){
+ .nebula-voice{left:12px;right:12px;width:auto}
+ .nebula-list{top:260px;left:12px;right:12px;width:auto}
+ .nebula-chips,.room-nebula>.nebula-status{right:18px;top:260px}
+}
 .nebula-list{position:absolute;z-index:3;top:78px;right:18px;bottom:18px;width:min(380px,46%);overflow:auto;padding:14px 14px 18px;background:#0b1021f2;border:1px solid var(--line);border-radius:20px}
 .nebula-list[hidden]{display:none}
 .nebula-list h2{margin:0 0 8px;font-size:.95em;letter-spacing:.4px;color:var(--accent)}
