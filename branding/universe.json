@@ -23,7 +23,7 @@
     {"id": "control", "name": "Controlecentrum", "hue": 205, "rock": true,  "x": 80, "y": 76, "size": 0.58, "kind": "local",
      "description": "Systeeminstellingen: netwerk, geluid, beeldscherm, taal, accounts"},
     {"id": "chat",    "name": "Internet",        "hue": 318, "rock": false, "x": 21, "y": 77, "size": 0.58, "kind": "online",
-     "description": "Je standaardbrowser en andere internetprogramma's"},
+     "description": "Claude in Chrome is de voorkeursroute. Andere browsers blijven beschikbaar."},
     {"id": "games",   "name": "Gamehal",         "hue": 138, "rock": false, "x": 50, "y": 14, "size": 0.54, "kind": "local", "rings": true,
      "description": "Geïnstalleerde games"},
     {"id": "brein",   "name": "Brein",           "hue": 272, "rock": false, "x": 35, "y": 52, "size": 0.56, "kind": "local", "rings": true,

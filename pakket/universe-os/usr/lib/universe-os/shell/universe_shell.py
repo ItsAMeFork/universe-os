@@ -184,6 +184,31 @@ def _confirm(title, text):
     return confirm.ask(title, text)
 
 
+def _chrome_agent():
+    _claude_dir()
+    import chrome_agent
+    return chrome_agent
+
+
+def _claude_chrome_status():
+    """Extension status for the Internet planet. Not the apt download tile (that stays chrome.status)."""
+    info = dict(_chrome_agent().status())
+    info['route'] = 'claude-in-chrome'
+    info['voorkeur'] = True
+    return info
+
+
+def _claude_chrome_setup():
+    """Same one-button install as Controlecentrum. Not in CLAUDE_CALLS: Claude must not install software."""
+    import confirm
+    import shutil
+    _claude_dir()
+    return _chrome_agent().perform_setup(
+        backend.spawn,
+        lambda title, text: confirm.ask(title, text, force=True),
+        shutil.which)
+
+
 def _mail_kwargs(args):
     return {'account': args.get('account'), 'to': args.get('naar') if 'naar' in args else args.get('to'),
             'subject': args.get('onderwerp') if 'onderwerp' in args else args.get('subject'),
@@ -598,8 +623,11 @@ class Shell:
 
         def world_open(a):
             self.toplevels.show_desktop()
+            payload = {'id': a.get('id')}
+            if a.get('chooseBrowser'):
+                payload['chooseBrowser'] = True
             for w in self.worlds:
-                w.emit('open-planet', {'id': a.get('id')})
+                w.emit('open-planet', payload)
             return True
 
         return {
@@ -613,6 +641,8 @@ class Shell:
             'apps.launch': launch,
             'browser.list': lambda a: backend.browsers(),
             'browser.select': lambda a: backend.browser_select(a.get('id')),
+            'browser.claude': lambda a: _claude_chrome_status(),
+            'browser.claude.setup': lambda a: _claude_chrome_setup(),
             'chrome.status': lambda a: backend.chrome(),
             'files.places': lambda a: backend.places(),
             'open.path': open_path,
