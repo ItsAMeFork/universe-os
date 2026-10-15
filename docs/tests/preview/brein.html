@@ -33,6 +33,15 @@ const call = async (cmd, args={}) => {
  if (cmd === 'brein.list') return {sterren: memories};
  if (cmd === 'brein.links') return {lijnen:[{van:1, naar:2, via:'tuin'}]};
  if (cmd === 'brein.timeline') return {spoor:[]};
+ if (cmd === 'brein.ochtend') return {
+  dag:'2026-10-15',
+  agenda:[{titel:'Tandarts', plek:'Centrum', van:'09:00', tot:'09:30'}],
+  agenda_tekst:'',
+  mail:[{onderwerp:'Ouderavond', van:'school@example.com', samenvatting:'De school vraagt of je donderdag kunt.', tijd:'2026-10-15 08:40'}],
+  mail_samenvatting:'1 belangrijk bericht: De school vraagt of je donderdag kunt.',
+  geldtip:'Vergelijk één abonnement met wat je er de afgelopen maand echt van gebruikte.',
+  bevestigen:'Versturen en betalen vragen om toestemming.'
+ };
  if (cmd === 'brein.lijst') {
   const soort = args.soort || 'alles';
   const rows = soort === 'alles' ? rijen : rijen.filter(r => (soort === 'acties' ? r.soort === 'actie' : r.soort === soort.replace('en','').replace('herinnering','herinnering')));

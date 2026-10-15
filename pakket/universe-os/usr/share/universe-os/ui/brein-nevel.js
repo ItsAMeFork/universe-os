@@ -96,6 +96,7 @@ export function mountNebula(parent,api={}){
  const listBtn=h('button',{type:'button','aria-pressed':'true'},'Lijst');
  const hud=h('div',{class:'nebula-hud'},back,title,search,legend,listBtn,privacy);
  const chips=h('div',{class:'nebula-chips'});
+ const ochtend=h('section',{class:'ochtend','aria-label':'Ochtendbriefing'});
  const list=h('aside',{class:'nebula-list','aria-label':'Lijst van mail, agenda en acties'});
  const caption=h('p',{class:'nebula-caption'},'Komeetspoor · programma’s en bestanden die je opende');
  const hover=h('div',{class:'nebula-hover',hidden:true});
@@ -103,7 +104,7 @@ export function mountNebula(parent,api={}){
  const status=h('p',{class:'nebula-status',role:'alert'});
  parent.replaceChildren(canvas,hud,chips,list,caption,hover,card,status);
 
- const state={stars:[],lines:[],trail:[],moons:[],rows:[],filter:'alles',match:null,hover:null,flash:null,selected:null};
+ const state={stars:[],lines:[],trail:[],moons:[],rows:[],filter:'alles',match:null,hover:null,flash:null,selected:null,ochtend:null};
  const hits={stars:[],moons:[]};
  let plate=null,timer=0,alive=true,searchTimer=0,searchToken=0,view={w:0,h:0,dpr:1};
 
@@ -117,8 +118,45 @@ export function mountNebula(parent,api={}){
   drawChips();
  }
 
+ function renderBriefing(){
+  const data=state.ochtend;
+  ochtend.replaceChildren(h('h2',{},'Ochtendbriefing'));
+  if(!data){
+   ochtend.append(h('p',{class:'muted'},'De briefing wordt gelezen…'));
+   return;
+  }
+  if(data.fout){
+   ochtend.append(h('p',{role:'alert'},data.fout));
+   return;
+  }
+  ochtend.append(h('h3',{},'Agenda vandaag'));
+  const agenda=data.agenda||[];
+  if(!agenda.length) ochtend.append(h('p',{},data.agenda_tekst||'Niets op de agenda vandaag.'));
+  else{
+   const ul=h('ul',{});
+   for(const item of agenda){
+    const plek=item.plek?' · '+item.plek:'';
+    ul.append(h('li',{},(item.van?item.van+' · ':'')+(item.titel||'Afspraak')+plek));
+   }
+   ochtend.append(ul);
+  }
+  ochtend.append(h('h3',{},'Belangrijke mail'));
+  ochtend.append(h('p',{},data.mail_samenvatting||'Geen belangrijke mail.'));
+  const mail=data.mail||[];
+  if(mail.length){
+   const ul=h('ul',{});
+   for(const item of mail){
+    const from=item.van?' — '+item.van:'';
+    ul.append(h('li',{},(item.onderwerp||'Bericht')+from+(item.samenvatting?' '+item.samenvatting:'')));
+   }
+   ochtend.append(ul);
+  }
+  ochtend.append(h('h3',{},'Geldtip'));
+  ochtend.append(h('p',{},data.geldtip||''));
+  ochtend.append(h('p',{class:'muted'},data.bevestigen||'Versturen en betalen vragen om toestemming.'));
+ }
  function renderList(){
-  list.replaceChildren();
+  list.replaceChildren(ochtend);
   const bar=h('div',{class:'nebula-filters'});
   for(const [id,naam] of FILTERS){
    const b=h('button',{type:'button','aria-pressed':state.filter===id?'true':'false'},naam);
@@ -175,14 +213,18 @@ export function mountNebula(parent,api={}){
   renderList();paint();
  }
  async function load(){
+  const briefing=call('brein.ochtend').then(data=>{state.ochtend=data||{};}).catch(e=>{
+   state.ochtend={fout:e.message||'De ochtendbriefing kon niet worden gelezen.'};
+  });
   try{
-   const [mem,lines,trail]=await Promise.all([call('brein.list'),call('brein.links'),call('brein.timeline')]);
+   const [mem,lines,trail]=await Promise.all([call('brein.list'),call('brein.links'),call('brein.timeline'),briefing]);
    if(!alive||!still())return;
    state.stars=(mem?.sterren||[]).filter(s=>!s.bron).slice(0,STAR_CAP);
    state.lines=lines?.lijnen||[];
    state.trail=(trail?.spoor||[]).slice(-TRAIL_CAP);
    status.textContent='';
   }catch(e){if(alive)status.textContent=e.message||'Het brein kon niet worden gelezen.';}
+  if(alive){await briefing;renderBriefing();}
   await loadList();
   paint();arm();
   if(alive)parent.dataset.nebula='ready';
