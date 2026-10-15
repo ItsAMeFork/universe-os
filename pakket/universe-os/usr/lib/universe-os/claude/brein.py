@@ -710,3 +710,21 @@ def reflectie_tokens_since(since):
             'SELECT COALESCE(SUM(tokens_in + tokens_out), 0) FROM efficientie WHERE soort = ? AND op >= ?',
             ('reflectie', float(since))).fetchone()
         return int(row[0] or 0)
+
+
+def _quiet(fn):
+    """Ghost mode drops new timeline, action and token rows. Existing rows stay."""
+    def wrapped(*args, **kwargs):
+        try:
+            import ghost_modus
+            if ghost_modus.enabled():
+                return None
+        except Exception:  # noqa: BLE001 - a missing switch must not stop the log
+            pass
+        return fn(*args, **kwargs)
+    return wrapped
+
+
+log_event = _quiet(log_event)
+log_actie = _quiet(log_actie)
+log_efficientie = _quiet(log_efficientie)
