@@ -265,5 +265,13 @@ html.reduce-motion .launch-number.beat,html.no-motion .launch-number.beat{animat
 .nebula-list article strong{display:block;margin:2px 0}
 .nebula-list article p{margin:2px 0;font-size:.86em;line-height:1.4}
 .nebula-list .kind{font-size:.72em;letter-spacing:.6px;text-transform:uppercase;color:var(--muted)}
+.ochtend{margin:0 0 12px;padding:0 0 10px;border-bottom:1px solid var(--line)}
+.ochtend h3{margin:8px 0 2px;font-size:.72em;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);font-weight:650}
+.ochtend ul{margin:4px 0 0;padding-left:1.1em}
+.ochtend li,.ochtend p{margin:2px 0;font-size:.86em;line-height:1.4}
+.ochtend .muted{color:var(--muted)}
+@media(max-width:720px){
+ .nebula-list{left:12px;right:12px;width:auto;top:108px}
+}
 html.reduce-motion .room.room-nebula,html.no-motion .room.room-nebula{animation:none}
 @media(prefers-reduced-motion:reduce){.room.room-nebula{animation:none}}

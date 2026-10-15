@@ -39,7 +39,7 @@ CLAUDE_CALLS = {'status', 'apps.list', 'apps.launch', 'windows.list', 'windows.a
                 'desktop.launch', 'browser.list', 'browser.select', 'audio.outputs', 'audio.select', 'config.get',
                 'config.set', 'start.toggle', 'layout.get', 'updates.status', 'updates.refresh', 'updates.install',
                 'claude.power', 'claude.anim', 'brein.list', 'brein.links', 'brein.timeline', 'brein.update', 'brein.forget',
-                'brein.search', 'brein.forget_all', 'brein.lijst',
+                'brein.search', 'brein.forget_all', 'brein.lijst', 'brein.ochtend',
                 'mail.search', 'mail.read', 'mail.draft', 'mail.send', 'agenda.list', 'agenda.create',
                 'scherm.status', 'scherm.muis', 'scherm.klik', 'scherm.typ', 'scherm.toets', 'scherm.scroll', 'scherm.focus'}
 # terminal is not here: the assistant must not open a shell it can then type into.
@@ -85,6 +85,13 @@ def _brein():
         sys.path.insert(0, folder)
     import brein
     return brein
+
+
+def _ochtend():
+    """Read-only morning briefing. Sending and paying stay on mail.send and the confirmation dialog."""
+    _brein()
+    import ochtend
+    return ochtend
 
 
 def _brein_files(query, limit=10):
@@ -666,6 +673,7 @@ class Shell:
             'brein.search': _brein_search,
             'brein.forget_all': _brein_forget_all,
             'brein.lijst': lambda a: _brein().lijst(a.get('soort') or a.get('filter') or 'alles', a.get('q') if 'q' in a else a.get('zoek') or '', a.get('max') or 40),
+            'brein.ochtend': lambda a: _ochtend().compose(),
             'brein.ongedaan': lambda a: _brein().undo_actie(a.get('id')),
             'auto.status': lambda a: _auto().public(),
             'auto.set': lambda a: self._auto_set(a),
