@@ -29,6 +29,7 @@ const rijen = [
  {soort:'actie', titel:'scherm_toets', tekst:'Toets alt+f4', tijd:'2026-10-14 09:05', status:'geweigerd'},
  {soort:'herinnering', titel:'voorkeur', tekst:'Houdt van koffie in de ochtend', tijd:'2026-10-14 07:30', status:''}
 ];
+let goals={achtergrond:false,tekst:'Uit',uitleg:'De assistent pakt veilige stappen op de achtergrond. Betalen, wissen, wachtwoorden en belangrijke mail blijven een vraag, ook als automatisch toestaan aan staat.',lijst:[]};
 const call = async (cmd, args={}) => {
  if (cmd === 'brein.list') return {sterren: memories};
  if (cmd === 'brein.links') return {lijnen:[{van:1, naar:2, via:'tuin'}]};
@@ -38,6 +39,19 @@ const call = async (cmd, args={}) => {
   const rows = soort === 'alles' ? rijen : rijen.filter(r => (soort === 'acties' ? r.soort === 'actie' : r.soort === soort.replace('en','').replace('herinnering','herinnering')));
   const filtered = soort === 'herinneringen' ? rijen.filter(r => r.soort === 'herinnering') : (soort === 'acties' ? rijen.filter(r => r.soort === 'actie') : (soort === 'mail' ? rijen.filter(r => r.soort === 'mail') : (soort === 'agenda' ? rijen.filter(r => r.soort === 'agenda') : rijen)));
   return {rijen: filtered, sterren};
+ }
+ if(cmd==='doelen.status') return goals;
+ if(cmd==='doelen.achtergrond'){
+  goals={...goals,achtergrond:!!args.aan,tekst:args.aan?'Aan':'Uit'};
+  return goals;
+ }
+ if(cmd==='doelen.add'){
+  goals={...goals,lijst:[{id:goals.lijst.length+1,titel:args.titel,status:'bezig',stap:args.titel,reden:''},...goals.lijst]};
+  return goals;
+ }
+ if(cmd==='doelen.opnieuw'){
+  goals={...goals,lijst:goals.lijst.map(row=>row.id===args.id?{...row,status:'bezig',reden:''}:row)};
+  return goals;
  }
  return {};
 };
