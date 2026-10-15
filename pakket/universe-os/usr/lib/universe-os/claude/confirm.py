@@ -31,6 +31,19 @@ def refused_message(normal):
     return normal
 
 
+def _zenity(title, text):
+    if not shutil.which('zenity'):
+        return False
+    try:
+        result = subprocess.run(
+            ['zenity', '--question', '--title', title, '--text', text, '--ok-label', 'Toestaan',
+             '--cancel-label', 'Weigeren', '--width', '520'],
+            timeout=180, check=False)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return result.returncode == 0
+
+
 def ask(title, text, runner=None):
     """Returns True only when the user presses Toestaan. runner(title, text) replaces zenity in tests."""
     global _depth
@@ -49,15 +62,25 @@ def ask(title, text, runner=None):
     try:
         if runner is not None:
             return bool(runner(title, text))
-        if not shutil.which('zenity'):
-            return False
-        try:
-            result = subprocess.run(
-                ['zenity', '--question', '--title', title, '--text', text, '--ok-label', 'Toestaan',
-                 '--cancel-label', 'Weigeren', '--width', '520'],
-                timeout=180, check=False)
-        except (OSError, subprocess.SubprocessError):
-            return False
-        return result.returncode == 0
+        return _zenity(title, text)
+    finally:
+        _depth -= 1
+
+
+def ask_always(title, text, runner=None):
+    """The same Toestaan / Weigeren question, even while auto-accept is on.
+
+    Background goals use this for paying, deleting, passwords and important mail.
+    Ordinary confirm.ask is unchanged: auto-accept may still defer those until the user is back.
+    """
+    global _depth
+    title = str(title or 'Bevestigen')[:200]
+    text = str(text or '')[:8000]
+    _last.kind = 'vraag'
+    _depth += 1
+    try:
+        if runner is not None:
+            return bool(runner(title, text))
+        return _zenity(title, text)
     finally:
         _depth -= 1

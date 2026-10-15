@@ -265,5 +265,18 @@ html.reduce-motion .launch-number.beat,html.no-motion .launch-number.beat{animat
 .nebula-list article strong{display:block;margin:2px 0}
 .nebula-list article p{margin:2px 0;font-size:.86em;line-height:1.4}
 .nebula-list .kind{font-size:.72em;letter-spacing:.6px;text-transform:uppercase;color:var(--muted)}
+.nebula-goal{padding:0 0 12px;margin:0 0 10px;border-bottom:1px solid var(--line);max-width:100%}
+.nebula-goal p{margin:6px 0;font-size:.86em;line-height:1.4}
+.nebula-goal form{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;width:100%;max-width:100%;min-width:0}
+.nebula-goal input[type=text]{flex:1 1 8em;max-width:100%;min-width:0}
+.nebula-goal .switch-row{flex-wrap:wrap}
+.nebula-goal .switch-title{font-size:1em}
+.nebula-goal .switch-state{font-size:.9em}
+@media(max-width:720px){
+ .nebula-list{left:12px;right:12px;width:auto;top:auto;max-height:min(52vh,520px)}
+ .nebula-goal form{flex-direction:column}
+ .nebula-goal input[type=text]{flex:none;width:100%}
+ .nebula-goal form button{width:100%}
+}
 html.reduce-motion .room.room-nebula,html.no-motion .room.room-nebula{animation:none}
 @media(prefers-reduced-motion:reduce){.room.room-nebula{animation:none}}
