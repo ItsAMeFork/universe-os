@@ -29,7 +29,10 @@ const rijen = [
  {soort:'actie', titel:'scherm_toets', tekst:'Toets alt+f4', tijd:'2026-10-14 09:05', status:'geweigerd'},
  {soort:'herinnering', titel:'voorkeur', tekst:'Houdt van koffie in de ochtend', tijd:'2026-10-14 07:30', status:''}
 ];
+let heBuddy = false;
 const call = async (cmd, args={}) => {
+ if (cmd === 'config.get') return {settings:{heBuddy}};
+ if (cmd === 'buddy.stem') { heBuddy = !!args.aan; return {aan:heBuddy, tekst:heBuddy?'Aan':'Uit'}; }
  if (cmd === 'brein.list') return {sterren: memories};
  if (cmd === 'brein.links') return {lijnen:[{van:1, naar:2, via:'tuin'}]};
  if (cmd === 'brein.timeline') return {spoor:[]};
