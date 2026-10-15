@@ -38,7 +38,7 @@ const pages={
   root.append(card('Firewall',note(!f.installed?'Firewall niet geïnstalleerd.':f.enabled?'Firewall staat aan.':'Firewall staat niet actief.'),note('Inkomende verbindingen worden standaard geweigerd. De huidige regelset wordt hier niet weergegeven.')));
   const brain=await call('brein.summary');
   const live=h('p',{});
-  const show=b=>{live.textContent=`${b.herinneringen} herinneringen (${b.per_soort.voorkeur} voorkeuren, ${b.per_soort.notitie} notities, ${b.per_soort.feit} feiten, ${b.per_soort.les||0} lessen). Tijdlijn: ${b.tijdlijn} openingen van de laatste ${b.dagen_tijdlijn} dagen. Antwoorden op suggesties: ${b.hints}. Mail: ${b.mail||0}. Agenda: ${b.agenda||0}. Acties: ${b.acties||0}.`;};
+  const show=b=>{live.textContent=`${b.herinneringen} herinneringen (${b.per_soort.voorkeur} voorkeuren, ${b.per_soort.notitie} notities, ${b.per_soort.feit} feiten, ${b.per_soort.les||0} lessen). Tijdlijn: ${b.tijdlijn_stand||'Uit'}, ${b.tijdlijn} openingen van de laatste ${b.dagen_tijdlijn} dagen, alleen op deze computer. Antwoorden op suggesties: ${b.hints}. Mail: ${b.mail||0}. Agenda: ${b.agenda||0}. Acties: ${b.acties||0}.`;};
   show(brain);
   const phrase=input('text');phrase.placeholder='alles vergeten';phrase.setAttribute('aria-label','Bevestiging om alles te vergeten');phrase.autocomplete='off';
   root.append(card('Privacy',
