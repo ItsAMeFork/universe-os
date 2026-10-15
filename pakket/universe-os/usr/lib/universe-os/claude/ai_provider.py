@@ -431,12 +431,13 @@ def public_status(which=None, access=None, sandbox_on=None):
             'model_leeg': spec['model_leeg'],
         })
     naam, regel = panel_title()
-    trend, plugins = [], []
+    trend, plugins, lessen = [], [], []
     try:
         import efficientie
         trend = efficientie.trend()
+        lessen = efficientie.lesson_rows()
     except Exception:
-        trend = []
+        trend, lessen = [], []
     try:
         import plugins as plugin_catalog
         plugins = plugin_catalog.public_list()
@@ -457,6 +458,7 @@ def public_status(which=None, access=None, sandbox_on=None):
         'litellm_url': cfg.get('litellm_url') or LITELLM_DEFAULT,
         'litellm_sleutel': has_key('litellm'),
         'trend': trend,
+        'lessen': lessen,
         'plugins': plugins,
         'naam': naam,
         'regel': regel,
@@ -737,5 +739,5 @@ def launch_plan(fresh=False, env=None, which=None, access=None):
         else:
             env.pop(spec['key_env'], None)
     env['UNIVERSE_AI'] = provider
-    return {'ok': True, 'provider': provider, 'argv': argv, 'env': env, 'cwd': work, 'writes': writes,
+    return {'ok': True, 'provider': provider, 'model': model, 'argv': argv, 'env': env, 'cwd': work, 'writes': writes,
             'binary': binary, 'key_env': spec['key_env'], 'key': key, 'chrome': chrome_on}

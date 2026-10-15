@@ -71,12 +71,24 @@ def connect():
     columns = [row['name'] for row in db.execute('PRAGMA table_info(acties)')]
     if 'ongedaan' not in columns:
         db.execute("ALTER TABLE acties ADD COLUMN ongedaan TEXT NOT NULL DEFAULT ''")
+    memory_columns = [row['name'] for row in db.execute('PRAGMA table_info(memories)')]
+    if 'actief' not in memory_columns:
+        db.execute('ALTER TABLE memories ADD COLUMN actief INTEGER NOT NULL DEFAULT 1')
     return db
+
+
+def _aan(row):
+    try:
+        if 'actief' not in row.keys() or row['actief'] is None:
+            return True
+    except (AttributeError, IndexError):
+        return True
+    return bool(row['actief'])
 
 
 def _row(r):
     return {'id': r['id'], 'soort': r['kind'], 'tekst': r['text'], 'labels': r['tags'],
-            'datum': time.strftime('%Y-%m-%d', time.localtime(r['updated']))}
+            'aan': _aan(r), 'datum': time.strftime('%Y-%m-%d', time.localtime(r['updated']))}
 
 
 def remember(text, kind='notitie', tags=''):
@@ -141,9 +153,26 @@ def _brightness(updated, now):
 
 def _present(row, now=None):
     now = time.time() if now is None else now
+    bright = _brightness(row['updated'], now)
+    if row['kind'] == 'les' and not _aan(row):
+        bright = round(bright * 0.35, 3)
     return {'id': row['id'], 'soort': row['kind'], 'tekst': row['text'], 'labels': row['tags'],
-            'aangemaakt': row['created'], 'bijgewerkt': row['updated'],
-            'helderheid': _brightness(row['updated'], now)}
+            'aan': _aan(row), 'aangemaakt': row['created'], 'bijgewerkt': row['updated'],
+            'helderheid': bright}
+
+
+def set_lesson_active(memory_id, aan):
+    """Keep a lesson in the brain, but stop carrying it into the next session when aan is false."""
+    if isinstance(aan, str):
+        aan = aan.strip().lower() not in ('0', 'false', 'nee', 'uit', 'off')
+    else:
+        aan = bool(aan)
+    with connect() as db:
+        row = db.execute('SELECT kind FROM memories WHERE id = ?', (int(memory_id),)).fetchone()
+        if not row or row['kind'] != 'les':
+            raise ValueError('Dit is geen les')
+        db.execute('UPDATE memories SET actief = ? WHERE id = ?', (1 if aan else 0, int(memory_id)))
+    return get(memory_id)
 
 
 def get(memory_id):
@@ -652,6 +681,7 @@ def lijst(soort='alles', zoek='', limit=40):
                 continue
             add({'soort': 'les' if lesson else 'herinnering', 'id': item['id'],
                  'titel': 'Les' if lesson else item['soort'], 'tekst': item['tekst'],
+                 'aan': bool(item.get('aan', True)),
                  'wanneer': item['bijgewerkt'], 'tijd': _clock(item['bijgewerkt']), 'status': ''})
     if soort in ('alles', 'mail'):
         for item in list_mail(limit, query):

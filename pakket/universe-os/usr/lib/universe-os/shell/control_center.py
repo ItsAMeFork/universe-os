@@ -447,6 +447,7 @@ def handlers(app):
         'ai.mail': lambda a: _ai().set_mail_via(a.get('via') or a.get('route') or 'browser'),
         'window.page': lambda a: app.pending_page,
         'brein.summary': lambda a: _brein().summary(),
+        'brein.les': lambda a: _brein().set_lesson_active(a.get('id'), a.get('aan')),
         'brein.export': lambda a: _brein().write_export(_download_dir()),
         'brein.forget_all': lambda a: _brein().forget_all(a.get('bevestig') if 'bevestig' in a else a.get('confirm', '')) or {'vergeten': 'alles'},
         'accounts.list': lambda a: _accounts().list_public(),

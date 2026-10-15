@@ -666,6 +666,7 @@ class Shell:
             'brein.search': _brein_search,
             'brein.forget_all': _brein_forget_all,
             'brein.lijst': lambda a: _brein().lijst(a.get('soort') or a.get('filter') or 'alles', a.get('q') if 'q' in a else a.get('zoek') or '', a.get('max') or 40),
+            'brein.les': lambda a: _brein().set_lesson_active(a.get('id'), a.get('aan')),
             'brein.ongedaan': lambda a: _brein().undo_actie(a.get('id')),
             'auto.status': lambda a: _auto().public(),
             'auto.set': lambda a: self._auto_set(a),

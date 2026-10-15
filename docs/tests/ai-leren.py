@@ -6,6 +6,7 @@ import json
 import os
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -104,6 +105,91 @@ text = (CLAUDE / 'reflect.py').read_text(encoding='utf-8')
 assert 'Popen' not in text and 'os.system' not in text
 assert 'claude -p' in text.split('"""', 2)[1]
 os.environ.pop('UNIVERSE_AI_REFLECT', None)
+
+# --- every finished task leaves a local lesson, even without an API reflection ---
+before = {row['id'] for row in brein.recall('', 'les', limit=40)}
+quiet = efficientie.capture_stats(
+    'claude', 'claude-sonnet',
+    {'tokens_in': 40, 'tokens_out': 10, 'gereedschap': 1, 'schatting': False, 'duur': 1, 'taak': 'Kort', 'kosten': None},
+    spawn=lambda _number: (_ for _ in ()).throw(AssertionError('geen reflectie')))
+assert quiet
+local_rows = [row for row in brein.recall('', 'les', limit=40) if row['id'] not in before]
+assert len(local_rows) == 1
+assert 'korte taak' in local_rows[0]['tekst'].lower()
+assert local_rows[0]['aan'] is True
+again = efficientie.capture_stats(
+    'claude', 'claude-sonnet',
+    {'tokens_in': 30, 'tokens_out': 8, 'gereedschap': 0, 'schatting': False, 'duur': 1, 'taak': 'Kort', 'kosten': None},
+    spawn=lambda _number: (_ for _ in ()).throw(AssertionError('geen reflectie')))
+assert again
+assert len([row for row in brein.recall('', 'les', limit=40) if row['id'] not in before]) == 1
+brein.set_lesson_active(local_rows[0]['id'], False)
+assert 'korte taak' not in efficientie.lesson_block().lower()
+listed = brein.lijst('lessen')
+match = [row for row in listed['rijen'] if row['id'] == local_rows[0]['id']]
+assert match and match[0]['aan'] is False
+brein.set_lesson_active(local_rows[0]['id'], True)
+assert 'korte taak' in efficientie.lesson_block().lower()
+try:
+    brein.set_lesson_active(local_rows[0]['id'], 'nee')
+except Exception:
+    raise AssertionError('een les moet ook met nee uit kunnen')
+assert brein.get(local_rows[0]['id'])['aan'] is False
+brein.set_lesson_active(local_rows[0]['id'], True)
+ai_provider.set_leren(False)
+off_before = {row['id'] for row in brein.recall('', 'les', limit=40)}
+efficientie.capture_stats(
+    'claude', 'claude-sonnet',
+    {'tokens_in': 9000, 'tokens_out': 400, 'gereedschap': 6, 'schatting': False, 'duur': 3, 'taak': 'Uit', 'kosten': None},
+    spawn=lambda _number: (_ for _ in ()).throw(AssertionError('leren uit')))
+assert {row['id'] for row in brein.recall('', 'les', limit=40)} == off_before
+ai_provider.set_leren(True)
+
+folder = tempfile.mkdtemp(prefix='les-map-')
+with open(os.path.join(folder, 'sessie.jsonl'), 'w', encoding='utf-8') as handle:
+    handle.write('{"type":"result","usage":{"input_tokens":3200,"output_tokens":500},"message":{"role":"user","content":"agenda van morgen"}}\n')
+past = time.time() - 30
+os.utime(os.path.join(folder, 'sessie.jsonl'), (past, past))
+assert efficientie.capture_folder('codex', 'gpt-4.1-mini', folder, time.time()) is None
+os.utime(os.path.join(folder, 'sessie.jsonl'), None)
+codex_row = efficientie.capture_folder('codex', 'gpt-4.1-mini', folder, time.time() - 5)
+assert codex_row
+codex_stats = [row for row in brein.recent_efficientie(8, 'sessie') if row['id'] == codex_row]
+assert codex_stats and codex_stats[0]['provider'] == 'codex' and codex_stats[0]['tokens_in'] == 3200
+assert any('zoekstap' in row['tekst'].lower() or 'stappen' in row['tekst'].lower() or 'tokens' in row['tekst'].lower()
+           for row in brein.recall('', 'les', limit=20))
+
+import launch  # noqa: E402
+
+
+class _Proc:
+    def __init__(self, _argv, env=None, cwd=None):
+        self.cwd = cwd
+        self.code = 0
+        with open(os.path.join(cwd, 'rollout.jsonl'), 'w', encoding='utf-8') as handle:
+            handle.write('{"usage":{"input_tokens":2100,"output_tokens":100}}\n')
+
+    def wait(self):
+        return self.code
+
+    def send_signal(self, _sig):
+        self.code = 130
+
+
+work = tempfile.mkdtemp(prefix='les-work-')
+sessions_before = {row['id'] for row in brein.recent_efficientie(40, 'sessie')}
+code = launch.run_child(
+    {'provider': 'gemini', 'model': 'gemini-2.5-flash', 'cwd': work, 'exec_argv': ['gemini'], 'exec_env': {}, 'env': {}},
+    popen=_Proc)
+assert code == 0
+fresh = [row for row in brein.recent_efficientie(40, 'sessie') if row['id'] not in sessions_before]
+assert len(fresh) == 1 and fresh[0]['provider'] == 'gemini' and fresh[0]['tokens_in'] == 2100
+claude_work = tempfile.mkdtemp(prefix='les-claude-')
+claude_before = {row['id'] for row in brein.recent_efficientie(40, 'sessie')}
+launch.run_child(
+    {'provider': 'claude', 'model': 'haiku', 'cwd': claude_work, 'exec_argv': ['claude'], 'exec_env': {}, 'env': {}},
+    popen=_Proc)
+assert {row['id'] for row in brein.recent_efficientie(40, 'sessie')} == claude_before
 
 # --- plugins: no hooks, no rules, offline retry, filesystem only sees home ---
 assert plugins.accept_rel('../hooks/SKILL.md') is False
@@ -269,6 +355,8 @@ assert plan['env'].get('UNIVERSE_AI_REFLECT') == '1'
 ui = (UI / 'ai-ui.js').read_text(encoding='utf-8')
 nebula = (UI / 'brein-nevel.js').read_text(encoding='utf-8')
 assert 'ai.leren' in ui and 'ai.plugins' in ui and 'Leren van taken' in ui
+assert 'brein.les' in ui and 'status.lessen' in ui
+assert 'Meenemen' in nebula and 'brein.les' in nebula
 assert 'Tokens besparen (Headroom)' in ui and 'ai.compressie' in ui and 'ai.omniroute' in ui
 assert 'Minder tokens en goedkoper; de AI kan af en toe een detail missen.' in ui
 assert "saveState.textContent=saving?'Aan':'Uit'" in ui
@@ -279,7 +367,7 @@ assert "'Aan' if on else 'Uit'" in panel_ui
 assert 'Gratis aanbieders' in ui and 'ai.plugins.terminal' in ui
 assert "naam:'Les'" in nebula and "'lessen'" in nebula
 center = (ROOT / 'pakket/universe-os/usr/lib/universe-os/shell/control_center.py').read_text(encoding='utf-8')
-assert 'ai.plugins.install' in center and 'ai.leren' in center
+assert 'ai.plugins.install' in center and 'ai.leren' in center and 'brein.les' in center
 assert 'ai.compressie' in center and 'ai.plugins.terminal' in center and 'ai.omniroute.router' in center
 doc = (ROOT / 'docs/AI-PLUGINS-EN-LESSEN.md').read_text(encoding='utf-8')
 assert 'c05b2d6614f6' in doc and '855390d6110e' in doc and 'c1e30b767697' in doc and 'b0b7bed98203' in doc
