@@ -362,9 +362,25 @@ def set_key(provider, key):
     return {'bewaard': True}
 
 
+def keyring_locked():
+    """True when the login keyring is locked (after a restart, when its password differs from the login password).
+    Reading a key then opens an "Unlock Login Keyring" window and waits for it; starting the AI hung on that window
+    behind the panel (16 Oct). None when it cannot be checked (no Secret Service, or a test store)."""
+    if _store is not None:
+        return None
+    try:
+        import secretstorage
+        with secretstorage.dbus_init() as connection:
+            return bool(secretstorage.get_default_collection(connection).is_locked())
+    except Exception:
+        return None
+
+
 def key_for(provider):
     if provider not in GATEWAY_KEYS and (provider not in PROVIDERS or not PROVIDERS[provider]['key_env']):
         return ''
+    if keyring_locked():
+        return ''  # never wait for an unlock window while starting; Claude Code can also use its own sign-in
     try:
         value = _backend().get_password(SERVICE, _key_user(provider))
     except Exception:
