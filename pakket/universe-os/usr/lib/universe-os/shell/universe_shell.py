@@ -523,6 +523,9 @@ class Shell:
                 world.emit('background-busy', busy)
         if self.claude and self.claude.buddy:
             self.claude.buddy.set_busy(busy)
+            # A maximised or full-screen window that is not minimised: the slime steps aside until it is smaller again.
+            self.claude.buddy.set_covered(any(not w.get('minimized') and (w.get('maximized') or w.get('fullscreen'))
+                                              for w in windows))
         if windows:
             self.release_initial_focus()
         listed = None
@@ -1236,8 +1239,8 @@ def process_age():
 
 
 def main():
-    log('modules geladen na %.1f s; grafische drivers %s, render-node %s, WebKit via gedeeld geheugen: %s' % (
-        process_age(), ','.join(WEBKIT_GRAPHICS[0]) or 'geen', WEBKIT_GRAPHICS[1], os.environ.get('WEBKIT_DMABUF_RENDERER_FORCE_SHM') == '1'))
+    log('modules geladen na %.1f s; grafische drivers %s, render-node %s, tekenmodus %s (%s)' % (
+        process_age(), ','.join(WEBKIT_GRAPHICS[0]) or 'geen', WEBKIT_GRAPHICS[1], WEBKIT_GRAPHICS[2], WEBKIT_GRAPHICS[3]))
     Gtk.init(sys.argv)
     return Shell().run()
 

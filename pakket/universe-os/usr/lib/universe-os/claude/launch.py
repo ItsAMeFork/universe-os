@@ -56,6 +56,9 @@ def main(argv=None):
         except EOFError:
             pass
         return 1
+    if ai_provider.keyring_locked():
+        print('De sleutelbos is op slot, dus een bewaarde AI-sleutel wordt nu niet gebruikt. '
+              'Claude Code kan met zijn eigen aanmelding verder.')
     if plan['sandboxed']:
         print('Afscherming aan: geen sleutelbos en geen directe muis of toetsen vanuit het programma.')
     else:

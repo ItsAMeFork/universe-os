@@ -4,22 +4,31 @@
  * valid CSS, so addColorStop throws (it stopped the planet animation at its last frame). */
 export const alpha=v=>Math.max(0,Math.min(1,v)).toFixed(3);
 const bitmaps=new Map();
+// Memory of this pc in GB (webview.py passes mem=); 0 = unknown. With 4 GB or less the picture cache gets half the room.
+export const MEMORY_GB=Number(new URLSearchParams(location.search).get('mem'))||0;
+const CACHE_PIXELS=MEMORY_GB&&MEMORY_GB<=4?6_000_000:12_000_000;
 export function remember(key,canvas){
  let pixels=canvas.width*canvas.height;
  for(const image of bitmaps.values())pixels+=image.width*image.height;
  // Room for every planet of a full app list (each app has its own hue): with 32 places the cache missed on every
  // refresh once more than 32 programs were installed, and all planets were drawn again on the CPU.
- while(bitmaps.size&&(bitmaps.size>=200||pixels>12_000_000)){
+ while(bitmaps.size&&(bitmaps.size>=200||pixels>CACHE_PIXELS)){
   const oldest=bitmaps.keys().next().value,image=bitmaps.get(oldest);
   pixels-=image.width*image.height;bitmaps.delete(oldest);
  }
  bitmaps.set(key,canvas);
 }
 export const cached=key=>bitmaps.get(key);
-function copy(canvas,className=''){
+function copy(canvas,className='',options){
  const result=document.createElement('canvas');result.width=canvas.width;result.height=canvas.height;
- result.className=className;result.setAttribute('aria-hidden','true');result.getContext('2d').drawImage(canvas,0,0);return result;
+ result.className=className;result.setAttribute('aria-hidden','true');result.getContext('2d',options).drawImage(canvas,0,0);return result;
 }
+// The Earth canvas (16 Oct): its picture was drawn (opaque pixels in the middle) but WebKit did not show it, so the
+// Earth was an empty ring after login in the VM. It depended on timing: an extra import line was enough to trigger it,
+// and reading one pixel back made the Earth appear. The Earth is drawn once and never animated, so it is kept by the
+// processor (willReadFrequently) and read back once after each drawing, which makes WebKit show the new picture.
+const EARTH_2D={willReadFrequently:true};
+const showNow=canvas=>{try{canvas.getContext('2d',EARTH_2D).getImageData(0,0,1,1);}catch{}};
 export const pixelSize=css=>Math.max(32,Math.min(1280,Math.ceil(css*Math.min(devicePixelRatio||1,2))));
 export function globe(seed,rock=false,size=320){
  if(!Number.isFinite(seed))seed=165; // desktop shortcuts have no hue; "hsla(undefined…)" makes addColorStop throw
@@ -115,15 +124,23 @@ const earthPngReady=new Promise(resolve=>{EARTH_PNG.onload=()=>{earthPng=EARTH_P
 EARTH_PNG.src=new URL('earth.png',import.meta.url).href;
 export function earth(size=320,max=480){
  const px=Math.min(Math.max(max,720),Math.max(32,Math.ceil(size))),key=`earth:${px}`;
- if(bitmaps.has(key))return copy(bitmaps.get(key),'space-globe earth');
+ const shownCopy=src=>{const cv=copy(src,'space-globe earth',EARTH_2D);showNow(cv);return cv;};
+ if(bitmaps.has(key))return shownCopy(bitmaps.get(key));
  const fromPng=()=>{const cv=document.createElement('canvas');cv.width=cv.height=px;cv.getContext('2d').drawImage(earthPng,0,0,px,px);remember(key,cv);return cv;};
- if(earthPng)return copy(fromPng(),'space-globe earth');
+ if(earthPng)return shownCopy(fromPng());
  const shown=globe(208,false,px);shown.classList.add('earth');
  earthPngReady.then(ok=>{
-  if(ok){const g=shown.getContext('2d');g.clearRect(0,0,px,px);g.drawImage(bitmaps.has(key)?bitmaps.get(key):fromPng(),0,0);}
+  if(ok){const g=shown.getContext('2d');g.clearRect(0,0,px,px);g.drawImage(bitmaps.has(key)?bitmaps.get(key):fromPng(),0,0);showNow(shown);}
   else{earthQueue.push({px,key,shown});if(earthStarted)paintNext();}
  });
  return shown;
+}
+/** Draws the shipped Earth picture again into an Earth canvas. After a change of screen size WebKit can drop the
+ * content of a canvas that is never drawn again: the Earth stayed an empty ring (VM, 16 Oct). */
+export function redrawEarth(canvas){
+ if(!earthPng||!canvas)return;
+ const g=canvas.getContext('2d');g.clearRect(0,0,canvas.width,canvas.height);g.drawImage(earthPng,0,0,canvas.width,canvas.height);
+ showNow(canvas);
 }
 /** Starts painting queued Earths; call once the page is ready. Resolves when all queued Earths are painted. */
 let earthWaiters=[];
@@ -132,7 +149,7 @@ export function earthsPainted(){return earthPngReady.then(ok=>ok||(!earthBusy&&!
 function paintNext(){
  if(earthBusy)return;
  const job=earthQueue.shift();if(!job){const w=earthWaiters;earthWaiters=[];w.forEach(r=>r());return;}
- const done=()=>{const g=job.shown.getContext('2d');g.clearRect(0,0,job.px,job.px);g.drawImage(bitmaps.get(job.key),0,0);earthBusy=false;paintNext();};
+ const done=()=>{const g=job.shown.getContext('2d');g.clearRect(0,0,job.px,job.px);g.drawImage(bitmaps.get(job.key),0,0);showNow(job.shown);earthBusy=false;paintNext();};
  if(bitmaps.has(job.key)){done();return;}
  earthBusy=true;
  const canvas=document.createElement('canvas');canvas.width=canvas.height=job.px;

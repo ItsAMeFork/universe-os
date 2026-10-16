@@ -1,37 +1,29 @@
 """A WebKit view that shows a Universe page and connects its JavaScript (api.js) to Python handlers."""
-import glob
 import json
 import os
 import threading
 import traceback
 
-# Graphics drivers with which WebKit's fast drawing path (DMA-BUF) is known to work: Intel, AMD and the VM.
-WEBKIT_GOOD_DRIVERS = {'i915', 'xe', 'amdgpu', 'virtio_gpu', 'virtio-pci'}
+import grafisch  # noqa: E402
+
+# Before Gtk/WebKit load: normal drawing as in 0.2.12, the safe mode only when asked for (see grafisch.py).
+WEBKIT_GRAPHICS = grafisch.apply()
 
 
-def webkit_safe_mode():
-    """One model for every pc (Axel, 13 Oct). The login screen stayed dark with only a text cursor on his Gigabyte pc
-    with an NVIDIA card (nouveau): WebKit could not share its graphics buffers (DMA-BUF) with that driver. With an
-    unknown or weak graphics driver WebKit now keeps its normal renderer but hands the picture over in shared memory.
-    Not the older renderer (WEBKIT_DISABLE_DMABUF_RENDERER) and not non-accelerated mode: with those the transparent bars
-    only repainted the part under the mouse, so the dock and top bar vanished (VM test, 13 Oct). Only WebKit reads this
-    variable, so programs started from the desktop are not affected. A value set by hand wins."""
-    drivers = set()
-    for link in glob.glob('/sys/class/drm/card[0-9]*/device/driver'):
-        drivers.add(os.path.basename(os.path.realpath(link)))
-    has_render_node = bool(glob.glob('/dev/dri/renderD*'))
-    if not has_render_node or not (drivers & WEBKIT_GOOD_DRIVERS):
-        os.environ.setdefault('WEBKIT_DMABUF_RENDERER_FORCE_SHM', '1')
-        # Even then nouveau drew the panel and dock half see-through and smeared (Axel's Gigabyte pc, 0.2.14 live, 13
-        # Oct). The processor draws them instead (Mesa llvmpipe), exactly as in the test VM where everything looks
-        # right. Only for the Universe pages: backend.program_env removes it again for programs started from here.
-        os.environ.setdefault('LIBGL_ALWAYS_SOFTWARE', '1')
-        os.environ.setdefault('GALLIUM_DRIVER', 'llvmpipe')
-    return sorted(drivers), has_render_node
+def _memory_gb():
+    """Memory of this pc in whole GB (MemTotal), 0 when unknown. The pages use it to balance memory against
+    processor work: with 4 GB or less they keep fewer and smaller planet pictures (16 Oct)."""
+    try:
+        with open('/proc/meminfo') as f:
+            for line in f:
+                if line.startswith('MemTotal:'):
+                    return max(1, round(int(line.split()[1]) / 1024 / 1024))
+    except (OSError, ValueError, IndexError):
+        pass
+    return 0
 
 
-
-WEBKIT_GRAPHICS = webkit_safe_mode()
+MEMORY_GB = _memory_gb()
 
 import gi
 gi.require_version('Gtk', '3.0')
@@ -129,7 +121,9 @@ def make_view(page, bridge, transparent=False, zoom=1.0):
     if os.environ.get('UNIVERSE_DEBUG_FPS') == '1':
         params.append('fps=1')
     if os.environ.get('LIBGL_ALWAYS_SOFTWARE') == '1':
-        params.append('gfx=soft')  # the processor draws (webkit_safe_mode): the pages keep their work light
+        params.append('gfx=soft')  # the processor draws (grafisch.py safe mode): the pages keep their work light
+    if MEMORY_GB:
+        params.append('mem=%d' % MEMORY_GB)  # little memory: smaller planet pictures and picture cache (globe.js)
     if params:
         uri += '?' + '&'.join(params)
     view.load_uri(uri)

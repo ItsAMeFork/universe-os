@@ -2,7 +2,7 @@ import {updatesView} from './updates-ui.js';
 import {canvasScale} from './canvas-budget.js';
 import {animate,isLight} from './motion.js';
 import {call,on,applySettings,motionAllowed,toast,h,icon} from './api.js';
-import {alpha,globe,earth,paintEarths,earthsPainted,starfield,pixelSize} from './globe.js';
+import {alpha,globe,earth,paintEarths,earthsPainted,starfield,pixelSize,redrawEarth,MEMORY_GB} from './globe.js';
 import {sharpenPlanet,sharpenEarth} from './planets-hq.js';
 import {debugFPS,afterPaint,perfMark} from './performance.js';
 import {SETTINGS} from './settings-index.js';
@@ -269,7 +269,8 @@ function render(){
  sharpenSoon();
 }
 // ----- sharp planets: once the view rests, every visible planet is painted at the size it is shown (planets-hq.js) -----
-const WEAK=(navigator.hardwareConcurrency||2)<=2||new URLSearchParams(location.search).get('gfx')==='soft',MAX_TIER=WEAK?512:1024;
+// Weak: few cores, the processor draws (gfx=soft) or 4 GB memory or less: planet pictures up to 512 px instead of 1024.
+const WEAK=(navigator.hardwareConcurrency||2)<=2||new URLSearchParams(location.search).get('gfx')==='soft'||(MEMORY_GB>0&&MEMORY_GB<=4),MAX_TIER=WEAK?512:1024;
 let sharpenTimer=0;
 function sharpenSoon(){clearTimeout(sharpenTimer);sharpenTimer=setTimeout(sharpen,220);}
 function sharpen(){
@@ -289,6 +290,21 @@ function sharpen(){
  }
 }
 addEventListener('resize',requestRender);
+// After a change of screen size (another resolution at login, a monitor plugged in) WebKit can drop the content of
+// canvases that are not drawn again: the Earth stayed an empty ring (16 Oct). Draw the Earth again and let the planets
+// be painted again from the picture cache (cheap: the pictures are kept).
+let redrawTimer=0;
+addEventListener('resize',()=>{
+ clearTimeout(redrawTimer);
+ redrawTimer=setTimeout(()=>{
+  for(const o of objects){
+   const canvas=o.el?.querySelector('.sp-planet canvas');if(!canvas)continue;
+   if(o.kind==='earth')redrawEarth(canvas);
+   delete canvas.dataset.tier;
+  }
+  sharpenSoon();
+ },300);
+});
 function select(key,focus=true){
  selected=key;
  for(const el of layer.children){const on=el.dataset.key===key;el.classList.toggle('selected',on);el.setAttribute('aria-selected',String(on));if(on&&focus&&document.activeElement!==el)el.focus({preventScroll:true});}
