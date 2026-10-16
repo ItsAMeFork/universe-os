@@ -17,9 +17,10 @@ echo "Universe OS-pakket $VERSION bouwen"
 python3 -m py_compile "$ROOT"/pakket/universe-os/usr/lib/universe-os/shell/*.py
 find "$ROOT/pakket/universe-os" -name '__pycache__' -prune -exec rm -rf {} +
 if command -v node >/dev/null 2>&1; then
-    for f in "$ROOT"/pakket/universe-os/usr/share/universe-os/ui/*.js; do
-        node --input-type=module --check <"$f" || { echo "Syntaxfout in $f" >&2; exit 1; }
-    done
+    # Parallel (one node process per file, ~80 ms start-up each); xargs exits non-zero if any check failed.
+    printf '%s\0' "$ROOT"/pakket/universe-os/usr/share/universe-os/ui/*.js |
+        xargs -0 -n1 -P "$(nproc 2>/dev/null || echo 2)" sh -c \
+            'node --input-type=module --check <"$1" || { echo "Syntaxfout in $1" >&2; exit 1; }' _
 else
     echo "Let op: node ontbreekt, JavaScript niet gecontroleerd (apt install nodejs)." >&2
 fi

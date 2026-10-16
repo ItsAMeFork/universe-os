@@ -105,7 +105,7 @@ export function mountNebula(parent,api={}){
 
  const state={stars:[],lines:[],trail:[],moons:[],rows:[],filter:'alles',match:null,hover:null,flash:null,selected:null};
  const hits={stars:[],moons:[]};
- let plate=null,timer=0,alive=true,searchTimer=0,searchToken=0,view={w:0,h:0,dpr:1};
+ let plate=null,spots=null,timer=0,alive=true,searchTimer=0,searchToken=0,view={w:0,h:0,dpr:1};
 
  function applyData(data){
   state.stars=(data.sterren||[]).slice(0,STAR_CAP);
@@ -202,8 +202,8 @@ export function mountNebula(parent,api={}){
   const t=n<=1?0.5:i/(n-1);
   return {x:view.w*.08+t*view.w*.84,y:view.h*.8-Math.sin(t*Math.PI)*view.h*.065};
  }
- function placeMoon(i,n,t){
-  const ang=(motionOn()?t*.00015:.6)+i/Math.max(1,n)*Math.PI*2;
+ function placeMoon(i,n,t,motion){
+  const ang=(motion?t*.00015:.6)+i/Math.max(1,n)*Math.PI*2;
   const rx=Math.min(view.w,view.h)*.2,ry=rx*.6;
   return {x:view.w*.5+Math.cos(ang)*rx,y:view.h*.46+Math.sin(ang)*ry};
  }
@@ -219,8 +219,16 @@ export function mountNebula(parent,api={}){
   c.setTransform(dpr,0,0,dpr,0,0);
   c.clearRect(0,0,w,h);
   c.drawImage(plate.c,0,0);
+  // One motion check per frame (it reads three classes and a media query), and a star's spot only depends on its id,
+  // kind and the canvas size, so it is worked out once per size.
+  const motion=motionOn();
+  if(!spots||spots.w!==w||spots.h!==h)spots={w,h,at:new Map()};
   const pos=new Map();
-  for(const star of state.stars)pos.set(star.id,layoutPoint(star,w,h));
+  for(const star of state.stars){
+   let spot=spots.at.get(star.id);
+   if(!spot||spot.soort!==star.soort){spot={soort:star.soort,point:layoutPoint(star,w,h)};spots.at.set(star.id,spot);}
+   pos.set(star.id,spot.point);
+  }
   const match=state.match;
   c.lineWidth=1;
   for(const line of state.lines){
@@ -256,7 +264,7 @@ export function mountNebula(parent,api={}){
    const kind=KIND[star.soort]||KIND.notitie;
    const lit=!match||match.has(star.id);
    let bright=Number(star.helderheid);if(!Number.isFinite(bright))bright=.6;
-   if(motionOn())bright*=.92+.08*Math.sin(t/700+(star.id||0));
+   if(motion)bright*=.92+.08*Math.sin(t/700+(star.id||0));
    const dim=lit?1:.24;
    const r=1.15+bright*2.3;
    c.globalAlpha=Math.max(.08,bright*dim);
@@ -269,7 +277,7 @@ export function mountNebula(parent,api={}){
     c.beginPath();c.moveTo(p.x-r*2.4,p.y);c.lineTo(p.x+r*2.4,p.y);c.moveTo(p.x,p.y-r*2.4);c.lineTo(p.x,p.y+r*2.4);c.stroke();
    }
    c.globalAlpha=1;
-   if(state.selected===star.id||(state.flash&&state.flash.id===star.id&&motionOn())){
+   if(state.selected===star.id||(state.flash&&state.flash.id===star.id&&motion)){
     const age=state.flash&&state.flash.id===star.id?(t-state.flash.t0)/1400:0;
     const ring=state.selected===star.id?r+5:r+4+age*28;
     c.strokeStyle=kind.kleur;c.globalAlpha=state.selected===star.id?0.85:Math.max(0,0.8-age);c.lineWidth=1.4;
@@ -278,7 +286,7 @@ export function mountNebula(parent,api={}){
    hits.stars.push({x:p.x,y:p.y,r:Math.max(12,r+8),star});
   }
   state.moons.forEach((moon,i)=>{
-   const p=placeMoon(i,state.moons.length,t);
+   const p=placeMoon(i,state.moons.length,t,motion);
    crescent(c,p.x,p.y,6.5);
    hits.moons.push({x:p.x,y:p.y,r:14,moon});
   });

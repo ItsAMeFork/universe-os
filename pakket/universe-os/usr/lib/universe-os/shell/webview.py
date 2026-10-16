@@ -75,15 +75,28 @@ def _js(view, code):
     return False
 
 
+# json.dumps(..., ensure_ascii=False) builds a new encoder on every call; one shared encoder gives identical text.
+_encode = json.JSONEncoder(ensure_ascii=False).encode
+
+
 def reply(view, mid, ok, data):
     # Classic load-guard messages are fire-and-forget, even if api.js never loaded.
     if mid < 0:
         return False
-    return _js(view, 'window.__universeReply(%d,%s,%s)' % (mid, 'true' if ok else 'false', json.dumps(data, ensure_ascii=False)))
+    return _js(view, 'window.__universeReply(%d,%s,%s)' % (mid, 'true' if ok else 'false', _encode(data)))
+
+
+def event_code(name, data=None):
+    """The JavaScript for one event; build it once to send the same event to several views."""
+    return 'window.__universeEvent&&window.__universeEvent(%s,%s)' % (json.dumps(name), _encode(data))
+
+
+def emit_code(view, code):
+    _js(view, code)
 
 
 def emit(view, name, data=None):
-    _js(view, 'window.__universeEvent&&window.__universeEvent(%s,%s)' % (json.dumps(name), json.dumps(data, ensure_ascii=False)))
+    _js(view, event_code(name, data))
 
 
 def make_view(page, bridge, transparent=False, zoom=1.0):

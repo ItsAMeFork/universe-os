@@ -84,18 +84,20 @@ export async function explodePlanet(source,rect,{reduced=false,onStart}={}){
    c.strokeStyle=`rgba(${col},${alpha(.85*(1-k))})`;c.lineWidth=1.5+7*(1-k);c.beginPath();c.ellipse(cx,cy,r,r*.38,-.17,0,Math.PI*2);c.stroke();
   }
   // sparks with light trails
+  const trail=ease(Math.max(0,t-.06)),hotColor=`rgba(255,220,170,${alpha(1-t)})`,coldColor=`rgba(150,230,255,${alpha(.9*(1-t))})`;
   for(const s of sparks){
-   const x=cx+s.vx*e,y=cy+s.vy*e,x0=cx+s.vx*ease(Math.max(0,t-.06)),y0=cy+s.vy*ease(Math.max(0,t-.06));
-   c.strokeStyle=s.hot?`rgba(255,220,170,${alpha(1-t)})`:`rgba(150,230,255,${alpha(.9*(1-t))})`;c.lineWidth=s.r;c.lineCap='round';
+   const x=cx+s.vx*e,y=cy+s.vy*e,x0=cx+s.vx*trail,y0=cy+s.vy*trail;
+   c.strokeStyle=s.hot?hotColor:coldColor;c.lineWidth=s.r;c.lineCap='round';
    c.beginPath();c.moveTo(x0,y0);c.lineTo(x,y);c.stroke();
   }
   // shards of the planet, tumbling outwards with a hot edge
   c.globalAlpha=Math.max(0,1-t*1.1);
+  const edge=`rgba(255,170,90,${alpha(.7*(1-t))})`;
   for(const s of shards){
    const x=s.x+s.vx*e,y=s.y+s.vy*e,k=1-e*.45;
    c.save();c.translate(x,y);c.rotate(s.spin*e);
    c.drawImage(source,s.sx,s.sy,sw,sh,-s.size*k/2,-s.size*k/2,s.size*k,s.size*k);
-   c.strokeStyle=`rgba(255,170,90,${alpha(.7*(1-t))})`;c.lineWidth=1.5;c.strokeRect(-s.size*k/2,-s.size*k/2,s.size*k,s.size*k);
+   c.strokeStyle=edge;c.lineWidth=1.5;c.strokeRect(-s.size*k/2,-s.size*k/2,s.size*k,s.size*k);
    c.restore();
   }
   c.globalAlpha=1;
@@ -142,10 +144,10 @@ export async function formPlanet(rect,{reduced=false}={}){
  const motes=Array.from({length:isLight()?70:220},()=>{const a=rnd()*Math.PI*2,d=(.5+rnd())*big*.7,end=rnd()*R;
   return {a,d,end,spin:(rnd()-.5)*2.5,r:.8+rnd()*2,blue:rnd()<.6};});
  await run(1300,t=>{
-  const e=ease(t);c.clearRect(0,0,W,H);
+  const e=ease(t),back=1-ease(Math.max(0,t-.07)),blueColor=`rgba(140,210,255,${alpha(.9*e)})`,warmColor=`rgba(255,200,140,${alpha(.9*e)})`;c.clearRect(0,0,W,H);
   for(const m of motes){
-   const a=m.a+m.spin*(1-e),d=m.end+(m.d-m.end)*(1-e),a0=m.a+m.spin*(1-ease(Math.max(0,t-.07))),d0=m.end+(m.d-m.end)*(1-ease(Math.max(0,t-.07)));
-   c.strokeStyle=m.blue?`rgba(140,210,255,${alpha(.9*e)})`:`rgba(255,200,140,${alpha(.9*e)})`;c.lineWidth=m.r;c.lineCap='round';
+   const a=m.a+m.spin*(1-e),d=m.end+(m.d-m.end)*(1-e),a0=m.a+m.spin*back,d0=m.end+(m.d-m.end)*back;
+   c.strokeStyle=m.blue?blueColor:warmColor;c.lineWidth=m.r;c.lineCap='round';
    c.beginPath();c.moveTo(cx+Math.cos(a0)*d0,cy+Math.sin(a0)*d0);c.lineTo(cx+Math.cos(a)*d,cy+Math.sin(a)*d);c.stroke();
   }
   const g=c.createRadialGradient(cx,cy,0,cx,cy,R*1.4);g.addColorStop(0,`rgba(200,235,255,${alpha(.7*e*e)})`);g.addColorStop(1,'rgba(110,180,255,0)');

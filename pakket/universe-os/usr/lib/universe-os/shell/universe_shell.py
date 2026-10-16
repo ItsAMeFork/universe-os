@@ -26,7 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import backend  # noqa: E402
 import config  # noqa: E402
 import session  # noqa: E402
-from webview import WEBKIT_GRAPHICS, Bridge, emit, make_view  # noqa: E402
+from webview import WEBKIT_GRAPHICS, Bridge, emit, emit_code, event_code, make_view  # noqa: E402
 
 SOCKET = os.path.join(os.environ.get('XDG_RUNTIME_DIR', '/tmp'), 'universe-shell.sock')
 # Page handlers that Claude Code may use through `universe-ctl call` (the universe-mcp tools): what a user does in the
@@ -252,6 +252,7 @@ class Shell:
                                                         'scherm.scroll', 'scherm.focus'}, log=log)
         self.worlds = []
         self.panel = None
+        self.last_status = self.last_auto = None  # what the panel page was last sent (status_tick)
         self.dock = None
         self.start = None
         self.overview = None
@@ -317,8 +318,9 @@ class Shell:
         return self.worlds + [s for s in (self.panel, self.dock, self.start, self.overview) if s]
 
     def broadcast(self, name, data=None):
+        code = event_code(name, data)  # serialise once, not once per surface
         for s in self.surfaces():
-            s.emit(name, data)
+            emit_code(s.view, code)
 
     def show_overview(self):
         if self.overview is None:
@@ -398,8 +400,7 @@ class Shell:
         return 'anim'
 
     def watch_lock(self):
-        running = any(subprocess.run(['pgrep', '-u', str(os.getuid()), '-x', name], stdout=subprocess.DEVNULL).returncode == 0
-                      for name in ('gtklock', 'swaylock'))
+        running = subprocess.run(['pgrep', '-u', str(os.getuid()), '-x', 'gtklock|swaylock'], stdout=subprocess.DEVNULL).returncode == 0
         if running:
             self.lock_seen = True
             return True
@@ -481,12 +482,13 @@ class Shell:
         return True
 
     # ----- windows -----
-    def window_list(self):
+    def window_list(self, windows=None):
         """Windows with program name and icon. The lookup (a search through all .desktop files and an icon theme
-        lookup) is cached per appId: the list is rebuilt on every window change, also when a title ticks."""
+        lookup) is cached per appId: the list is rebuilt on every window change, also when a title ticks.
+        windows: a snapshot the caller already took, so the windows are not copied a second time."""
         cache = self.__dict__.setdefault('app_cache', {})
         result = []
-        for w in self.toplevels.list():
+        for w in (self.toplevels.list() if windows is None else windows):
             key = w['appId']
             if key not in cache:
                 app = None
@@ -528,12 +530,12 @@ class Shell:
                                               for w in windows))
         if windows:
             self.release_initial_focus()
-        listed = None
+        code = None
         if self.overview and self.overview.window.get_visible():
-            listed = self.window_list()
-            self.overview.emit('windows', listed)
+            code = event_code('windows', self.window_list(windows))  # same list for both: serialise once
+            emit_code(self.overview.view, code)
         if self.dock:
-            self.dock.emit('windows', listed if listed is not None else self.window_list())
+            emit_code(self.dock.view, code if code is not None else event_code('windows', self.window_list(windows)))
         return False
 
     def desktop_toggle(self):
@@ -1029,9 +1031,15 @@ class Shell:
                 except Exception as error:
                     log('status: %s' % error)
                     return
-                GLib.idle_add(self.panel.emit, 'status', data)
+                # Only tell the page when something changed: it has the last values and asks again when it loads.
+                if data != self.last_status:
+                    self.last_status = data
+                    GLib.idle_add(self.panel.emit, 'status', data)
                 try:
-                    GLib.idle_add(self.panel.emit, 'auto', _auto().public())
+                    auto = _auto().public()
+                    if auto != self.last_auto:
+                        self.last_auto = auto
+                        GLib.idle_add(self.panel.emit, 'auto', auto)
                 except Exception:
                     pass
             import threading

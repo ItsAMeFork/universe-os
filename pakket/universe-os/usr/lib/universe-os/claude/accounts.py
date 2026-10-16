@@ -229,9 +229,20 @@ def list_public():
     return rows
 
 
+def _prune_flows(now):
+    # Same 900 s limit as _flow(): an expired flow can never be finished, so drop it together with its state and callback server.
+    for old_id in [key for key, old in _flows.items() if now - old['created'] > 900]:
+        old = _flows.pop(old_id)
+        _states.pop(old.get('state'), None)
+        server = _servers.pop(old.get('state'), None)
+        if server:
+            threading.Thread(target=server.shutdown, daemon=True).start()
+
+
 def _remember(**fields):
     flow_id = secrets.token_urlsafe(12)
     fields['created'] = time.time()
+    _prune_flows(fields['created'])
     _flows[flow_id] = fields
     if fields.get('state'):
         _states[fields['state']] = flow_id

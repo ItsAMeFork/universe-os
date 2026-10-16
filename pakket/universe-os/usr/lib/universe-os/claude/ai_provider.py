@@ -654,12 +654,13 @@ def launch_plan(fresh=False, env=None, which=None, access=None):
     work = work_dir(provider)
     model = effective_model(cfg)
     key = key_for(provider)
-    writes = [{'path': os.path.join(work, 'AGENTS.md'), 'text': instructions()}]
+    guide = instructions()  # built once: it reads uitleg.md, the brein db and the plugin config
+    writes = [{'path': os.path.join(work, 'AGENTS.md'), 'text': guide}]
     argv = []
     if provider == 'claude':
         argv = [binary, '--model', model or 'haiku', '--add-dir', env.get('HOME') or os.path.expanduser('~'),
                 '--mcp-config', os.path.join(here, 'mcp.json'), '--settings', os.path.join(here, 'settings.json'),
-                '--append-system-prompt', instructions()]
+                '--append-system-prompt', guide]
         if _claude_continue(work, fresh):
             argv.insert(1, '--continue')
     elif provider == 'codex':
@@ -672,7 +673,7 @@ def launch_plan(fresh=False, env=None, which=None, access=None):
             argv += ['--model', model]
     elif provider == 'gemini':
         writes.append({'path': os.path.join(work, '.gemini', 'settings.json'), 'text': gemini_settings(mcp)})
-        writes.append({'path': os.path.join(work, 'GEMINI.md'), 'text': instructions()})
+        writes.append({'path': os.path.join(work, 'GEMINI.md'), 'text': guide})
         argv = [binary]
         if model:
             argv += ['--model', model]

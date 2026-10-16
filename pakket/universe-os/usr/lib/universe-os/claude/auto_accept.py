@@ -88,7 +88,8 @@ def regels_van(data=None):
     return clean or list(DEFAULT_REGELS)
 
 
-def public(now=None):
+def _state(now=None):
+    """The stored state with an expired window switched off; shared by public() and active()."""
     now = time.time() if now is None else float(now)
     data = _read()
     aan = bool(data.get('aan'))
@@ -101,6 +102,11 @@ def public(now=None):
         data['tot'] = None
         _write(data)
         tot = None
+    return data, aan, duur, tot
+
+
+def public(now=None):
+    data, aan, duur, tot = _state(now)
     if aan and duur == 'tot-uit':
         tekst = 'Aan tot je het uitzet. Super+Escape zet het direct uit.'
     elif aan and tot:
@@ -112,7 +118,8 @@ def public(now=None):
 
 
 def active(now=None):
-    return bool(public(now).get('aan'))
+    # Same answer as public()['aan'] (including the expiry write) without the Brein query for the waiting count.
+    return _state(now)[1]
 
 
 def set_choice(on, duur='30m', now=None):

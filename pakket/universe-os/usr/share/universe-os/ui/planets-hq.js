@@ -30,6 +30,7 @@ export function* planetRows(seed,rock,px,d){
  const dir=()=>{const u=rand()*2-1,t=rand()*6.28,q=Math.sqrt(1-u*u);return [q*Math.cos(t),u*.8,q*Math.sin(t)];};
  const storm=!rock&&rand()<.7?{c:dir(),r:.12+rand()*.1}:null;
  const craters=rock?Array.from({length:14},()=>({c:dir(),r:.05+Math.pow(rand(),2)*.22})):[];
+ for(const cr of craters)cr.far=Math.cos(cr.r*1.25)-1e-9;
  const mixc=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
  for(let y=0;y<px;y++){
   for(let x=0;x<px;x++){
@@ -49,7 +50,9 @@ export function* planetRows(seed,rock,px,d){
     c=mixc(c,accent,ss(.62,.75,n2(bx*1.5+3,by*1.5,bz*1.5,2))*.18);
     let k=.9+.2*fine;
     for(const cr of craters){
-     const dist=Math.acos(Math.max(-1,Math.min(1,bx*cr.c[0]+by*cr.c[1]+bz*cr.c[2])));
+     const dot=Math.max(-1,Math.min(1,bx*cr.c[0]+by*cr.c[1]+bz*cr.c[2]));
+     if(dot<cr.far)continue; // acos decreases: this far away it cannot be inside 1.25 r (the margin keeps it exact)
+     const dist=Math.acos(dot);
      if(dist<cr.r*1.25){const q=dist/cr.r;k*=q<1?.72+.18*q*q:1+.35*(1-(q-1)/.25);}
     }
     c=[c[0]*k,c[1]*k,c[2]*k];

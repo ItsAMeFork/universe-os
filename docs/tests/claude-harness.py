@@ -5,6 +5,7 @@ import importlib.util
 import json
 import os
 import socket
+import subprocess
 import tempfile
 import threading
 from pathlib import Path
@@ -19,7 +20,8 @@ os.environ['XDG_DATA_HOME'] = tempfile.mkdtemp(prefix='universe-data-')
 spec = importlib.util.spec_from_file_location('universe_mcp_test', MCP_PATH)
 mcp = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mcp)
-mcp.subprocess.Popen = lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError('echte power-opdracht: %s' % (args,)))
+# direct_power imports subprocess inside the call, so the guard has to sit on that module.
+subprocess.Popen = lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError('echte power-opdracht: %s' % (args,)))
 
 
 class FakeShell:

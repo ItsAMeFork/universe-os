@@ -4,9 +4,10 @@ import json
 from pathlib import Path
 tree = ast.parse(Path('pakket/universe-os/usr/lib/universe-os/shell/webview.py').read_text())
 reply = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'reply')
+encode = next(n for n in tree.body if isinstance(n, ast.Assign) and any(getattr(t, 'id', None) == '_encode' for t in n.targets))
 calls = []
 ns = {'json': json, '_js': lambda view, code: calls.append(code)}
-exec(compile(ast.Module(body=[reply], type_ignores=[]), '<reply>', 'exec'), ns)
+exec(compile(ast.Module(body=[encode, reply], type_ignores=[]), '<reply>', 'exec'), ns)
 for mid in (-1, -2, -3):
     assert ns['reply'](None, mid, True, None) is False
 assert not calls
