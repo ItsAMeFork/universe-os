@@ -134,11 +134,13 @@ _ORDER = {
 }
 
 
-def backend_for(kind, have=None):
-    """have is a backend name (tests) or None (pick the first installed tool that can do this)."""
+def backend_for(kind, have=None, present=None):
+    """have is a backend name (tests) or None (pick the first installed tool that can do this).
+    present is an available() result to reuse when the caller already has one."""
     if have:
         return have
-    present = available()
+    if present is None:
+        present = available()
     for name in _ORDER.get(kind, ()):
         if present.get(name):
             return name
@@ -155,12 +157,12 @@ def compositor():
 
 def status():
     present = available()
-    backend = backend_for('muis')
+    backend = mouse = backend_for('muis', present=present)
     if backend == 'geen':
-        backend = backend_for('typ')
+        backend = backend_for('typ', present=present)
     return {'toegestaan': _granted, 'bezig': _working, 'backend': backend,
             'beschikbaar': [name for name, ok in present.items() if ok],
-            'muis': backend_for('muis') != 'geen', 'compositor': compositor(), 'paniek': PANIC}
+            'muis': mouse != 'geen', 'compositor': compositor(), 'paniek': PANIC}
 
 
 def _mark(busy):

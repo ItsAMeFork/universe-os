@@ -454,7 +454,7 @@ function setCore(opacity,scale){
 // The explosion of the core at login: two shock waves and sparks from the middle of the Earth (drawn with the sky).
 let boom=0;
 const SPARKS=Array.from({length:240},(_,i)=>{let s=(i*7919+17)%233280;const r=()=>(s=(s*9301+49297)%233280)/233280;
- const a=r()*Math.PI*2;return {a,speed:.25+r()*1.05,w:.8+r()*2.2,hot:r()<.5};});
+ const a=r()*Math.PI*2;return {a,ca:Math.cos(a),sa:Math.sin(a),speed:.25+r()*1.05,w:.8+r()*2.2,hot:r()<.5};});
 function drawBoom(c){
  const e=earthRef,p=e&&project(e.pos);if(!p)return;
  const big=Math.max(innerWidth,innerHeight),t=boom,ease=1-Math.pow(1-t,3),R0=p.s*e.size*.45;
@@ -464,10 +464,12 @@ function drawBoom(c){
  }
  c.lineCap='round';
  const every=isLight()?3:1; // the light version draws a third of the sparks
+ // Per-frame constants and the two colour strings are computed once, not per spark (same values, same order).
+ const hotStyle=`rgba(255,220,170,${alpha(1-t)})`,coolStyle=`rgba(150,230,255,${alpha(.9*(1-t))})`,tail=1-Math.pow(1-Math.max(0,t-.06),3);
  for(let i=0;i<SPARKS.length;i+=every){const s=SPARKS[i];
-  const d=s.speed*big*ease,d0=s.speed*big*(1-Math.pow(1-Math.max(0,t-.06),3));
-  c.strokeStyle=s.hot?`rgba(255,220,170,${alpha(1-t)})`:`rgba(150,230,255,${alpha(.9*(1-t))})`;c.lineWidth=s.w;
-  c.beginPath();c.moveTo(p.x+Math.cos(s.a)*d0,p.y+Math.sin(s.a)*d0*.7);c.lineTo(p.x+Math.cos(s.a)*d,p.y+Math.sin(s.a)*d*.7);c.stroke();
+  const d=s.speed*big*ease,d0=s.speed*big*tail;
+  c.strokeStyle=s.hot?hotStyle:coolStyle;c.lineWidth=s.w;
+  c.beginPath();c.moveTo(p.x+s.ca*d0,p.y+s.sa*d0*.7);c.lineTo(p.x+s.ca*d,p.y+s.sa*d*.7);c.stroke();
  }
 }
 const flashEl=h('div',{class:'world-flash','aria-hidden':'true'});

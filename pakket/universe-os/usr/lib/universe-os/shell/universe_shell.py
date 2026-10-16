@@ -482,12 +482,13 @@ class Shell:
         return True
 
     # ----- windows -----
-    def window_list(self):
+    def window_list(self, windows=None):
         """Windows with program name and icon. The lookup (a search through all .desktop files and an icon theme
-        lookup) is cached per appId: the list is rebuilt on every window change, also when a title ticks."""
+        lookup) is cached per appId: the list is rebuilt on every window change, also when a title ticks.
+        windows: a snapshot the caller already took, so the windows are not copied a second time."""
         cache = self.__dict__.setdefault('app_cache', {})
         result = []
-        for w in self.toplevels.list():
+        for w in (self.toplevels.list() if windows is None else windows):
             key = w['appId']
             if key not in cache:
                 app = None
@@ -528,10 +529,10 @@ class Shell:
             self.release_initial_focus()
         code = None
         if self.overview and self.overview.window.get_visible():
-            code = event_code('windows', self.window_list())  # same list for both: serialise once
+            code = event_code('windows', self.window_list(windows))  # same list for both: serialise once
             emit_code(self.overview.view, code)
         if self.dock:
-            emit_code(self.dock.view, code if code is not None else event_code('windows', self.window_list()))
+            emit_code(self.dock.view, code if code is not None else event_code('windows', self.window_list(windows)))
         return False
 
     def desktop_toggle(self):

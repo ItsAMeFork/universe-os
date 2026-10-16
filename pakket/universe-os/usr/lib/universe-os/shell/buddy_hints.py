@@ -43,6 +43,7 @@ class Hints:
         self.log = log
         self.monitors = []
         self.shown_today = {}
+        self.shown_day = None
         self.battery_warned = False
         self.started = time.time()
         self.watch_downloads()
@@ -65,6 +66,9 @@ class Hints:
         if wait and buddy.busy:
             return False
         day = time.strftime('%Y-%m-%d')
+        if self.shown_day != day:  # entries from earlier days never match again; drop them (keys hold paths)
+            self.shown_today.clear()
+            self.shown_day = day
         if self.shown_today.get(key) == day:
             return False
         try:

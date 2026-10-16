@@ -247,8 +247,18 @@ def _file_index(max_entries=60000, budget=2.5):
             index.append((folded, name, folder, is_dir, depth))  # folder, not the full path: the folder string is shared
             if is_dir and depth < 8:
                 queue.append((entry.path, depth + 1))
-    _files_cache = (time.monotonic(), index)
+    stamp = time.monotonic()
+    _files_cache = (stamp, index)
+    # One-shot timer: free the index once it is stale. Without it the index stayed in memory until the next search.
+    GLib.timeout_add_seconds(61, lambda: _drop_file_index(stamp) or False)
     return index
+
+
+def _drop_file_index(stamp):
+    """Frees the index built at `stamp`, unless a newer one has replaced it (that one has its own timer)."""
+    global _files_cache
+    if _files_cache[0] == stamp:
+        _files_cache = (0.0, None)
 
 
 def files_changed():

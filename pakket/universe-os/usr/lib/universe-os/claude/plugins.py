@@ -201,30 +201,37 @@ def _item(plugin_id):
     return None
 
 
-def _saved(plugin_id):
-    items = _read_shared().get('items')
+def _saved_in(items, plugin_id):
     if isinstance(items, dict) and isinstance(items.get(plugin_id), dict):
-        return copy.deepcopy(items[plugin_id])
+        return items[plugin_id]
     return {}
+
+
+def _saved(plugin_id):
+    return copy.deepcopy(_saved_in(_read_shared().get('items'), plugin_id))
+
+
+def _enabled_in(row, saved):
+    if 'aan' in saved:
+        return bool(saved['aan'])
+    return bool(row['standaard'])
 
 
 def enabled(plugin_id):
     row = _item(plugin_id)
     if not row:
         return False
-    saved = _saved(plugin_id)
-    if 'aan' in saved:
-        return bool(saved['aan'])
-    return bool(row['standaard'])
+    return _enabled_in(row, _saved(plugin_id))
 
 
 def public_list():
     rows = []
+    items = _read_shared().get('items')
     for row in CATALOG:
-        saved = _saved(row['id'])
+        saved = _saved_in(items, row['id'])
         rows.append({
             'id': row['id'], 'naam': row['naam'], 'licentie': row['licentie'], 'soort': row['soort'],
-            'aan': enabled(row['id']), 'status': saved.get('status') or 'nog',
+            'aan': _enabled_in(row, saved), 'status': saved.get('status') or 'nog',
             'review': row['review'], 'commit': COMMIT.get(row['id'], ''),
             'versie': row.get('versie') or '',
             'installeren': bool(row.get('opdracht')),
