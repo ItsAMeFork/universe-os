@@ -3,8 +3,19 @@
 # Prompts stay on this computer. --code-memory none skips the Serena download.
 export HEADROOM_BEACON=off
 export DO_NOT_TRACK=1
+# Programs installed with uv/pipx live in ~/.local/bin, which the session PATH does not always contain.
+case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) PATH="$HOME/.local/bin:$PATH"; export PATH ;; esac
+# Headroom missing or stopping at once must not take Claude down with it (16 Oct: after a restart the AI panel
+# opened and closed within a second). Then Claude starts without Headroom and says so.
 if ! command -v headroom >/dev/null 2>&1; then
-  echo "Headroom ontbreekt. Op de pagina AI: uv tool install \"headroom-ai[all]==0.40.0\""
-  exit 1
+  echo "Headroom ontbreekt, dus Claude start zonder tokenbesparing. Installeren kan op de pagina AI."
+  exec claude "$@"
 fi
-exec headroom wrap --code-memory none claude "$@"
+start=$(date +%s)
+headroom wrap --code-memory none claude "$@"
+code=$?
+if [ "$code" -ne 0 ] && [ $(( $(date +%s) - start )) -lt 15 ]; then
+  echo "Headroom stopte meteen (code $code), dus Claude start zonder tokenbesparing."
+  exec claude "$@"
+fi
+exit "$code"

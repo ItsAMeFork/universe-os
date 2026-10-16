@@ -365,6 +365,11 @@ class ClaudeUI:
     def start_terminal(self, fresh=False):
         gi.require_version('Vte', '2.91')
         from gi.repository import Pango, Vte
+        stopped = getattr(self, 'stopped_term', None)
+        if stopped is not None:  # the terminal of an AI that stopped at once (child_exited): make room for a new one
+            self.stopped_term = None
+            stopped.destroy()
+        self.term_started = time.monotonic()
         term = Vte.Terminal()
         bg = Gdk.RGBA(0.03, 0.05, 0.12, 1.0)  # opaque: VTE replaces (not blends) its background, planets shone through
         fg = Gdk.RGBA(0.91, 1.0, 0.98, 1.0)
@@ -418,6 +423,7 @@ class ClaudeUI:
                 self.holder.remove(self.term)
             self.panel.destroy()
             self.panel = None
+            self.stopped_term = None  # a stopped terminal is destroyed with the old panel
         if self.panel is None:
             self.build_panel()
             if self.term:
@@ -513,10 +519,20 @@ class ClaudeUI:
         return False
 
     def child_exited(self, term, status):
-        if term is self.term:
-            self.term = None
-            GLib.idle_add(lambda: term.destroy() or False)
-            self.close()
+        if term is not self.term:
+            return
+        self.term = None
+        if time.monotonic() - getattr(self, 'term_started', 0) < 10:
+            # Stopped at once (16 Oct: after a restart the panel opened and closed within a second, and the reason,
+            # printed by the starter, vanished with it). Keep the panel and its text, so the message can be read.
+            self.stopped_term = term
+            term.feed(('\r\n\x1b[33mDe AI stopte meteen (code %d). De melding staat hierboven. '
+                       'Sluit dit paneel en open het opnieuw om het nog eens te proberen.\x1b[0m\r\n'
+                       % (status >> 8)).encode())
+            self.log('AI stopte meteen na het starten (status %d)' % status)
+            return
+        GLib.idle_add(lambda: term.destroy() or False)
+        self.close()
 
 
 class Buddy:
