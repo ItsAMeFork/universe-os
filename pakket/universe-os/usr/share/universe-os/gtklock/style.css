@@ -48,3 +48,9 @@ button#unlock-button {
 #warning-label { color: #ffb357; }
 #input-label { font-weight: 600; color: #e2e6fa; }
 #hint-label { color: #a7b8ca; font-size: 13px; }
+/* The desktop has just flown into the Earth (world.js 'out'): the card and the time fade in softly instead of
+   appearing at once (Axel, 14 Oct). Only opacity: cheap without a GPU, and GTK skips it with reduced animations. */
+@keyframes lock-in { from { opacity: 0; } to { opacity: 1; } }
+#window-box { animation: lock-in 450ms ease-out; }
+#clock-label, #date-label { animation: lock-in 700ms ease-out; }
+#error-label { animation: lock-in 200ms ease-out; }

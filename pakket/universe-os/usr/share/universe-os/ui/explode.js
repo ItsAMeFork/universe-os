@@ -6,9 +6,11 @@
 
 import {alpha} from './globe.js';
 import {canvasScale} from './canvas-budget.js';
+import {animate,isLight} from './motion.js';
 
 function overlay(){
- const W=innerWidth,H=innerHeight,dpr=canvasScale(W,H,devicePixelRatio,new URLSearchParams(location.search).get('gfx')==='soft');
+ // The light version draws at 60 % resolution: the effects are soft glows and trails, so it hardly shows.
+ const W=innerWidth,H=innerHeight,dpr=canvasScale(W,H,devicePixelRatio,new URLSearchParams(location.search).get('gfx')==='soft')*(isLight()?.6:1);
  const canvas=document.createElement('canvas');canvas.width=Math.round(W*dpr);canvas.height=Math.round(H*dpr);
  canvas.setAttribute('aria-hidden','true');
  canvas.style.cssText='position:fixed;inset:0;width:100%;height:100%;z-index:50;pointer-events:none';
@@ -27,20 +29,8 @@ export function drawCore(c,W,H,scale=1,opacity=1){
 }
 const rand=seed=>()=>(seed=(seed*16807)%2147483647)/2147483647;
 const ease=t=>1-Math.pow(1-t,3);
-// Without a GPU (a VM, an old pc) one frame can take seconds: the 2 s explosion then held up the login for a minute
-// (11 Oct, test VM). After two frames slower than 250 ms the animations stop and the rest is skipped.
-let slow=false,slowFrames=0;
-function run(duration,frame){
- return new Promise(resolve=>{
-  if(slow){resolve();return;}
-  const t0=performance.now();let last=t0;
-  const step=now=>{
-   if(now-last>250&&++slowFrames>=2)slow=true;
-   last=now;if(slow){resolve();return;}
-   const t=Math.max(0,Math.min(1,(now-t0)/duration));frame(t);if(t<1)requestAnimationFrame(step);else resolve();};
-  requestAnimationFrame(step);
- });
-}
+// Timing (always ends, follows the clock, light version on slow pcs) lives in motion.js.
+const run=animate;
 /** Jagged light cracks across the disc, growing with `k` (0..1). */
 function cracks(c,cx,cy,R,k,rnd){
  const lines=[];for(let i=0;i<9;i++){const pts=[[cx+(rnd()-.5)*R*.3,cy+(rnd()-.5)*R*.3]];let a=rnd()*Math.PI*2;
@@ -70,16 +60,15 @@ export async function explodePlanet(source,rect,{reduced=false,onStart}={}){
   c.save();c.translate(sx,sy);drawCracks(e);c.restore();
   c.fillStyle=`rgba(255,200,140,${alpha(e*.35)})`;c.beginPath();c.arc(cx+sx,cy+sy,R*s,0,Math.PI*2);c.fill();
  });
- if(slow){canvas.remove();return;}
  // 2. explosion (1.6 s)
- const n=18,cell=rect.width/n,sw=source.width/n,sh=source.height/n,shards=[],big=Math.max(W,H);
+ const n=isLight()?10:18,cell=rect.width/n,sw=source.width/n,sh=source.height/n,shards=[],big=Math.max(W,H);
  for(let i=0;i<n;i++)for(let j=0;j<n;j++){
   const x=rect.left+i*cell+cell/2,y=rect.top+j*cell+cell/2,dx=x-cx,dy=y-cy,d=Math.hypot(dx,dy);
   if(d>R)continue;
   const a=Math.atan2(dy,dx)+(rnd()-.5)*.5,speed=(.35+rnd()*.9)*big*(.5+d/R*.7);
   shards.push({sx:i*sw,sy:j*sh,x,y,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,spin:(rnd()-.5)*10,size:cell*(.9+rnd()*.6)});
  }
- const sparks=Array.from({length:260},()=>{const a=rnd()*Math.PI*2,s=(.15+rnd()*1.1)*big;
+ const sparks=Array.from({length:isLight()?80:260},()=>{const a=rnd()*Math.PI*2,s=(.15+rnd()*1.1)*big;
   return {vx:Math.cos(a)*s,vy:Math.sin(a)*s,r:.8+rnd()*2.2,hot:rnd()<.5};});
  await run(1600,t=>{
   const e=ease(t),shake=t<.25?(1-t/.25)*14:0,ox=(rnd()-.5)*shake,oy=(rnd()-.5)*shake;
@@ -150,7 +139,7 @@ export async function formPlanet(rect,{reduced=false}={}){
  if(reduced||!rect.width)return;
  const {canvas,c,W,H}=overlay(),rnd=rand(11);
  const cx=rect.left+rect.width/2,cy=rect.top+rect.height/2,R=rect.width*.44,big=Math.max(W,H);
- const motes=Array.from({length:220},()=>{const a=rnd()*Math.PI*2,d=(.5+rnd())*big*.7,end=rnd()*R;
+ const motes=Array.from({length:isLight()?70:220},()=>{const a=rnd()*Math.PI*2,d=(.5+rnd())*big*.7,end=rnd()*R;
   return {a,d,end,spin:(rnd()-.5)*2.5,r:.8+rnd()*2,blue:rnd()<.6};});
  await run(1300,t=>{
   const e=ease(t);c.clearRect(0,0,W,H);

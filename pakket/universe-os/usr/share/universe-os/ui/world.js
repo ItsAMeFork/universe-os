@@ -1,9 +1,10 @@
 import {updatesView} from './updates-ui.js';
 import {canvasScale} from './canvas-budget.js';
+import {animate,isLight} from './motion.js';
 import {call,on,applySettings,motionAllowed,toast,h,icon} from './api.js';
 import {alpha,globe,earth,paintEarths,earthsPainted,starfield,pixelSize} from './globe.js';
 import {sharpenPlanet,sharpenEarth} from './planets-hq.js';
-import {debugFPS,afterPaint} from './performance.js';
+import {debugFPS,afterPaint,perfMark} from './performance.js';
 import {SETTINGS} from './settings-index.js';
 import {keepTab} from './focus.js';
 import {distFor} from './space.js';
@@ -240,7 +241,8 @@ const shown=o=>shownAt(o,mix);
 function render(){
  // Animation loops also render directly. Cancel a queued input render to avoid
  // drawing twice in the same frame and losing the queued callback's handle.
- if(frame)cancelAnimationFrame(frame);frame=0;drawSky();
+ if(frame)cancelAnimationFrame(frame);frame=0;
+ const t0=performance.now();drawSky();const t1=performance.now();perfMark('sky',t1-t0);
  for(const o of objects){
   const el=o.el;if(!el)continue;
   const v=shown(o),p=project(v.pos),px=p?p.s*v.size:0;
@@ -263,6 +265,7 @@ function render(){
   const op=fade*inside<1?(fade*inside).toFixed(2):'';
   if(el._op!==op){el._op=op;el.style.opacity=op;}
  }
+ perfMark('obj',performance.now()-t1);
  sharpenSoon();
 }
 // ----- sharp planets: once the view rests, every visible planet is painted at the size it is shown (planets-hq.js) -----
@@ -443,7 +446,8 @@ function drawBoom(c){
   c.strokeStyle=`rgba(${col},${alpha(.85*(1-k))})`;c.lineWidth=1.5+7*(1-k);c.beginPath();c.ellipse(p.x,p.y,r,r*.38,-.17,0,Math.PI*2);c.stroke();
  }
  c.lineCap='round';
- for(const s of SPARKS){
+ const every=isLight()?3:1; // the light version draws a third of the sparks
+ for(let i=0;i<SPARKS.length;i+=every){const s=SPARKS[i];
   const d=s.speed*big*ease,d0=s.speed*big*(1-Math.pow(1-Math.max(0,t-.06),3));
   c.strokeStyle=s.hot?`rgba(255,220,170,${alpha(1-t)})`:`rgba(150,230,255,${alpha(.9*(1-t))})`;c.lineWidth=s.w;
   c.beginPath();c.moveTo(p.x+Math.cos(s.a)*d0,p.y+Math.sin(s.a)*d0*.7);c.lineTo(p.x+Math.cos(s.a)*d,p.y+Math.sin(s.a)*d*.7);c.stroke();
@@ -463,12 +467,8 @@ function animateWorld(dir,target,{core=false}={}){
  if(!motionAllowed(settings)){mix=dir==='in'?1:0;earthScale=1;glow=0;cam=end;setCore(core&&dir==='out'?1:0,1);requestRender();return Promise.resolve();}
  trailDir=dir==='in'?1:-1;
  cam={...start};mix=dir==='in'?0:1;earthScale=dir==='in'?0:1;requestRender();
- const dur=dir==='in'?2300:1900,t0=performance.now();let last=t0,slowFrames=0;
- return new Promise(resolve=>{
-  const step=t=>{
-   // Without a GPU a frame can take seconds: after two frames over 250 ms jump to the last picture (as explode.js).
-   if(t-last>250)slowFrames++;last=t;
-   const k=slowFrames>=2?1:Math.max(0,Math.min(1,(t-t0)/dur)); // the first frame time can lie just before t0
+ // motion.js keeps the clock: the animation always ends, also when frames stall, and turns light on slow pcs.
+ return animate(dir==='in'?2300:1900,k=>{
    if(dir==='in'){
     // 0-0.25: the Earth grows out of light (overshoots a little); 0.15-1: everything flies out, camera pulls back
     const a=Math.min(1,k/.25);earthScale=a<1?Math.sin(a*Math.PI/2)*1.08:1+.08*Math.max(0,1-(k-.25)/.15);
@@ -489,11 +489,7 @@ function animateWorld(dir,target,{core=false}={}){
     }else setFlash(k>.72?Math.sin((k-.72)/.28*Math.PI)*.55:0); // peaks and is gone at the end: the last picture = lock screen
    }
    render();
-   if(k<1)requestAnimationFrame(step);
-   else{glow=0;earthScale=1;setFlash(0);boom=0;if(core)setCore(dir==='out'?1:0,1);render();resolve();}
-  };
-  requestAnimationFrame(step);
- });
+ }).then(()=>{glow=0;earthScale=1;setFlash(0);boom=0;if(core)setCore(dir==='out'?1:0,1);render();});
 }
 // Lock / unlock (universe-lock): the desktop goes into the Earth before the lock screen (which shows the same Earth),
 // and comes out again when it is unlocked.
