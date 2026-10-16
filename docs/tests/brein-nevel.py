@@ -306,7 +306,9 @@ assert planet['name'] == 'Brein'
 
 ui = (UI / 'brein-nevel.js').read_text(encoding='utf-8')
 assert 'STAR_CAP' in ui and 'prefers-reduced-motion' in ui
-assert 'three' not in ui.lower() and 'd3' not in ui
+# Comments may say "three"; the ban is on a three.js or d3 dependency in the code.
+code = '\n'.join(line.split('//', 1)[0] for line in ui.splitlines())
+assert 'three' not in code.lower() and 'd3' not in code
 assert 'shadowBlur' not in ui
 world_js = (UI / 'world.js').read_text(encoding='utf-8')
 assert 'mountNebula' in world_js and "p.id==='brein'" in world_js
