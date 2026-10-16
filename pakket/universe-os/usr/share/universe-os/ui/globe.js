@@ -4,12 +4,15 @@
  * valid CSS, so addColorStop throws (it stopped the planet animation at its last frame). */
 export const alpha=v=>Math.max(0,Math.min(1,v)).toFixed(3);
 const bitmaps=new Map();
+// Memory of this pc in GB (webview.py passes mem=); 0 = unknown. With 4 GB or less the picture cache gets half the room.
+export const MEMORY_GB=Number(new URLSearchParams(location.search).get('mem'))||0;
+const CACHE_PIXELS=MEMORY_GB&&MEMORY_GB<=4?6_000_000:12_000_000;
 export function remember(key,canvas){
  let pixels=canvas.width*canvas.height;
  for(const image of bitmaps.values())pixels+=image.width*image.height;
  // Room for every planet of a full app list (each app has its own hue): with 32 places the cache missed on every
  // refresh once more than 32 programs were installed, and all planets were drawn again on the CPU.
- while(bitmaps.size&&(bitmaps.size>=200||pixels>12_000_000)){
+ while(bitmaps.size&&(bitmaps.size>=200||pixels>CACHE_PIXELS)){
   const oldest=bitmaps.keys().next().value,image=bitmaps.get(oldest);
   pixels-=image.width*image.height;bitmaps.delete(oldest);
  }
@@ -124,6 +127,12 @@ export function earth(size=320,max=480){
   else{earthQueue.push({px,key,shown});if(earthStarted)paintNext();}
  });
  return shown;
+}
+/** Draws the shipped Earth picture again into an Earth canvas. After a change of screen size WebKit can drop the
+ * content of a canvas that is never drawn again: the Earth stayed an empty ring (VM, 16 Oct). */
+export function redrawEarth(canvas){
+ if(!earthPng||!canvas)return;
+ const g=canvas.getContext('2d');g.clearRect(0,0,canvas.width,canvas.height);g.drawImage(earthPng,0,0,canvas.width,canvas.height);
 }
 /** Starts painting queued Earths; call once the page is ready. Resolves when all queued Earths are painted. */
 let earthWaiters=[];

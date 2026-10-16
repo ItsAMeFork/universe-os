@@ -9,6 +9,22 @@ import grafisch  # noqa: E402
 # Before Gtk/WebKit load: normal drawing as in 0.2.12, the safe mode only when asked for (see grafisch.py).
 WEBKIT_GRAPHICS = grafisch.apply()
 
+
+def _memory_gb():
+    """Memory of this pc in whole GB (MemTotal), 0 when unknown. The pages use it to balance memory against
+    processor work: with 4 GB or less they keep fewer and smaller planet pictures (16 Oct)."""
+    try:
+        with open('/proc/meminfo') as f:
+            for line in f:
+                if line.startswith('MemTotal:'):
+                    return max(1, round(int(line.split()[1]) / 1024 / 1024))
+    except (OSError, ValueError, IndexError):
+        pass
+    return 0
+
+
+MEMORY_GB = _memory_gb()
+
 import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('WebKit2', '4.1')
@@ -105,7 +121,9 @@ def make_view(page, bridge, transparent=False, zoom=1.0):
     if os.environ.get('UNIVERSE_DEBUG_FPS') == '1':
         params.append('fps=1')
     if os.environ.get('LIBGL_ALWAYS_SOFTWARE') == '1':
-        params.append('gfx=soft')  # the processor draws (webkit_safe_mode): the pages keep their work light
+        params.append('gfx=soft')  # the processor draws (grafisch.py safe mode): the pages keep their work light
+    if MEMORY_GB:
+        params.append('mem=%d' % MEMORY_GB)  # little memory: smaller planet pictures and picture cache (globe.js)
     if params:
         uri += '?' + '&'.join(params)
     view.load_uri(uri)

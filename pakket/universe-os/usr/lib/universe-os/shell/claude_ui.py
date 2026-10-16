@@ -566,6 +566,7 @@ class Buddy:
         self.last_pos = self.pos
         self.deform, self.deform_v = [0.0, 0.0], [0.0, 0.0]  # slime stretch (screen x, y) and its speed
         self.busy = False  # a program is in front: stand still
+        self.covered = False  # a maximised or full-screen window: the slime steps aside (set_covered)
         self.wiggle_until = 0.0
         self.clock = 0.0  # animation time: only runs while frames are drawn, so a still slime does not jump
         self.clock_at = time.monotonic()
@@ -654,6 +655,7 @@ class Buddy:
         self.window.resize(*BUDDY)
         if self.state == 'attention':
             self.set_state('idle')
+        self.update_visible()
 
     def draw_bubble(self, widget, cr):
         w, h, r = widget.get_allocated_width(), widget.get_allocated_height() - 12, 16
@@ -747,9 +749,23 @@ class Buddy:
         if not busy:
             self.breathe()
 
+    def set_covered(self, covered):
+        """A maximised or full-screen window: the slime steps aside, and comes back when that window is made smaller,
+        minimised or closed (Axel, 16 Oct). A question from the AI (attention, a speech bubble) still shows it."""
+        self.covered = covered
+        self.update_visible()
+
+    def update_visible(self):
+        show = not self.covered or self.state == 'attention' or self.bubble.get_visible()
+        if show and not self.window.get_visible():
+            self.window.show()
+        elif not show and self.window.get_visible():
+            self.window.hide()
+
     def set_state(self, state):
         self.state = state
         self.state_since = time.monotonic()
+        self.update_visible()
         if self.anim and state != 'idle':  # a slow rest loop (blink, breath) becomes the full 30 fps loop
             GLib.source_remove(self.anim)
             self.anim = 0

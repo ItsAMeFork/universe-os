@@ -3,7 +3,7 @@
 // with light and shadow (gas giants with turbulent bands and a storm, rocky planets with terrain and craters, an
 // atmosphere at the edge) at the resolution it is shown on screen. Painting happens in short slices between frames,
 // largest planet first, so the desktop never waits for it.
-import {noise3,remember,cached,earthRows} from './globe.js';
+import {noise3,remember,cached,earthRows,MEMORY_GB} from './globe.js';
 import {perfMark} from './performance.js';
 
 const clamp=v=>v<0?0:v>1?1:v;
@@ -81,7 +81,7 @@ export function* planetRows(seed,rock,px,d){
 const queue=new Map(); // key -> job
 let running=false;
 // Weak: few cores, or the processor also draws the screen (gfx=soft: NVIDIA/unknown graphics, webview.py).
-const weak=(navigator.hardwareConcurrency||2)<=2||new URLSearchParams(location.search).get('gfx')==='soft';
+const weak=(navigator.hardwareConcurrency||2)<=2||new URLSearchParams(location.search).get('gfx')==='soft'||(MEMORY_GB>0&&MEMORY_GB<=4);
 const SLICE=weak?5:9;
 
 /** Planet picture `key` at `px`, painted into `canvas` when done (it may be painted already: cached). */

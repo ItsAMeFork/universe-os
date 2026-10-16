@@ -523,6 +523,9 @@ class Shell:
                 world.emit('background-busy', busy)
         if self.claude and self.claude.buddy:
             self.claude.buddy.set_busy(busy)
+            # A maximised or full-screen window that is not minimised: the slime steps aside until it is smaller again.
+            self.claude.buddy.set_covered(any(not w.get('minimized') and (w.get('maximized') or w.get('fullscreen'))
+                                              for w in windows))
         if windows:
             self.release_initial_focus()
         listed = None

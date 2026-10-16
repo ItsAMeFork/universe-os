@@ -29,9 +29,10 @@ def outputs():
 
 
 def _preferred_missing():
-    """Screens that do not run their preferred mode. In the VM (virtio-gpu) the screen reports 640x480 while the
-    session starts and the real size a moment later; labwc keeps the first mode, so the whole session stayed at
-    640x480 (14 Oct). On a normal pc current and preferred are the same and nothing happens."""
+    """Screens stuck on an emergency mode while a bigger preferred mode exists. In the VM (virtio-gpu) the screen
+    reports 640x480 while the session starts and the real size a moment later; labwc keeps the first mode, so the whole
+    session stayed at 640x480 (14 Oct). Only such small modes (at most 1024 wide) are changed: a mode a real pc runs is
+    never touched, because every mode change makes the whole screen redraw (16 Oct: the Earth went blank after it)."""
     try:
         data = json.loads(subprocess.run(['wlr-randr', '--json'], capture_output=True, text=True, timeout=5).stdout or '[]')
     except (OSError, ValueError, subprocess.TimeoutExpired):
@@ -41,7 +42,8 @@ def _preferred_missing():
         modes = o.get('modes', [])
         pref = next((m for m in modes if m.get('preferred')), None)
         cur = next((m for m in modes if m.get('current')), None)
-        if o.get('enabled', True) and pref and cur and (pref['width'], pref['height']) != (cur['width'], cur['height']):
+        if (o.get('enabled', True) and pref and cur and cur['width'] <= 1024
+                and pref['width'] * pref['height'] > cur['width'] * cur['height']):
             names.append(o.get('name'))
     return names
 
