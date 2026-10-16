@@ -4,6 +4,7 @@ Third-party hooks and rule packs are not installed. They run repository scripts 
 or they paste a whole skill into every session. Skills here are markdown the program can open when
 the task needs them. See docs/AI-PLUGINS-EN-LESSEN.md.
 """
+import copy
 import json
 import os
 import time
@@ -157,13 +158,30 @@ def _store_root():
     return folder
 
 
-def _read():
+_read_cache = [None, None]  # [(mtime_ns, size, inode), parsed dict]
+
+
+def _read_shared():
+    """Parsed config, re-read only when the file changed. Callers must not mutate the result."""
+    path = _config_path()
     try:
-        with open(_config_path(), encoding='utf-8') as handle:
+        st = os.stat(path)
+        key = (st.st_mtime_ns, st.st_size, st.st_ino)
+        if _read_cache[0] == key:
+            return _read_cache[1]
+        with open(path, encoding='utf-8') as handle:
             data = json.load(handle)
     except (OSError, ValueError):
+        _read_cache[0] = None
         return {}
-    return data if isinstance(data, dict) else {}
+    if not isinstance(data, dict):
+        data = {}
+    _read_cache[0], _read_cache[1] = key, data
+    return data
+
+
+def _read():
+    return copy.deepcopy(_read_shared())
 
 
 def _write(data):
@@ -184,9 +202,9 @@ def _item(plugin_id):
 
 
 def _saved(plugin_id):
-    items = _read().get('items')
+    items = _read_shared().get('items')
     if isinstance(items, dict) and isinstance(items.get(plugin_id), dict):
-        return items[plugin_id]
+        return copy.deepcopy(items[plugin_id])
     return {}
 
 

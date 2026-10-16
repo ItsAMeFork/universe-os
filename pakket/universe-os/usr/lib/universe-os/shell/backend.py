@@ -1,6 +1,7 @@
 """System functions behind the Universe interface. Everything runs with the user's normal rights; tasks that need
 administrator rights go through pkexec/polkit (universe-admin-helper) or through systemd services that ask polkit.
 """
+import collections
 import grp
 import json
 import os
@@ -214,6 +215,8 @@ _files_cache = (0.0, None)
 
 def fold(text):
     """Lower case without accents: 'Café Ü' -> 'cafe u'."""
+    if text.isascii():
+        return text.lower()  # nothing to strip: skips the per-character work for most names
     import unicodedata
     return ''.join(c for c in unicodedata.normalize('NFKD', text.lower()) if not unicodedata.combining(c))
 
@@ -223,9 +226,9 @@ def _file_index(max_entries=60000, budget=2.5):
     if _files_cache[1] is not None and time.monotonic() - _files_cache[0] < 60:
         return _files_cache[1]
     home = os.path.expanduser('~')
-    index, queue, start = [], [(home, 0)], time.monotonic()
+    index, queue, start = [], collections.deque([(home, 0)]), time.monotonic()
     while queue and len(index) < max_entries and time.monotonic() - start < budget:
-        folder, depth = queue.pop(0)
+        folder, depth = queue.popleft()
         try:
             entries = list(os.scandir(folder))
         except OSError:
@@ -237,7 +240,11 @@ def _file_index(max_entries=60000, budget=2.5):
                 is_dir = entry.is_dir(follow_symlinks=False)
             except OSError:
                 continue
-            index.append((fold(entry.name), entry.name, entry.path, is_dir, depth))
+            name = entry.name
+            folded = fold(name)
+            if folded == name:
+                folded = name  # already lower case: keep one string instead of two equal ones
+            index.append((folded, name, folder, is_dir, depth))  # folder, not the full path: the folder string is shared
             if is_dir and depth < 8:
                 queue.append((entry.path, depth + 1))
     _files_cache = (time.monotonic(), index)
@@ -295,10 +302,14 @@ def search_files(query, limit=30):
         return []
     home = os.path.expanduser('~')
     hits = []
-    for folded, name, path, is_dir, depth in _file_index():
-        score = _score(words, folded, typos=False)  # tens of thousands of names: plain matching stays instant
-        if score is not None:
-            hits.append((score, depth, len(name), name, path, is_dir))
+    joined = ' '.join(words)
+    first, rest = words[0], words[1:]
+    join = os.path.join
+    for folded, name, folder, is_dir, depth in _file_index():
+        # Same ranking as _score(words, folded, typos=False) (words hold no spaces, so only the name can match),
+        # without building a string and a generator per name: tens of thousands of names per keystroke.
+        if first in folded and all(w in folded for w in rest):
+            hits.append((0 if folded.startswith(joined) else 1, depth, len(name), name, join(folder, name), is_dir))
     hits.sort()
     found = []
     for _s, _d, _l, name, path, is_dir in hits:
@@ -309,13 +320,25 @@ def search_files(query, limit=30):
     return found
 
 
+_folded = (None, None)
+
+
+def _folded_apps():
+    """(app, folded name, folded extra text) per program, folded once per app list instead of on every keystroke."""
+    global _folded
+    installed = apps()
+    if _folded[0] is not installed:
+        _folded = (installed, [(a, fold(a['name']), fold(a['comment'] + ' ' + a['keywords'] + ' ' + a['id'])) for a in installed])
+    return _folded[1]
+
+
 def search(query):
     words = fold(query or '').split()
     if not words:
         return {'apps': [], 'files': []}
     ranked = []
-    for a in apps():
-        score = _score(words, fold(a['name']), fold(a['comment'] + ' ' + a['keywords'] + ' ' + a['id']))
+    for a, name, extra in _folded_apps():
+        score = _score(words, name, extra)
         if score is not None:
             # Desktop settings launchers also match program names; prefer the program.
             ranked.append(('Settings' in a['categories'], score, a['name'].lower(), a))

@@ -97,8 +97,12 @@ const FOV=900,BASE=128;
 const DEFAULT_CAM={yaw:-.5,pitch:.42,dist:1650,tx:0,ty:0,tz:0};
 let cam={...DEFAULT_CAM};
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+// sin/cos of the camera angles, recomputed only when yaw or pitch changed (project() runs per planet and per ring point).
+let trigYaw=NaN,trigPitch=NaN,tcy=1,tsy=0,tcp=1,tsp=0;
 function project([x,y,z]){
- const dx=x-cam.tx,dy=y-cam.ty,dz=z-cam.tz,cy=Math.cos(cam.yaw),sy=Math.sin(cam.yaw),cp=Math.cos(cam.pitch),sp=Math.sin(cam.pitch);
+ if(cam.yaw!==trigYaw){trigYaw=cam.yaw;tcy=Math.cos(trigYaw);tsy=Math.sin(trigYaw);}
+ if(cam.pitch!==trigPitch){trigPitch=cam.pitch;tcp=Math.cos(trigPitch);tsp=Math.sin(trigPitch);}
+ const dx=x-cam.tx,dy=y-cam.ty,dz=z-cam.tz,cy=tcy,sy=tsy,cp=tcp,sp=tsp;
  const x1=dx*cy-dz*sy,z1=dx*sy+dz*cy,y2=dy*cp-z1*sp,depth=dy*sp+z1*cp+cam.dist;
  if(depth<30)return null;
  const s=FOV/depth;
@@ -124,8 +128,9 @@ const STARS=Array.from({length:900},(_,i)=>{let s=(i*9301+49297)%233280;const r=
 const STAR_GROUPS=Array.from({length:24},(_,i)=>({style:`rgba(208,224,255,${alpha(.25+.75*(i+.5)/24)})`,stars:[]}));
 for(const s of STARS)STAR_GROUPS[Math.min(23,Math.floor((s[3]-.25)/.75*24))].stars.push(s);
 let skyShown=false;
+const SOFT_GFX=new URLSearchParams(location.search).get('gfx')==='soft';
 function drawSky(){
- const w=innerWidth,hgt=innerHeight,dpr=canvasScale(w,hgt,devicePixelRatio,new URLSearchParams(location.search).get('gfx')==='soft');
+ const w=innerWidth,hgt=innerHeight,dpr=canvasScale(w,hgt,devicePixelRatio,SOFT_GFX);
  if(sky.width!==Math.round(w*dpr)||sky.height!==Math.round(hgt*dpr)){sky.width=Math.round(w*dpr);sky.height=Math.round(hgt*dpr);}
  const c=sky.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,hgt);
  if(!skyShown){skyShown=true;document.body.style.backgroundImage='none';} // the login picture of world.html, until the first real sky
@@ -149,9 +154,21 @@ function drawSky(){
    g.addColorStop(0,`rgba(255,200,140,${alpha(.55*glow)})`);g.addColorStop(.5,`rgba(120,180,255,${alpha(.25*glow)})`);g.addColorStop(1,'rgba(80,120,255,0)');
    c.fillStyle=g;c.fillRect(0,0,w,hgt);}}
 }
+// The unit circle of the rings, computed once (the same Math.cos/sin inputs as before, so the same points).
+const RING_COS=Array.from({length:97},(_,i)=>Math.cos(i/96*Math.PI*2)),RING_SIN=Array.from({length:97},(_,i)=>Math.sin(i/96*Math.PI*2));
 function ring(c,r,color,width){
  c.strokeStyle=color;c.lineWidth=width;c.beginPath();let pen=false;
- for(let i=0;i<=96;i++){const a=i/96*Math.PI*2,p=project([Math.cos(a)*r,0,Math.sin(a)*r]);if(!p){pen=false;continue;}pen?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y);pen=true;}
+ // project() inlined for y=0: no point array and no result object per vertex (97 per ring)
+ if(cam.yaw!==trigYaw){trigYaw=cam.yaw;tcy=Math.cos(trigYaw);tsy=Math.sin(trigYaw);}
+ if(cam.pitch!==trigPitch){trigPitch=cam.pitch;tcp=Math.cos(trigPitch);tsp=Math.sin(trigPitch);}
+ const cx=innerWidth/2,cyy=innerHeight/2,dy=0-cam.ty;
+ for(let i=0;i<=96;i++){
+  const dx=RING_COS[i]*r-cam.tx,dz=RING_SIN[i]*r-cam.tz;
+  const x1=dx*tcy-dz*tsy,z1=dx*tsy+dz*tcy,y2=dy*tcp-z1*tsp,depth=dy*tsp+z1*tcp+cam.dist;
+  if(depth<30){pen=false;continue;}
+  const s=FOV/depth,px=cx+x1*s,py=cyy+y2*s;
+  pen?c.lineTo(px,py):c.moveTo(px,py);pen=true;
+ }
  c.stroke();
 }
 
@@ -225,7 +242,7 @@ let earthScale=1,glow=0,flash=0;
 const backOut=t=>{const u=t-1;return 1+2.4*u*u*u+1.4*u*u;};
 function personal(o,m){
  if(m>=1||m<=0)return m;
- const d=(hash(o.key)%100)/100*.3,t=Math.max(0,Math.min(1,(m-d)/(1-d)));
+ const d=(o._h??=hash(o.key))%100/100*.3,t=Math.max(0,Math.min(1,(m-d)/(1-d)));
  return trailDir>0?backOut(t):t*t*(3-2*t);
 }
 function shownAt(o,m){
@@ -233,7 +250,7 @@ function shownAt(o,m){
  m=personal(o,m);
  if(m===1)return {pos:o.pos,size:o.size};
  // spiral: everything turns around the Earth while it moves in or out
- const c=centre(),turn=(1-m)*(2.2+(hash(o.key)%100)/40),ct=Math.cos(turn),st=Math.sin(turn);
+ const c=centre(),turn=(1-m)*(2.2+((o._h??=hash(o.key))%100)/40),ct=Math.cos(turn),st=Math.sin(turn);
  const dx=(o.pos[0]-c[0])*m,dz=(o.pos[2]-c[2])*m;
  return {pos:[c[0]+dx*ct-dz*st,c[1]+(o.pos[1]-c[1])*m,c[2]+dx*st+dz*ct],size:o.size*(.12+.88*m)};
 }
