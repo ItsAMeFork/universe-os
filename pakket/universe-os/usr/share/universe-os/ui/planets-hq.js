@@ -104,6 +104,7 @@ function draw(canvas,src,px){
  if(!canvas.isConnected)return;
  if(canvas.width!==px){canvas.width=canvas.height=px;}
  const g=canvas.getContext('2d');g.clearRect(0,0,px,px);g.drawImage(src,0,0);
+ if(canvas.classList.contains('earth'))try{g.getImageData(0,0,1,1);}catch{} // make WebKit show it (globe.js showNow)
  canvas.dataset.tier=String(px);
 }
 let current=null;
