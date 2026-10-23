@@ -28,7 +28,7 @@ Uitkomst: `/run/universe-os/gpu.json` en `journalctl -u universe-gpu`. `grafisch
 stuurprogramma, dus na een wissel nouveau → nvidia test hij één keer opnieuw.
 
 ### Opstartmenu (live-ISO, UEFI en BIOS)
-- **Live system** (standaard): automatisch, zoals hierboven.
+- **Universe OS** (standaard): automatisch, zoals hierboven. (De stock-entry "Live system" en de fail-safe-entry zijn weggehaald.)
 - **NVIDIA-stuurprogramma:** `universe.gpu=nvidia`, ook als de kaart niet in de lijst staat.
 - **Veilige grafische modus:** `universe.gpu=veilig universe.gfx=safe`: geen GPU-stuurprogramma, het beeld van de
   firmware (simpledrm) en tekenen door de processor. Werkt ook met Wayland (labwc).

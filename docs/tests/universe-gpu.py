@@ -57,5 +57,15 @@ grub = (live / 'config/bootloaders/grub-pc/grub.cfg').read_text(encoding='utf-8'
 syslinux = (live / 'config/bootloaders/syslinux_common/live.cfg.in').read_text(encoding='utf-8')
 for text in (grub, syslinux):
     assert 'universe.gpu=nvidia' in text and 'universe.gpu=veilig universe.gfx=safe' in text and 'nomodeset' in text
-assert '@LINUX_LIVE@' in grub
+# Stock live-build entries are gone; GRUB and syslinux show the same four Universe OS labels.
+assert '@LINUX_LIVE@' not in grub
+assert 'Live system' not in grub and 'Live system' not in syslinux
+for label in (
+    'Universe OS',
+    'Universe OS - NVIDIA-stuurprogramma (nieuwere GeForce/RTX)',
+    'Universe OS - veilige grafische modus',
+    'Universe OS - nomodeset (noodgeval)',
+):
+    assert f'menuentry "{label}" {{' in grub, label
+    assert f'menu label {label}\n' in syslinux, label
 print('PASS: universe-gpu')
