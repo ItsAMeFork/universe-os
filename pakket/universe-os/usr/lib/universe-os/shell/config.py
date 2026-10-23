@@ -46,6 +46,7 @@ SETTING_KEYS = {
     'tapToClick': (True, False),
     'pointerSpeed': [x / 10 for x in range(-10, 11)],
     'displayScales': None,  # dict output -> scale, validated separately
+    'displayResolution': None,  # 'WxH' (standard 1920x1080) or 'preferred': the screen's own mode
     'buddy': (True, False),  # Claude-personage op het bureaublad (alleen als Claude Code er is)
     'sounds': (True, False),  # systeemgeluiden: inloggen, afmelden, afsluiten, meldingen
     'heBuddy': (True, False),  # Hé Buddy: de buddy spreekt meldingen uit. Uit tot de gebruiker het aanzet.
@@ -57,7 +58,7 @@ SETTING_KEYS = {
 def settings():
     base = branding().get('defaults', {})
     merged = {'animations': 'full', 'travel': True, 'uiScale': 100, 'textScale': 100, 'lockMinutes': 10,
-              'screenOffMinutes': 15, 'naturalScroll': False, 'tapToClick': True, 'pointerSpeed': 0.0, 'displayScales': {}, 'buddy': True, 'sounds': True,
+              'screenOffMinutes': 15, 'naturalScroll': False, 'tapToClick': True, 'pointerSpeed': 0.0, 'displayScales': {}, 'displayResolution': '1920x1080', 'buddy': True, 'sounds': True,
               'heBuddy': False, 'zen': False, 'god': False}
     merged.update(base)
     merged.update(read_json(os.path.join(user_dir(), 'settings.json'), {}))
@@ -71,6 +72,9 @@ def set_setting(key, value):
     if key == 'displayScales':
         if not isinstance(value, dict) or not all(isinstance(v, (int, float)) and 0.5 <= v <= 3 for v in value.values()):
             raise ValueError('Ongeldige schaal')
+    elif key == 'displayResolution':
+        if not (value == 'preferred' or re.fullmatch(r'[1-9][0-9]{2,4}x[1-9][0-9]{2,4}', str(value))):
+            raise ValueError('Ongeldige resolutie')
     elif key == 'pointerSpeed':
         value = max(-1.0, min(1.0, float(value)))
     elif value not in allowed:

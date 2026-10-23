@@ -3,6 +3,7 @@
 
   universe-displays list            JSON list of screens
   universe-displays apply           apply saved scales (at login)
+  universe-displays resolution      standard resolution 1920x1080 where the screen has it (first thing at login)
   universe-displays scale NAME S    set and save scale S for screen NAME
 """
 import json
@@ -48,6 +49,36 @@ def _preferred_missing():
     return names
 
 
+DEFAULT_RESOLUTION = '1920x1080'
+
+
+def choose_mode(modes, target):
+    """The mode to switch to: target ('WxH') with the highest refresh, or None (screen lacks it, already on it, or
+    target 'preferred'). Jesse, 23 Oct: 1920x1080 as standard; screens without it keep their preferred mode."""
+    try:
+        w, h = (int(x) for x in str(target).lower().split('x'))
+    except ValueError:
+        return None
+    fits = [m for m in modes if m.get('width') == w and m.get('height') == h]
+    if not fits or any(m.get('current') for m in fits):
+        return None
+    return max(fits, key=lambda m: m.get('refresh') or 0)
+
+
+def resolution():
+    """Before the shell draws anything: a mode change later made the whole screen redraw (16 Oct)."""
+    target = config.settings().get('displayResolution') or DEFAULT_RESOLUTION
+    try:
+        data = json.loads(subprocess.run(['wlr-randr', '--json'], capture_output=True, text=True, timeout=5).stdout or '[]')
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        return
+    for o in data:
+        mode = o.get('enabled', True) and choose_mode(o.get('modes', []), target)
+        if mode:
+            subprocess.run(['wlr-randr', '--output', o['name'], '--mode',
+                            '%dx%d@%.3f' % (mode['width'], mode['height'], mode.get('refresh') or 60)], check=False, timeout=10)
+
+
 def apply():
     # The preferred mode can arrive a few seconds after login: check a few times, then stop.
     for attempt in range(6):
@@ -67,6 +98,8 @@ def main():
         print(json.dumps(outputs()))
     elif cmd == 'apply':
         apply()
+    elif cmd == 'resolution':
+        resolution()
     elif cmd == 'scale' and len(sys.argv) == 4:
         name, scale = sys.argv[2], float(sys.argv[3])
         if not 0.5 <= scale <= 3:
