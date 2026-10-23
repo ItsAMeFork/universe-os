@@ -140,7 +140,53 @@ def make_view(page, bridge, transparent=False, zoom=1.0):
     if params:
         uri += '?' + '&'.join(params)
     view.load_uri(uri)
+    view.connect('web-process-terminated', _restart_page, page, uri)
     return view
+
+
+_restarts = {}
+
+
+def cpu_lacks_jit_features(cpuinfo='/proc/cpuinfo'):
+    """23 Oct (VM, TCG 'QEMU Virtual CPU', no SSE4): the JavaScript JIT in the page processes stopped on an invalid
+    instruction ('trap invalid opcode' in dmesg) about 10 s after the world loaded, again and again. Without SSE4.2
+    the pages run without JIT: slower JavaScript, but they keep running."""
+    try:
+        with open(cpuinfo) as f:
+            for line in f:
+                if line.startswith('flags'):
+                    return 'sse4_2' not in line.split()
+    except OSError:
+        pass
+    return False
+
+
+def no_jit(reason):
+    if os.environ.get('JSC_useJIT') != '0':
+        os.environ['JSC_useJIT'] = '0'  # new page processes inherit it
+        import sys
+        print('[universe-shell] JavaScript-JIT uit: %s' % reason, file=sys.stderr, flush=True)
+
+
+if cpu_lacks_jit_features():
+    no_jit('processor zonder SSE4.2')
+
+
+def _restart_page(view, reason, page, uri):
+    """23 Oct: on the H310M and in the VM the world page's process stopped (the desktop froze in the intro or turned
+    into the plain GTK grey when the start menu opened) and nothing brought it back. Log it and load the page again;
+    after 3 stops within a minute wait 10 s so a page that keeps failing cannot spin."""
+    import sys
+    import time
+    name = getattr(reason, 'value_nick', None) or str(reason)
+    now = time.monotonic()
+    recent = [t for t in _restarts.get(page, []) if now - t < 60] + [now]
+    _restarts[page] = recent
+    print('[universe-shell] paginaproces %s gestopt (%s); opnieuw laden (%d keer deze minuut)' % (page, name, len(recent)),
+          file=sys.stderr, flush=True)
+    if len(recent) >= 2:
+        no_jit('%s stopte %d keer binnen een minuut' % (page, len(recent)))  # the next process starts without JIT
+    GLib.timeout_add(10000 if len(recent) > 3 else 500, lambda: view.load_uri(uri) and False)
 
 
 def _policy(view, decision, kind):

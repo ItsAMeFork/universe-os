@@ -36,7 +36,7 @@ def desktop_app(desktop_id):
 
 
 # Set by webview.webkit_safe_mode for the Universe pages only (software drawing on NVIDIA/unknown graphics).
-SOFTWARE_GL_VARS = ('LIBGL_ALWAYS_SOFTWARE', 'GALLIUM_DRIVER', 'WEBKIT_DMABUF_RENDERER_FORCE_SHM')
+SOFTWARE_GL_VARS = ('LIBGL_ALWAYS_SOFTWARE', 'GALLIUM_DRIVER', 'WEBKIT_DMABUF_RENDERER_FORCE_SHM', 'JSC_useJIT')
 
 
 def program_env():
