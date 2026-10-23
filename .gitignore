@@ -1,5 +1,6 @@
 # Bouwresultaten en logboeken (groot; staan in uitvoer/ in de bouw-VM)
 uitvoer/
+iso/
 build/
 *.iso
 *.iso.sha256
@@ -7,6 +8,14 @@ build/
 *.qcow2
 *.img
 logs/*.log
+
+# Live-build artefacten (ontstaan bij lb build in live/)
+live/.build/
+live/binary/
+live/binary.modified_timestamps
+live/cache/
+live/chroot*
+live/build.log
 
 # Lokale bestanden die niet in de repo horen
 extern/
