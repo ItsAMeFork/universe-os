@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -161,7 +162,11 @@ puts = []
 def opener(method, url, data, headers):
     puts.append((method, url, data))
     if method == 'REPORT':
-        return 200, 'BEGIN:VCALENDAR\nBEGIN:VEVENT\nUID:les-1\nSUMMARY:Ouderavond\nDTSTART:20261014T170000Z\nDTEND:20261014T180000Z\nLOCATION:School\nEND:VEVENT\nEND:VCALENDAR\n'
+        # Relatief aan nu: list_agenda toont alleen komende afspraken, een vaste datum verloopt.
+        begin = time.time() + 3 * 86400
+        start = time.strftime('%Y%m%dT170000Z', time.gmtime(begin))
+        eind = time.strftime('%Y%m%dT180000Z', time.gmtime(begin))
+        return 200, 'BEGIN:VCALENDAR\nBEGIN:VEVENT\nUID:les-1\nSUMMARY:Ouderavond\nDTSTART:%s\nDTEND:%s\nLOCATION:School\nEND:VEVENT\nEND:VCALENDAR\n' % (start, eind)
     return 201, ''
 
 
