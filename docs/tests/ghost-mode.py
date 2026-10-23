@@ -43,6 +43,8 @@ secret = 'wachtwoord-niet-in-het-logboek'
 row = brein.log_actie('mail_read', 'Gelezen: hallo', 'uitgevoerd', secret)
 assert row
 assert brein.list_acties(query='hallo')
+# Since the timeline merge (0.2.22) the timeline is off until the user turns it on; this test needs it on.
+brein.set_timeline(aan=True, pauze=False)
 brein.log_event('app', 'firefox.desktop', 'Firefox')
 assert brein.timeline(days=1)
 eff = brein.log_efficientie('claude', 'haiku', 10, 4, True, 1, 2, 'korte taak')
