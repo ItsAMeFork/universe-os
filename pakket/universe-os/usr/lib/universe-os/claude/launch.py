@@ -1,7 +1,10 @@
 #!/usr/bin/python3
 """Start the assistant the user picked on the AI page. universe-ai and universe-claude both end here."""
 import os
+import signal
+import subprocess
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ai_provider  # noqa: E402
@@ -42,6 +45,46 @@ def prepare(fresh=False, env=None):
     return plan
 
 
+def run_child(plan, popen=None):
+    """Wait for the CLI. Codex and Gemini have no Stop hook, so their new session files become a lesson here.
+
+    Claude already writes that lesson from its own hook. Ollama writes it per turn. Doing it again would double the row.
+    """
+    popen = popen or subprocess.Popen
+    started = time.time()
+    proc = popen(plan['exec_argv'], env=plan.get('exec_env'), cwd=plan.get('cwd') or None)
+    try:
+        code = proc.wait()
+    except KeyboardInterrupt:
+        proc.send_signal(signal.SIGINT)
+        code = proc.wait()
+    provider = plan.get('provider') or ''
+    if provider not in ('claude', 'ollama') and plan.get('cwd'):
+        previous = os.environ.get('UNIVERSE_AI_REFLECT')
+        try:
+            if (plan.get('env') or {}).get('UNIVERSE_AI_REFLECT') == '1':
+                os.environ['UNIVERSE_AI_REFLECT'] = '1'
+            else:
+                os.environ.pop('UNIVERSE_AI_REFLECT', None)
+            import efficientie
+            model = plan.get('model') or ''
+            efficientie.capture_folder(provider, model, plan['cwd'], started)
+            # Gemini CLI writes chats under the home directory, not in the Universe work folder.
+            if provider == 'gemini':
+                home = (plan.get('exec_env') or {}).get('HOME') or os.path.expanduser('~')
+                extra = os.path.join(home, '.gemini')
+                if os.path.isdir(extra):
+                    efficientie.capture_folder(provider, model, extra, started)
+        except Exception:
+            pass
+        finally:
+            if previous is None:
+                os.environ.pop('UNIVERSE_AI_REFLECT', None)
+            else:
+                os.environ['UNIVERSE_AI_REFLECT'] = previous
+    return 0 if code is None else int(code)
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     try:
@@ -69,7 +112,7 @@ def main(argv=None):
         print('Afscherming uit. Zonder bubblewrap kan een terminalopdracht de bevestiging omzeilen.')
     sys.stdout.flush()
     os.chdir(plan['cwd'])
-    os.execvpe(plan['exec_argv'][0], plan['exec_argv'], plan['exec_env'])
+    return run_child(plan)
 
 
 if __name__ == '__main__':

@@ -4,7 +4,7 @@ Dit hoort bij de AI-pagina in het Controlecentrum. De bevestiging voor mail, age
 
 ## Leren van een taak
 
-Na een afgeronde taak komt er een rij in `brein.db`, tabel `efficientie`: programma, model, tokens in en uit, of dat een schatting is, aantal stappen, duur en een korte titel. De titel wordt leeg gemaakt als er een sleutel in lijkt te staan.
+Na een afgeronde taak komt er een rij in `brein.db`, tabel `efficientie`: programma, model, tokens in en uit, of dat een schatting is, aantal stappen, duur en een korte titel. De titel wordt leeg gemaakt als er een sleutel in lijkt te staan. Staat leren aan, dan komt er meteen ook een korte les (soort `les`) uit die cijfers, zonder extra modelaanroep. Een bijna gelijke les wordt niet nog eens toegevoegd. Een les kan uit: hij blijft in het brein, maar gaat niet mee naar de volgende sessie. Claude doet dit in de Stop-hook. Ollama doet het na elke beurt. Codex, Gemini en de andere programma's hebben geen Stop-hook; als hun sessie stopt, leest Universe OS de nieuwe sessiebestanden in hun werkmap en schrijft dezelfde les.
 
 Waar de cijfers vandaan komen:
 
@@ -19,11 +19,11 @@ Een les (soort `les` in het brein) wordt alleen gevraagd als leren aanstaat, de 
 - Gemini: `gemini-2.5-flash`, alleen met een API-sleutel
 - Ollama: `qwen2.5:3b` op deze computer
 
-Zonder sleutel slaat Claude, Codex en Gemini de les over. Het gebruik blijft bewaard. Een les met een link, een adres of het woord versturen wordt niet opgeslagen. Een bijna gelijke les wordt niet nog eens toegevoegd.
+Zonder sleutel slaan Claude, Codex en Gemini die rijkere les over. De korte les uit de cijfers en het gebruik blijven bewaard. Een les met een link, een adres of het woord versturen wordt niet opgeslagen.
 
-Aan het begin van een sessie gaan hoogstens vier lessen mee, samen rond de 300 tokens, ontdubbeld. Staat leren uit, dan niet. De schakelaar staat op de pagina AI. De trend daar toont de laatste taken. In de Brein-nevel is een les een eigen ster en een filter in de lijst. Bewerken en verwijderen gaat met dezelfde knoppen als andere herinneringen.
+Aan het begin van een sessie gaan hoogstens vier lessen mee die aan staan, samen rond de 300 tokens, ontdubbeld. Staat leren uit, dan niet, en een nieuwe taak schrijft dan ook geen les. De schakelaar staat op de pagina AI, samen met de lessen en een vakje per les. De trend daar toont de laatste taken. In de Brein-nevel is een les een eigen ster en een filter in de lijst. Meenemen, bewerken en verwijderen gaat vanuit die lijst.
 
-Codex en Gemini hebben geen eigen stop-hook. Hun gebruik wordt bewaard zodra een transcript of usage-object binnenkomt; de Ollama-host en de Claude-hook doen dat zelf. Een sessie die geen van beide schrijft, telt niet mee.
+Codex en Gemini hebben geen eigen stop-hook. Hun gebruik wordt bewaard als de sessie stopt en er een nieuw sessiebestand in de werkmap staat; de Ollama-host en de Claude-hook doen dat zelf, per beurt. Een sessie die niets schrijft, telt niet mee.
 
 ## Plugins
 

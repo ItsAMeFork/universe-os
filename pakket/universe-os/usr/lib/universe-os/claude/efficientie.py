@@ -1,8 +1,10 @@
-"""Usage and a cheap lesson after a finished task.
+"""Usage and a short lesson after a finished task.
 
-The numbers go into brein.db (table efficientie). A reflection call is only started when it is
-smaller than the task and the weekly budget still has room. Claude is never started with
-`claude -p`: that would bill the subscription. Without an API key the lesson is skipped.
+The numbers go into brein.db (table efficientie). When learning is on, a one-sentence lesson
+from those numbers is stored in the brain as well. No extra model call. A richer reflection
+is only started when it is smaller than the task and the weekly budget still has room.
+Claude is never started with `claude -p`: that would bill the subscription. Without an API
+key that richer lesson is skipped; the short local one still lands.
 """
 import json
 import os
@@ -204,6 +206,8 @@ def pick_lessons(rows, max_tokens=LESSON_TOKENS, limit=4):
     """Newest first, duplicates dropped, stop around 300 tokens."""
     chosen, seen, used = [], set(), 0
     for row in rows:
+        if isinstance(row, dict) and not row.get('aan', True):
+            continue
         text = clean_lesson(row.get('tekst') if isinstance(row, dict) else row)
         key = normalize(text)
         if not text or key in seen:
@@ -222,6 +226,7 @@ def pick_lessons(rows, max_tokens=LESSON_TOKENS, limit=4):
 def lesson_block(rows=None):
     if rows is None:
         rows = brein.recall('', 'les', limit=12)
+    rows = [row for row in rows if not isinstance(row, dict) or row.get('aan', True)]
     chosen = pick_lessons(rows)
     if not chosen:
         return ''
@@ -267,13 +272,45 @@ def _reflect_allowed():
     return os.environ.get('UNIVERSE_AI_REFLECT') == '1' and _enabled()
 
 
+def local_lesson(stats):
+    """One sentence from the numbers already on this computer. No model call and no secrets."""
+    tokens = int(stats.get('tokens_in') or 0) + int(stats.get('tokens_out') or 0)
+    tools = int(stats.get('gereedschap') or 0)
+    if tools >= 5:
+        return 'Deze taak gebruikte %d stappen. Kijk eerst in het brein en bundel wat overblijft.' % tools
+    if tokens >= 8000:
+        return 'Deze taak gebruikte %d tokens. Herhaal een zoekstap niet en houd het antwoord kort.' % tokens
+    if tokens >= TINY_TOKENS or tools >= TINY_TOOLS:
+        return 'Houd een taak van deze grootte bij één zoekstap en een kort antwoord.'
+    return 'Een korte taak hoeft geen extra stappen.'
+
+
+def _save_local(provider, stats):
+    if not _enabled():
+        return None
+    return store_lesson(local_lesson(stats), provider)
+
+
+def lesson_rows(limit=8):
+    rows = []
+    for row in brein.recall('', 'les', limit=max(1, min(int(limit or 8), 20))):
+        text = clean_lesson(row.get('tekst'))
+        if not text:
+            continue
+        rows.append({'id': row['id'], 'tekst': text, 'aan': bool(row.get('aan', True))})
+    return rows
+
+
 def capture_stats(provider, model, stats, spawn=None):
     spent = brein.reflectie_tokens_since(time.time() - 7 * 86400)
     allowed, reason = decide(stats, spent, _enabled())
     if not allowed or not _reflect_allowed():
         why = reason or 'uit'
-        return _record(provider, model, stats, why)
+        row_id = _record(provider, model, stats, why)
+        _save_local(provider, stats)
+        return row_id
     row_id = _record(provider, model, stats, '')
+    _save_local(provider, stats)
     if spawn is not None:
         try:
             spawn(row_id)
@@ -395,6 +432,49 @@ def usage_from_response(provider, payload):
     if incoming or outgoing:
         return incoming, outgoing, False
     return estimate_tokens(json.dumps(payload)), 0, True
+
+
+def _read_new_files(root, since):
+    """Session files written during this run. Skips links and files we wrote before the start."""
+    root = os.path.realpath(root or '')
+    if not root or not os.path.isdir(root):
+        return ''
+    chunks, used, since = [], 0, float(since)
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [name for name in dirnames if name not in ('hooks', 'rules', '.git')]
+        for name in filenames:
+            if name in ('mcp.json', 'settings.json', 'opencode.json', 'AGENTS.md', 'GEMINI.md', 'config.toml', 'config.yaml'):
+                continue
+            if not name.endswith(('.jsonl', '.json', '.txt', '.md')):
+                continue
+            path = os.path.join(dirpath, name)
+            if os.path.islink(path) or not os.path.isfile(path):
+                continue
+            try:
+                # st_mtime can sit a few milliseconds behind time.time() on this clock.
+                if os.path.getmtime(path) + 2 < since or os.path.getsize(path) < 20 or os.path.getsize(path) > 2_000_000:
+                    continue
+                with open(path, encoding='utf-8', errors='replace') as handle:
+                    text = handle.read(2_000_000 - used)
+            except OSError:
+                continue
+            if not text.strip():
+                continue
+            chunks.append(text)
+            used += len(text)
+            if used >= 2_000_000 or len(chunks) >= 20:
+                break
+        if used >= 2_000_000 or len(chunks) >= 20:
+            break
+    return '\n'.join(chunks)
+
+
+def capture_folder(provider, model, root, since):
+    """Codex, Gemini and the other CLIs have no Stop hook. Read what they wrote, then the same lesson path."""
+    blob = _read_new_files(root, since)
+    if not blob.strip():
+        return None
+    return capture_stats(provider, model or CHEAP.get(provider) or '', parse_hook({}, blob))
 
 
 def store_lesson(text, provider):
