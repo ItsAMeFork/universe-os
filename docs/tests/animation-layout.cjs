@@ -1,6 +1,9 @@
+// Draaien: NODE_PATH=<map met de playwright-module> CHROME_BIN=<pad naar chrome> node docs/tests/animation-layout.cjs
 const {chromium}=require('playwright'),fs=require('node:fs'),assert=require('node:assert/strict');
 (async()=>{
- const browser=await chromium.launch({executablePath:process.env.CHROME_BIN||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
+ // CHROME_BIN wint altijd; zonder die variabele: Windows-Chrome op Windows, anders de door Playwright beheerde Chromium.
+ const executablePath=process.env.CHROME_BIN||(process.platform==='win32'?'C:/Program Files/Google/Chrome/Application/chrome.exe':undefined);
+ const browser=await chromium.launch({executablePath,headless:true});
  try{
   const page=await browser.newPage({viewport:{width:1920,height:1080}});
   const css=fs.readFileSync('pakket/universe-os/usr/share/universe-os/ui/common.css','utf8')+'\n'+fs.readFileSync('pakket/universe-os/usr/share/universe-os/ui/world.css','utf8');
