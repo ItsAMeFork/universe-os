@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Diagnose maken
+Comment=Verzamelt logboeken en grafische gegevens in één bestand (USB-stick of thuismap)
+Exec=x-terminal-emulator -e sh -c "universe-diagnose; echo; echo Druk op Enter om te sluiten; read x"
+Icon=utilities-system-monitor
+Categories=System;
+Terminal=false

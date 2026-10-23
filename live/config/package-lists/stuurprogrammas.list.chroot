@@ -25,6 +25,8 @@ nvidia-vulkan-icd
 firmware-misc-nonfree
 firmware-nvidia-graphics
 pciutils
+# universe-diagnose: glxinfo -B en eglinfo (0.2.28)
+mesa-utils
 
 # Video afspelen met hardware (codecs)
 gstreamer1.0-plugins-good

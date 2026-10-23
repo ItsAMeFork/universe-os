@@ -141,6 +141,13 @@ def make_view(page, bridge, transparent=False, zoom=1.0):
     # Only our own pages: links to the web open in the browser, never inside the shell.
     view.connect('decide-policy', _policy)
     view.connect('context-menu', lambda *a: True)
+    uri = page_uri(page)
+    view.load_uri(uri)
+    view.connect('web-process-terminated', _restart_page, page, uri)
+    return view
+
+
+def page_uri(page):
     uri = GLib.filename_to_uri('%s/%s' % (UI_DIR, page))
     params = []
     if os.environ.get('UNIVERSE_DEBUG_FPS') == '1':
@@ -151,12 +158,13 @@ def make_view(page, bridge, transparent=False, zoom=1.0):
         params.append('mem=%d' % MEMORY_GB)  # little memory: smaller planet pictures and picture cache (globe.js)
     if params:
         uri += '?' + '&'.join(params)
-    view.load_uri(uri)
-    view.connect('web-process-terminated', _restart_page, page, uri)
-    return view
+    return uri
 
 
 _restarts = {}
+# A page that keeps stopping gets its simple version (0.2.28): the world becomes plain icons instead of a dark screen.
+FALLBACK = {'world.html': 'world-lite.html'}
+
 
 
 def cpu_lacks_jit_features(cpuinfo='/proc/cpuinfo'):
@@ -198,6 +206,11 @@ def _restart_page(view, reason, page, uri):
           file=sys.stderr, flush=True)
     if len(recent) >= 2:
         no_jit('%s stopte %d keer binnen een minuut' % (page, len(recent)))  # the next process starts without JIT
+    surface = getattr(view, 'surface', None)
+    if len(recent) >= 3 and page in FALLBACK and hasattr(surface, 'fallback') and not getattr(surface, 'uri', None):
+        GLib.timeout_add(500, lambda: surface.fallback('%s stopte %d keer binnen een minuut' % (page, len(recent))) and False)
+        return
+    uri = getattr(surface, 'uri', None) or uri  # after the fallback: reload the simple page
     GLib.timeout_add(10000 if len(recent) > 3 else 500, lambda: view.load_uri(uri) and False)
 
 

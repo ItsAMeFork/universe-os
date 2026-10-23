@@ -26,7 +26,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import backend  # noqa: E402
 import config  # noqa: E402
 import session  # noqa: E402
-from webview import WEBKIT_GRAPHICS, Bridge, emit, emit_code, event_code, make_view  # noqa: E402
+import grafisch  # noqa: E402
+from webview import WEBKIT_GRAPHICS, Bridge, page_uri, emit, emit_code, event_code, make_view  # noqa: E402
 
 SOCKET = os.path.join(os.environ.get('XDG_RUNTIME_DIR', '/tmp'), 'universe-shell.sock')
 # Page handlers that Claude Code may use through `universe-ctl call` (the universe-mcp tools): what a user does in the
@@ -70,6 +71,8 @@ ANIMATIONS = {
 }
 PANEL_CLOSED = (430, 44)
 PANEL_OPEN = (400, 700)
+WORLD_OK_TIMEOUT = 90  # seconds; world.js confirms planets 14 s after its start
+WORLD_READY_TIMEOUT = 40  # seconds; the VM (TCG) needs ~20 s for the first world
 DOCK_HEIGHT = 64  # CSS pixels of .dock in dock.html
 DOCK_MARGIN = 8
 
@@ -317,7 +320,14 @@ class Surface:
             self.window.set_default_size(*size)
         self.view = make_view(page, shell.bridge, transparent=transparent, zoom=ui_zoom(config.settings()['uiScale']))
         self.view.surface = self
+        self.shell = shell
         self.window.add(self.view)
+
+    def fallback(self, reason):
+        """Called by webview when this page keeps stopping (only the world has a simple version)."""
+        if self.name == 'world':
+            self.shell.world_lite(reason)
+        return False
 
     def redraw(self):
         """23 Oct (Jesse): on the H310M the dock and top bar only showed their real look after the pointer went over
@@ -339,6 +349,14 @@ class Shell:
         self.started = time.time()
         self.started_monotonic = time.monotonic()
         self.world_ready = False
+        self.world_ok = False
+        self.lite = None  # reason for the simple world, or None
+        try:
+            self.lite = grafisch.lite_reason(WEBKIT_GRAPHICS)
+        except Exception as error:  # never let this keep the desktop away
+            log('lite-keuze mislukt: %s' % error)
+        if self.lite:
+            log('eenvoudige wereld vanaf de start: %s' % self.lite)
         self.toplevels = None  # run(): imported after the world window exists (pywayland, asyncio, ssl: seconds on a cold disk)
         self.bridge = Bridge(self.handlers(), threaded={'status', 'audio.outputs', 'audio.select', 'updates.status', 'power', 'volume.set', 'volume.mute',
                                                         'notifications.clear', 'search.files', 'updates.status', 'updates.refresh', 'updates.install', 'pick.path',
@@ -400,16 +418,53 @@ class Shell:
 
     def add_world(self, monitor):
         L, E, K = GtkLayerShell.Layer, GtkLayerShell.Edge, GtkLayerShell.KeyboardMode
-        world = Surface(self, 'world', 'world.html', L.BACKGROUND, [E.TOP, E.BOTTOM, E.LEFT, E.RIGHT], K.ON_DEMAND, monitor=monitor)
+        page = 'world-lite.html' if self.lite else 'world.html'
+        world = Surface(self, 'world', page, L.BACKGROUND, [E.TOP, E.BOTTOM, E.LEFT, E.RIGHT], K.ON_DEMAND, monitor=monitor)
         world.monitor = monitor
+        if self.lite:
+            world.uri = page_uri('world-lite.html')
         world.window.show_all()
         self.worlds.append(world)
         if len(self.worlds) == 1:
+            # 0.2.28: a world that never reports ready (dark screen with the glow) becomes the simple world.
+            GLib.timeout_add_seconds(WORLD_READY_TIMEOUT, self.world_watchdog)
+            GLib.timeout_add_seconds(WORLD_OK_TIMEOUT, self.world_check)
             # Initial keyboard focus, without requiring a click on the desktop.
             GtkLayerShell.set_keyboard_mode(world.window, K.EXCLUSIVE)
             world.view.grab_focus()
             world.window.connect('key-press-event', self.release_initial_focus)
             world.window.connect('button-press-event', self.release_initial_focus)
+
+    def world_watchdog(self):
+        if not self.world_ready and not self.lite:
+            self.world_lite('geen gereedmelding binnen %d s' % WORLD_READY_TIMEOUT)
+        return False
+
+    def world_check(self):
+        # Ready but never confirmed that planets are on screen (the H310M photo: only the core): the page is stuck.
+        if not self.world_ok and not self.lite:
+            self.world_lite('geen planeten bevestigd binnen %d s' % WORLD_OK_TIMEOUT)
+        return False
+
+    def world_shown(self, data):
+        if not self.world_ok:
+            self.world_ok = True
+            log('ruimtewereld toont %s planeten' % data.get('visible', '?'))
+        return True
+
+    def world_lite(self, reason):
+        """Switch every world to the simple 2D page (plain icons). Once per session; the bars come too."""
+        if self.lite:
+            return True
+        self.lite = str(reason)[:200]
+        log('eenvoudige wereld (world-lite.html): %s' % self.lite)
+        uri = page_uri('world-lite.html')
+        for world in self.worlds:
+            world.uri = uri
+            world.view.load_uri(uri)
+        if not self.world_ready:
+            GLib.timeout_add_seconds(5, lambda: (self.ready({}) if not self.world_ready else None) and False)
+        return True
 
     def release_initial_focus(self, *args):
         for world in self.worlds:
@@ -749,6 +804,9 @@ class Shell:
         return {
             'background.busy': lambda a: any(not w.get('minimized') for w in self.toplevels.list()),
             'world.ready': lambda a: self.ready(a),
+            'world.failed': lambda a: self.world_lite('wereldpagina meldt: %s' % str(a.get('reason', ''))[:200]),
+            'world.mode': lambda a: {'lite': self.lite},
+            'world.ok': lambda a: self.world_shown(a),
             'ui.error': lambda a: log('UI %s: %s' % (str(a.get('page', 'unknown'))[:40], str(a.get('message', ''))[:1500].replace('\n', ' '))),
             'config.get': lambda a: backend.full_config(),
             'config.set': set_config,

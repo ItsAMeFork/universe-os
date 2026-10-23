@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="nl" style="background:#050815">
+<head>
+<meta charset="utf-8">
+<title>Universe OS eenvoudige wereld</title>
+<link rel="stylesheet" href="common.css">
+<style>
+/* 0.2.28: the simple world. No canvas, no animation, no filters: it shows on every pc, also when the space world
+   cannot draw (H310M, 23 Oct: dark screen with only the glow). */
+html,body{margin:0;height:100%;overflow:hidden;background:radial-gradient(ellipse at 50% 40%,#16244a 0%,#0b1021 45%,#050815 100%)}
+main{position:absolute;inset:56px 24px 96px;display:flex;flex-direction:column;align-items:center;gap:18px;overflow:auto}
+h1{margin:8px 0 0;font-size:1.6em;color:var(--accent);font-weight:600}
+.note{max-width:720px;text-align:center;color:var(--muted);line-height:1.5}
+.note button{margin-left:8px}
+.apps{display:grid;grid-template-columns:repeat(auto-fill,112px);gap:10px;justify-content:center;width:min(100%,1180px)}
+.app{display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 6px;border:1px solid transparent;border-radius:16px;background:#0b1021b0;color:var(--text);text-align:center;font-size:.85em;line-height:1.2}
+.app:hover,.app:focus-visible{border-color:var(--line);background:#162335}
+.app img{width:48px;height:48px;object-fit:contain}
+.app .ph{width:48px;height:48px;border-radius:50%;background:#85ffe333}
+</style>
+</head>
+<body>
+<script src="load-guard.js" data-page="world"></script>
+<main>
+ <h1>Universe OS</h1>
+ <p class="note" id="note">Eenvoudige weergave: de ruimtewereld kan op deze computer niet tekenen. Al je programma's werken gewoon.
+  <button type="button" id="diag">Diagnose maken</button></p>
+ <div class="apps" id="apps" role="list" aria-label="Programma's"></div>
+</main>
+<script type="module" src="world-lite.js"></script>
+</body>
+</html>

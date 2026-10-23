@@ -153,3 +153,29 @@ def apply():
             os.environ.setdefault(name, value)
         reason += '; nvidia: gedeeld geheugen'
     return drivers, has_render_node, mode, reason
+
+
+def world_lite(cmdline, mode, drivers):
+    """The simple 2D world (world-lite.html: plain icons, no animation) instead of the space world, or None.
+    23 Oct (0.2.28, H310M: dark screen with only the blue glow, world never drew): the safe boot options and the
+    nouveau driver in safe mode get the simple world at once; universe.world=full|lite decides by hand."""
+    options = cmdline.split()
+    if 'universe.world=full' in options:
+        return None
+    if 'universe.world=lite' in options:
+        return 'opstartoptie universe.world=lite'
+    if 'universe.gfx=safe' in options or 'universe.gpu=veilig' in options:
+        return 'veilige grafische modus'
+    if mode == 'safe' and 'nouveau' in drivers:
+        return 'nouveau met processor-tekenen'
+    return None
+
+
+def lite_reason(graphics):
+    """For the shell: graphics = the result of apply() (drivers, render node, mode, reason)."""
+    try:
+        with open('/proc/cmdline') as f:
+            cmdline = f.read()
+    except OSError:
+        cmdline = ''
+    return world_lite(cmdline, graphics[2], graphics[0])

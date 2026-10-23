@@ -87,8 +87,24 @@ async function start(){
  window.__universePageReady?.();
  // The planets burst out of the Earth that exploded on the login screen.
  // At most 6 s of waiting (23 Oct, H310M: the world stayed in the warp picture): the planets come when they are loaded.
- if(intro){const wait=ms=>new Promise(r=>setTimeout(r,ms));Promise.race([loaded.then(()=>earthsPainted()),wait(6000)]).catch(()=>{}).then(()=>animateWorld('in',saved,{core:true}));}
+ if(intro){const wait=ms=>new Promise(r=>setTimeout(r,ms));Promise.race([loaded.then(()=>earthsPainted()),wait(6000)]).catch(()=>{}).then(()=>animateWorld('in',saved,{core:true})).catch(e=>console.error('intro',e));}
+ // 0.2.28 (photo H310M 23 Oct: only the glowing core, no Earth and no planets, while dock and top bar were there):
+ // the intro had left mix=0 with the core on top. 14 s after the start the end state is forced; when still nothing
+ // shows, the shell gets world.failed and switches to the simple world with plain icons.
+ setTimeout(()=>checkVisible(saved),14000);
  setTimeout(paintEarths,1500);
+}
+const visibleCount=()=>objects.filter(o=>o.el&&o.el.isConnected&&o.el._d!=='none').length;
+function checkVisible(saved){
+ try{
+  if(current){call('world.ok',{visible:-1}).catch(()=>{});return;} // a room is open: the user already sees the world
+  if(mix<1||earthScale!==1||coreEl.isConnected||!visibleCount()){
+   console.warn('wereld na 14 s niet af (mix '+mix+'): eindbeeld afgedwongen');
+   mix=1;earthScale=1;glow=0;boom=0;setFlash(0);setCore(0,1);if(saved)cam={...saved};render();
+  }
+  const n=visibleCount();
+  if(!n)failed('geen planeten zichtbaar na 14 s');else call('world.ok',{visible:n}).catch(()=>{});
+ }catch(e){failed('controle mislukt: '+(e?.message||e));}
 }
 // Planets of the rooms (Applicaties, Softwarewinkel, ...): the quick picture at once, the sharp one right after.
 const planetGlobe=(p,diameter)=>{
@@ -809,4 +825,10 @@ on('open-planet',(data)=>{const id=data&&data.id;const p=config?.world.planets.f
 on('show-space',()=>leave());
 on('apps-changed',()=>{appsCache=null;refreshSpace();});
 on('config',c=>{if(current)leave();config=c;settings=c.settings;user=c.user||user;if(c.layout)layout=c.layout;applySettings({...settings,colors:c.world.colors});build();});
-start();
+// 0.2.28 (H310M, 23 Oct: dark screen with only the glow): when the space world cannot start or draws no frame,
+// tell the shell; it switches to the simple world (world-lite.html) instead of leaving a dark screen.
+let framed=false,reported=false;
+const failed=reason=>{if(reported)return;reported=true;call('world.failed',{reason:String(reason)}).catch(()=>{});};
+requestAnimationFrame(()=>{framed=true;});
+setTimeout(()=>{if(!framed)failed('geen beeld getekend binnen 12 s');},12000);
+start().catch(e=>failed('start mislukt: '+(e?.message||e)));

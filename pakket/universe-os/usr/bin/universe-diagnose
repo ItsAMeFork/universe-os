@@ -1,0 +1,57 @@
+#!/bin/sh
+# universe-diagnose (0.2.28): collects everything needed to see why the desktop stays dark (H310M, 23 Oct) into one
+# text file, on the USB stick when one is writable, otherwise in the home folder, and prints the path.
+# Works from the desktop (start menu: "Diagnose maken") and from a text console (Ctrl+Alt+F2, log in, universe-diagnose).
+# Nothing is sent anywhere.
+stamp=$(date +%Y%m%d-%H%M%S)
+name="universe-diagnose-$stamp.txt"
+user_name=${SUDO_USER:-$(id -un)}
+home=$(getent passwd "$user_name" | cut -d: -f6); [ -n "$home" ] || home=$HOME
+state="$home/.local/state/universe-os"
+
+target=""
+if [ -n "$1" ]; then
+  target="$1"
+else
+  # A writable USB stick (the live stick itself is read-only, so normally a second stick).
+  for dir in /media/"$user_name"/* /run/media/"$user_name"/* /media/*; do
+    [ -d "$dir" ] && [ -w "$dir" ] && case "$dir" in /media/"$user_name") ;; *) target="$dir"; break ;; esac
+  done
+  [ -n "$target" ] || target="$home"
+fi
+out="$target/$name"
+if ! : > "$out" 2>/dev/null; then out="/tmp/$name"; : > "$out"; fi
+
+section() {
+  printf '\n===== %s =====\n' "$1" >> "$out"
+  shift
+  if command -v "$1" >/dev/null 2>&1; then
+    timeout 30 "$@" >> "$out" 2>&1 || printf '(afsluitcode %s)\n' "$?" >> "$out"
+  else
+    printf '(%s niet aanwezig)\n' "$1" >> "$out"
+  fi
+}
+file() { printf '\n===== %s =====\n' "$1" >> "$out"; if [ -r "$1" ]; then tail -c "${2:-2000000}" "$1" >> "$out"; else echo '(niet aanwezig)' >> "$out"; fi; }
+
+echo "Universe OS diagnose $stamp" >> "$out"
+section 'versie' dpkg-query -W universe-os
+section 'uname -a' uname -a
+file /proc/cmdline
+file /run/universe-os/gpu.json
+file /etc/universe-os/grafisch-veilig
+printf '\n===== cpuinfo flags =====\n' >> "$out"
+grep -m1 '^model name' /proc/cpuinfo >> "$out" 2>&1
+grep -m1 '^flags' /proc/cpuinfo >> "$out" 2>&1
+section 'lspci -k' lspci -nnk
+section 'lsblk' lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT,RM
+section 'glxinfo -B' glxinfo -B
+section 'eglinfo -B' eglinfo -B
+section 'sessie' sh -c 'echo "XDG_SESSION_TYPE=$XDG_SESSION_TYPE WAYLAND_DISPLAY=$WAYLAND_DISPLAY"; loginctl list-sessions --no-legend'
+file "$state/shell.log"
+file "$state/shell.log.1"
+for f in "$state"/*.log; do [ -e "$f" ] && [ "${f##*/}" != shell.log ] && file "$f" 500000; done
+section 'journalctl -b' journalctl -b --no-pager -o short-monotonic -n 20000
+section 'dmesg' sh -c 'dmesg 2>/dev/null || journalctl -k -b --no-pager'
+[ -n "$SUDO_USER" ] && chown "$SUDO_USER" "$out" 2>/dev/null
+sync
+echo "Diagnose opgeslagen in: $out"

@@ -20,6 +20,12 @@ ns['_restart_page'](v, 'crashed', 'world.html', 'file:///x')
 assert os.environ.get('JSC_useJIT') == '0'
 for _ in range(3): ns['_restart_page'](v, 'crashed', 'world.html', 'file:///x')
 assert calls[-1] == 10000
+# 0.2.28: the world with a surface switches to the simple page on the 3rd stop within a minute
+ns['_restarts'].clear(); seen = []
+w = types.SimpleNamespace(load_uri=lambda u: None, surface=types.SimpleNamespace(fallback=lambda r: seen.append(r)))
+ns['GLib'].timeout_add = lambda ms, fn: (calls.append(ms), fn())
+for _ in range(3): ns['_restart_page'](w, 'crashed', 'world.html', 'file:///x')
+assert len(seen) == 1 and 'world.html' in seen[0], seen
 b = open(os.path.join(root, 'backend.py')).read()
 assert "'JSC_useJIT')" in b
 print('ok')
