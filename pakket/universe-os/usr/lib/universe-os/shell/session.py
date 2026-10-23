@@ -5,7 +5,6 @@ the windows is the Universe shell. The configuration lives in ~/.config/universe
 """
 import os
 import subprocess
-from xml.sax.saxutils import quoteattr
 
 import config
 
@@ -96,6 +95,7 @@ REGIONS = '''  <regions>
 
 
 def _keybind(item):
+    from xml.sax.saxutils import quoteattr  # lazy: pulls in urllib/http/ssl (~30 ms), only needed when writing rc.xml
     key = quoteattr(item['key'])
     extra = ' onRelease="yes"' if item.get('onRelease') else ''
     if item.get('snap'):

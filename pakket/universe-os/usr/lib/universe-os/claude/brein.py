@@ -32,9 +32,21 @@ def path():
     return os.path.join(folder, 'brein.db')
 
 
+_schema_seen = {}
+
+
 def connect():
-    db = sqlite3.connect(path(), timeout=5)
+    p = path()
+    db = sqlite3.connect(p, timeout=5)
     db.row_factory = sqlite3.Row
+    # The schema is verified once per process: skip the DDL while the file and its schema_version are unchanged.
+    try:
+        ino = os.stat(p).st_ino
+        version = db.execute('PRAGMA schema_version').fetchone()[0]
+    except (OSError, sqlite3.Error):
+        ino = version = None
+    if version and _schema_seen.get(p) == (ino, version):
+        return db
     db.executescript("""
         CREATE TABLE IF NOT EXISTS memories (id INTEGER PRIMARY KEY, kind TEXT NOT NULL, text TEXT NOT NULL,
                                              tags TEXT NOT NULL DEFAULT '', created REAL NOT NULL, updated REAL NOT NULL);
@@ -71,6 +83,10 @@ def connect():
     columns = [row['name'] for row in db.execute('PRAGMA table_info(acties)')]
     if 'ongedaan' not in columns:
         db.execute("ALTER TABLE acties ADD COLUMN ongedaan TEXT NOT NULL DEFAULT ''")
+    try:
+        _schema_seen[p] = (os.stat(p).st_ino, db.execute('PRAGMA schema_version').fetchone()[0])
+    except (OSError, sqlite3.Error):
+        _schema_seen.pop(p, None)
     return db
 
 

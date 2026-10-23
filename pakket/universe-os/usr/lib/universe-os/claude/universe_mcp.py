@@ -5,17 +5,13 @@ Claude Code starts this server itself (universe-claude passes --mcp-config). Eve
 Universe shell (`universe-ctl call`, an allow-list in universe_shell.CLAUDE_CALLS), so Claude gets no access that the
 user's own desktop does not already have. The second brain (brein.py) is read and written directly.
 """
-import base64
 import json
 import os
-import socket
-import subprocess
 import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import brein  # noqa: E402
-import recoll_index  # noqa: E402
 
 SOCKET = os.path.join(os.environ.get('XDG_RUNTIME_DIR', '/tmp'), 'universe-shell.sock')
 PROTOCOL = '2025-06-18'
@@ -45,6 +41,7 @@ class MethodNotFound(Exception):
 
 def shell(name, args=None, timeout=20):
     """Runs a page handler in the Universe shell and returns its result."""
+    import socket
     line = 'call %s %s\n' % (name, json.dumps(args or {}, ensure_ascii=False))
     try:
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
@@ -202,6 +199,7 @@ def direct_power(action, reason):
     command = {'lock': ['universe-lock'], 'logout': ['labwc', '--exit']}[action]
     try:
         # Detached: universe-lock only returns after unlocking (that hung the assistant before).
+        import subprocess
         subprocess.Popen(command, start_new_session=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                          stderr=subprocess.DEVNULL)
     except OSError as error:
@@ -277,6 +275,8 @@ def t_setting(a):
 
 def t_screenshot(a):
     """A small JPEG of the whole screen, so Claude can see what the user sees."""
+    import base64
+    import subprocess
     try:
         png = subprocess.run(['grim', '-s', '0.5', '-l', '1', '-'], capture_output=True, timeout=10, check=True).stdout
     except (OSError, subprocess.SubprocessError) as error:
@@ -298,11 +298,13 @@ def t_screenshot(a):
 
 
 def t_notify(a):
+    import subprocess
     subprocess.run(['notify-send', '-a', 'Claude', str(a.get('titel') or 'Claude')[:120], str(a.get('tekst') or '')[:500]], timeout=5)
     return 'Melding getoond'
 
 
 def t_find_files(a):
+    import recoll_index
     found = recoll_index.search(a.get('zoek') or '', a.get('max') or 20)
     if found is None:  # no Recoll: the quick name search of the shell
         return {'bron': 'bestandsnamen', 'resultaten': shell('search.files', {'q': str(a.get('zoek') or '')})}
@@ -319,6 +321,7 @@ def t_desktop_files(a):
 
 def notify_shell(kind, info):
     """Best-effort signal for the buddy and the nebula. Never fails the tool."""
+    import socket
     line = 'claude-event %s %s\n' % (kind, json.dumps(info or {}, ensure_ascii=False))
     try:
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:

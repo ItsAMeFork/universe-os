@@ -41,6 +41,7 @@ class Toplevels:
         self.seat = None
         self.display = None
         self.lock = threading.Lock()
+        self.change_queued = False
         # Windows+D: the windows we minimised, restored on the next press.
         self.hidden_by_us = []
 
@@ -105,7 +106,7 @@ class Toplevels:
             info['fullscreen'] = FULLSCREEN in s
 
         def done(h):
-            GLib.idle_add(self.on_change)
+            self.queue_change()
 
         def closed(h):
             with self.lock:
@@ -117,13 +118,25 @@ class Toplevels:
                 h.destroy()
             except Exception:
                 pass
-            GLib.idle_add(self.on_change)
+            self.queue_change()
 
         handle.dispatcher['title'] = title
         handle.dispatcher['app_id'] = app_id
         handle.dispatcher['state'] = state
         handle.dispatcher['done'] = done
         handle.dispatcher['closed'] = closed
+
+    def queue_change(self):
+        # A burst of done events (a title changes often) waits for one GTK callback, not one per event. The flag is
+        # cleared before on_change reads the windows, so an event that arrives later always gets its own callback.
+        if not self.change_queued:
+            self.change_queued = True
+            GLib.idle_add(self.run_change)
+
+    def run_change(self):
+        self.change_queued = False
+        self.on_change()
+        return False
 
     def list(self):
         with self.lock:
