@@ -257,6 +257,15 @@ ui = (UI / 'control.js').read_text(encoding='utf-8')
 assert 'mountAi' in ui and "id==='claude'" in ui
 page = (UI / 'ai-ui.js').read_text(encoding='utf-8')
 assert 'ai.key' in page and 'bubblewrap' in page and 'Toestaan' in page
+assert "['claude','Claude','Account']" in page
+assert "['codex','ChatGPT','Codex']" in page
+assert "['gemini','Gemini','Google']" in page
+assert "['ollama','Lokaal','Op deze computer']" in page
+assert 'Eén tik wisselt meteen' in page and 'aria-pressed' in page
+assert "call('ai.set',{provider:id,model:'',ollama_url:url.value.trim()})" in page
+appended = page.split('root.append(', 1)[1]
+assert appended.find('switchCard') < appended.find('chromeCard') < appended.find('autoSwitch') < appended.find('tokenSwitch')
+assert '.ai-switch' in (UI / 'common.css').read_text(encoding='utf-8')
 index = (UI / 'settings-index.js').read_text(encoding='utf-8')
 assert "id:'ai'" in index and 'ollama' in index
 for script in ('ai-ui.js', 'control.js', 'settings-index.js', 'accounts-ui.js', 'panel.js'):

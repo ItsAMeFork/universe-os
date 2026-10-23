@@ -18,6 +18,7 @@ label{display:flex;flex-direction:column;gap:8px;margin:12px 0}
 label.check{flex-direction:row;align-items:center}
 button{margin:5px 5px 5px 0}
 .message{min-height:1.5em}
+@media(max-width:760px){main{grid-template-columns:190px 1fr}nav,article{padding:12px}}
 .message.error{color:#ff8b8b}
 </style>
 </head>
@@ -61,12 +62,20 @@ const status = {
   {id:'claude', naam:'Claude Code', uitleg:'Standaard. Je meldt je aan met je eigen Claude-account in het paneel.', geinstalleerd:true, sleutel_mogelijk:true, sleutel_bewaard:false, model_leeg:'Haiku (snel, licht)'},
   {id:'codex', naam:'ChatGPT', uitleg:'Het Codex-programma van OpenAI. Aanmelden doe je in het paneel, of je bewaart hier een sleutel.', geinstalleerd:false, sleutel_mogelijk:true, sleutel_bewaard:false, model_leeg:'het model van Codex'},
   {id:'gemini', naam:'Gemini', uitleg:'Het Gemini-programma van Google.', geinstalleerd:false, sleutel_mogelijk:true, sleutel_bewaard:true, model_leeg:'het model van Gemini'},
-  {id:'ollama', naam:'Op deze computer', uitleg:'Ollama draait het model hier. Een klein model is het enige dat een trage computer aankan.', geinstalleerd:true, sleutel_mogelijk:false, sleutel_bewaard:false, model_leeg:'qwen2.5:3b'}
+  {id:'ollama', naam:'Op deze computer', uitleg:'Ollama draait het model hier. Een klein model is het enige dat een trage computer aankan.', geinstalleerd:true, sleutel_mogelijk:false, sleutel_bewaard:false, model_leeg:'qwen2.5:3b'},
+  {id:'opencode', naam:'OpenCode', uitleg:'MIT. Alleen als je een andere agent dan Claude wilt.', geinstalleerd:false, sleutel_mogelijk:false, sleutel_bewaard:false, model_leeg:'het model van OpenCode'},
+  {id:'goose', naam:'Goose', uitleg:'Apache-2.0. Alleen als je een andere agent dan Claude wilt.', geinstalleerd:false, sleutel_mogelijk:false, sleutel_bewaard:false, model_leeg:'het model van Goose'}
  ]
 };
 const call = async (cmd, args) => {
  if (cmd === 'ai.status') return status;
- if (cmd === 'ai.set') return {naam: args.provider};
+ if (cmd === 'ai.set') {
+  status.provider = args.provider;
+  status.model = args.model || '';
+  if (args.ollama_url) status.ollama_url = args.ollama_url;
+  const row = (status.providers || []).find(item => item.id === args.provider);
+  return Object.assign({}, status, {naam: row ? row.naam : args.provider});
+ }
  if (cmd === 'ai.key') return {bewaard: !!args.sleutel};
  if (cmd === 'ai.open' || cmd === 'ai.install') return true;
  if (cmd === 'ai.leren') return {leren: !!args.aan};
@@ -99,6 +108,11 @@ const call = async (cmd, args) => {
 const buddy = document.createElement('p');
 buddy.className = 'muted';
 buddy.textContent = 'Personage op het bureaublad';
+const asked = new URLSearchParams(location.search).get('provider');
+if (asked && (status.providers || []).some(item => item.id === asked)) {
+ status.provider = asked;
+ status.model = '';
+}
 await mountAi(document.getElementById('root'), {call, buddy});
 document.body.dataset.ready = '1';
 </script>
