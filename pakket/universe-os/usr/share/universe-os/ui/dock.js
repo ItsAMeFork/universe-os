@@ -28,8 +28,8 @@ async function openBrowser(){
 /** The program behind a taskbar entry ('files', or 'app:org.gnome.Calculator.desktop'). */
 function entry(key){
  if(BUILTIN[key]){
-  const b=BUILTIN[key],a=b.desktop&&apps.find(x=>x.id===b.desktop);
-  return {key,...b,img:key==='browser'?browserIcon:a?.icon};
+  const b=BUILTIN[key];
+  return {key,...b,img:key==='browser'?browserIcon:null}; // own icons for the fixed buttons, one style (23 Oct)
  }
  const id=key.slice(4),a=apps.find(x=>x.id===id),base=id.replace(/\.desktop$/,'').toLowerCase();
  return {key,name:a?.name||base,img:a?.icon,iconName:'grid',match:[base,base.split('.').pop()],click:()=>call('apps.launch',{id})};

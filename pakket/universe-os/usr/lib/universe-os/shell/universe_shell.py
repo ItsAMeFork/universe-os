@@ -270,6 +270,27 @@ def _mail_send(args):
     return _accounts().send_mail(confirmer=_confirm, **kwargs, **extra)
 
 
+def screen_factor():
+    """23 Oct (Axel, H310M on a large monitor): with scale 1 the top bar and dock were tiny. labwc gives no output
+    scale, so the pages grow with the screen height themselves: 1080 px = 1x, 1440 px = 1.25x, 2160 px = 2x."""
+    try:
+        display = Gdk.Display.get_default()
+        monitor = display.get_primary_monitor() or display.get_monitor(0)
+        if monitor.get_scale_factor() > 1:
+            return 1.0  # the compositor already scales
+        return auto_factor(monitor.get_geometry().height)
+    except Exception:
+        return 1.0
+
+
+def auto_factor(height):
+    return max(1.0, min(2.0, round(height / 1080 * 4) / 4))
+
+
+def ui_zoom(ui_scale):
+    return ui_scale / 100 * screen_factor()
+
+
 class Surface:
     def __init__(self, shell, name, page, layer, anchors, keyboard, size=None, monitor=None, transparent=False, namespace=None):
         self.name = name
@@ -293,9 +314,20 @@ class Surface:
         if size:
             self.window.set_size_request(*size)
             self.window.set_default_size(*size)
-        self.view = make_view(page, shell.bridge, transparent=transparent, zoom=config.settings()['uiScale'] / 100)
+        self.view = make_view(page, shell.bridge, transparent=transparent, zoom=ui_zoom(config.settings()['uiScale']))
         self.view.surface = self
         self.window.add(self.view)
+
+    def redraw(self):
+        """23 Oct (Jesse): on the H310M the dock and top bar only showed their real look after the pointer went over
+        them; until then the old first frame (white, unscaled) stayed on screen. Ask for a new frame now and once more
+        after the compositor has taken the new size."""
+        def draw():
+            self.view.queue_draw()
+            self.window.queue_draw()
+            return False
+        draw()
+        GLib.timeout_add(250, draw)
 
     def emit(self, name, data=None):
         emit(self.view, name, data)
@@ -344,6 +376,7 @@ class Shell:
             return False
         L, E, K = GtkLayerShell.Layer, GtkLayerShell.Edge, GtkLayerShell.KeyboardMode
         self.panel = Surface(self, 'panel', 'panel.html', L.TOP, [E.TOP], K.ON_DEMAND, size=PANEL_CLOSED, transparent=True)
+        self.resize_panel(False)
         self.panel.window.show_all()
         self.dock = Surface(self, 'dock', 'dock.html', L.TOP, [E.BOTTOM], K.ON_DEMAND, size=(420, DOCK_HEIGHT), transparent=True)
         GtkLayerShell.set_margin(self.dock.window, E.BOTTOM, DOCK_MARGIN)
@@ -352,6 +385,7 @@ class Shell:
         self.apply_zen_chrome()
         if self.claude:
             GLib.timeout_add_seconds(3, self.claude.update_buddy)  # the buddy comes last, after panel and dock
+        GLib.timeout_add(1500, lambda: [s.redraw() for s in (self.panel, self.dock) if s] and False)  # first frame (23 Oct)
         return False
 
     def add_world(self, monitor):
@@ -412,17 +446,21 @@ class Shell:
         return False
 
     def resize_panel(self, open_):
+        """Window size follows the zoom (interface size and screen factor), else the bigger pill is cut off."""
         self.panel_open = open_
         win = self.panel.window
+        zoom = self.panel.view.get_zoom_level()
         if open_:
-            height = min(PANEL_OPEN[1], win.get_screen().get_height() - 20) if win.get_screen() else PANEL_OPEN[1]
-            win.set_size_request(PANEL_OPEN[0], height)
-            win.resize(PANEL_OPEN[0], height)
+            w, h = int(PANEL_OPEN[0] * zoom), int(PANEL_OPEN[1] * zoom)
+            if win.get_screen():
+                h = min(h, win.get_screen().get_height() - 20)
             GtkLayerShell.set_keyboard_mode(win, GtkLayerShell.KeyboardMode.EXCLUSIVE)
         else:
-            win.set_size_request(*PANEL_CLOSED)
-            win.resize(*PANEL_CLOSED)
+            w, h = int(PANEL_CLOSED[0] * zoom), int(PANEL_CLOSED[1] * zoom)
             GtkLayerShell.set_keyboard_mode(win, GtkLayerShell.KeyboardMode.ON_DEMAND)
+        win.set_size_request(w, h)
+        win.resize(w, h)
+        self.panel.redraw()
         return True
 
     def watch_desktop(self):
@@ -562,6 +600,7 @@ class Shell:
         GtkLayerShell.set_exclusive_zone(self.dock.window, int(DOCK_HEIGHT * zoom))
         if not self.dock.window.get_visible():
             self.dock.window.show_all()
+        self.dock.redraw()
         return True
 
     # ----- windows -----
@@ -634,7 +673,10 @@ class Shell:
         def config_changed():
             data = backend.full_config()
             for s in self.surfaces():
-                s.view.set_zoom_level(data['settings']['uiScale'] / 100)
+                s.view.set_zoom_level(ui_zoom(data['settings']['uiScale']))
+                s.redraw()
+            if self.panel:
+                self.resize_panel(self.panel_open)
             self.broadcast('config', data)
             self.apply_zen_chrome()
             if self.claude:
@@ -952,7 +994,10 @@ class Shell:
             elif cmd == 'config':
                 data = backend.full_config()
                 for s in self.surfaces():
-                    s.view.set_zoom_level(data['settings']['uiScale'] / 100)
+                    s.view.set_zoom_level(ui_zoom(data['settings']['uiScale']))
+                    s.redraw()
+                if self.panel:
+                    self.resize_panel(self.panel_open)
                 self.broadcast('config', data)
                 self.apply_zen_chrome()
                 if self.claude:
