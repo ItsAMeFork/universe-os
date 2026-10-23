@@ -208,6 +208,19 @@ def _confirm(title, text):
     return confirm.ask(title, text)
 
 
+def _confirm_goal(title, text):
+    """Background goals. Paying, deleting, passwords and important mail keep the dialog, even in auto-accept."""
+    _claude_dir()
+    import confirm
+    return confirm.ask_always(title, text)
+
+
+def _doelen():
+    _claude_dir()
+    import doelen
+    return doelen
+
+
 def _mail_kwargs(args):
     return {'account': args.get('account'), 'to': args.get('naar') if 'naar' in args else args.get('to'),
             'subject': args.get('onderwerp') if 'onderwerp' in args else args.get('subject'),
@@ -726,6 +739,10 @@ class Shell:
             # Not in CLAUDE_CALLS: the user turns spoken prompts on in the Brein. Off stays silent.
             'buddy.stem': lambda a: __import__('buddy_voice').configure(a.get('aan')),
             'brein.ongedaan': lambda a: _brein().undo_actie(a.get('id')),
+            'doelen.status': lambda a: _doelen().public(),
+            'doelen.add': lambda a: _doelen().add(a.get('titel') if 'titel' in a else a.get('tekst') or ''),
+            'doelen.achtergrond': lambda a: _doelen().set_background(a.get('aan') if 'aan' in a else a.get('achtergrond')),
+            'doelen.opnieuw': lambda a: _doelen().opnieuw(a.get('id')),
             'auto.status': lambda a: _auto().public(),
             'auto.set': lambda a: self._auto_set(a),
             'auto.regels': lambda a: self._auto_regels(a),
@@ -1271,11 +1288,24 @@ class Shell:
         if not self.toplevels.start():
             log('Zonder vensteroverzicht verder.')
         GLib.timeout_add_seconds(10, self.status_tick)
+        GLib.timeout_add_seconds(45, self.doelen_tick)
         self.watch_devices()
         self.battery_level_warned = 100
         GLib.timeout_add_seconds(60, self.check_battery_sound)
         Gtk.main()
         return 0
+
+    def doelen_tick(self):
+        """One safe step, or the question for pay, delete, a password or important mail."""
+        def work():
+            try:
+                _claude_dir()
+                import doelen
+                doelen.tick(_confirm_goal)
+            except Exception as error:
+                log('Doel op de achtergrond: %s' % error)
+        threading.Thread(target=work, daemon=True).start()
+        return True
 
     def check_updates_at_login(self):
         if backend.is_live():

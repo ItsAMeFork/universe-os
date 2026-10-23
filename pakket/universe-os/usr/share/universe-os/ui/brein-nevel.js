@@ -132,6 +132,7 @@ export function mountNebula(parent,api={}){
  const chips=h('div',{class:'nebula-chips'});
  const ochtend=h('section',{class:'ochtend','aria-label':'Ochtendbriefing'});
  const list=h('aside',{class:'nebula-list','aria-label':'Lijst van mail, agenda en acties'});
+ const goals=h('section',{class:'nebula-goal','aria-label':'Doelen'});
  const caption=h('p',{class:'nebula-caption'},'Komeetspoor · programma’s en bestanden die je opende');
  const hover=h('div',{class:'nebula-hover',hidden:true});
  const card=h('article',{class:'nebula-card',hidden:true,'aria-live':'polite'});
@@ -221,8 +222,64 @@ export function mountNebula(parent,api={}){
   ochtend.append(h('p',{},data.geldtip||''));
   ochtend.append(h('p',{class:'muted'},data.bevestigen||'Versturen en betalen vragen om toestemming.'));
  }
+ function paintGoals(data){
+  const on=!!(data&&data.achtergrond);
+  const box=h('input',{type:'checkbox',role:'switch'});
+  box.checked=on;
+  box.setAttribute('aria-label','Op de achtergrond');
+  const state=h('span',{class:'switch-state '+(on?'aan':'uit')},on?'Aan':'Uit');
+  box.addEventListener('change',async()=>{
+   try{paintGoals(await call('doelen.achtergrond',{aan:box.checked}));}
+   catch(e){box.checked=!box.checked;status.textContent=e.message||'Het doel kon niet worden gezet.';}
+  });
+  const field=h('input',{type:'text',maxlength:'200',placeholder:'Nieuw doel','aria-label':'Nieuw doel'});
+  const add=h('button',{type:'submit'},'Toevoegen');
+  const form=h('form',{},field,add);
+  form.addEventListener('submit',async(event)=>{
+   event.preventDefault();
+   const titel=field.value.trim();
+   if(!titel)return;
+   add.disabled=true;
+   try{paintGoals(await call('doelen.add',{titel}));field.value='';}
+   catch(e){status.textContent=e.message||'Het doel kon niet worden gezet.';}
+   finally{add.disabled=false;}
+  });
+  const rows=(data&&data.lijst)||[];
+  const items=rows.map(row=>{
+   const article=h('article',{});
+   const label={bezig:'Bezig',wacht:'Wacht',klaar:'Klaar'}[row.status]||row.status||'Doel';
+   article.append(h('div',{class:'kind'},'Doel · '+label),h('strong',{},row.titel||'Doel'));
+   if(row.reden)article.append(h('p',{},row.reden));
+   else if(row.stap&&row.stap!==row.titel)article.append(h('p',{},row.stap));
+   if(row.status==='wacht'&&row.id){
+    const again=h('button',{type:'button'},'Opnieuw vragen');
+    again.addEventListener('click',async()=>{
+     try{paintGoals(await call('doelen.opnieuw',{id:row.id}));}
+     catch(e){status.textContent=e.message||'Opnieuw vragen mislukt.';}
+    });
+    article.append(again);
+   }
+   return article;
+  });
+  goals.replaceChildren(
+   h('h2',{},'Doelen'),
+   h('label',{class:'switch-row'},
+    h('span',{class:'switch'},box,h('span',{class:'switch-track','aria-hidden':'true'})),
+    h('span',{class:'switch-copy'},h('span',{class:'switch-title'},'Op de achtergrond'),state)),
+   h('p',{},(data&&data.uitleg)||'Betalen, wissen, wachtwoorden en belangrijke mail blijven een vraag, ook als automatisch toestaan aan staat.'),
+   form,
+   ...(items.length?items:[h('p',{class:'muted'},'Nog geen doel.')])
+  );
+ }
+ async function loadGoals(){
+  try{
+   const data=await call('doelen.status');
+   if(!alive||!still())return;
+   paintGoals(data);
+  }catch(e){if(alive)status.textContent=e.message||'De doelen konden niet worden gelezen.';}
+ }
  function renderList(){
-  list.replaceChildren(ochtend);
+ list.replaceChildren(ochtend,goals);
   const bar=h('div',{class:'nebula-filters'});
   for(const [id,naam] of FILTERS){
    const b=h('button',{type:'button','aria-pressed':state.filter===id?'true':'false'},naam);
@@ -314,6 +371,7 @@ export function mountNebula(parent,api={}){
   if(alive){await briefing;renderBriefing();}
   await loadList();
   await loadVoice();
+  await loadGoals();
   paint();arm();
   if(alive)parent.dataset.nebula='ready';
  }

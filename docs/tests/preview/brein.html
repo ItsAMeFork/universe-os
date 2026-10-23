@@ -31,6 +31,7 @@ const rijen = [
 ];
 let heBuddy = false;
 const tijdlijn = {aan:false, pauze:false, lokaal:true, wolk:false, ghost:false, tekst:'Uit', uitleg:'De tijdlijn staat uit. Er wordt niets bijgeschreven. Wat er staat blijft op deze computer.'};
+let goals={achtergrond:false,tekst:'Uit',uitleg:'De assistent pakt veilige stappen op de achtergrond. Betalen, wissen, wachtwoorden en belangrijke mail blijven een vraag, ook als automatisch toestaan aan staat.',lijst:[]};
 const call = async (cmd, args={}) => {
  if (cmd === 'config.get') return {settings:{heBuddy}};
  if (cmd === 'buddy.stem') { heBuddy = !!args.aan; return {aan:heBuddy, tekst:heBuddy?'Aan':'Uit'}; }
@@ -65,6 +66,19 @@ const call = async (cmd, args={}) => {
   const rows = soort === 'alles' ? rijen : rijen.filter(r => (soort === 'acties' ? r.soort === 'actie' : r.soort === soort.replace('en','').replace('herinnering','herinnering')));
   const filtered = soort === 'herinneringen' ? rijen.filter(r => r.soort === 'herinnering') : (soort === 'acties' ? rijen.filter(r => r.soort === 'actie') : (soort === 'mail' ? rijen.filter(r => r.soort === 'mail') : (soort === 'agenda' ? rijen.filter(r => r.soort === 'agenda') : rijen)));
   return {rijen: filtered, sterren};
+ }
+ if(cmd==='doelen.status') return goals;
+ if(cmd==='doelen.achtergrond'){
+  goals={...goals,achtergrond:!!args.aan,tekst:args.aan?'Aan':'Uit'};
+  return goals;
+ }
+ if(cmd==='doelen.add'){
+  goals={...goals,lijst:[{id:goals.lijst.length+1,titel:args.titel,status:'bezig',stap:args.titel,reden:''},...goals.lijst]};
+  return goals;
+ }
+ if(cmd==='doelen.opnieuw'){
+  goals={...goals,lijst:goals.lijst.map(row=>row.id===args.id?{...row,status:'bezig',reden:''}:row)};
+  return goals;
  }
  return {};
 };

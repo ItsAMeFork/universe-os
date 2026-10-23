@@ -76,6 +76,8 @@ def connect():
         CREATE TABLE IF NOT EXISTS acties (id INTEGER PRIMARY KEY, op REAL NOT NULL, hulpmiddel TEXT NOT NULL,
             samenvatting TEXT NOT NULL, status TEXT NOT NULL, detail TEXT NOT NULL DEFAULT '');
         CREATE INDEX IF NOT EXISTS acties_op ON acties(op);
+        CREATE TABLE IF NOT EXISTS doelen (id INTEGER PRIMARY KEY, titel TEXT NOT NULL, status TEXT NOT NULL,
+            stappen TEXT NOT NULL, reden TEXT NOT NULL DEFAULT '', gevraagd REAL NOT NULL DEFAULT 0, op REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS efficientie (id INTEGER PRIMARY KEY, op REAL NOT NULL, provider TEXT NOT NULL,
             model TEXT NOT NULL DEFAULT '', tokens_in INTEGER NOT NULL DEFAULT 0, tokens_out INTEGER NOT NULL DEFAULT 0,
             kosten REAL, schatting INTEGER NOT NULL DEFAULT 0, gereedschap INTEGER NOT NULL DEFAULT 0,
@@ -314,6 +316,7 @@ def forget_all(confirm):
         db.execute('DELETE FROM agenda_items')
         db.execute('DELETE FROM acties')
         db.execute('DELETE FROM efficientie')
+        db.execute('DELETE FROM doelen')
     return True
 
 
