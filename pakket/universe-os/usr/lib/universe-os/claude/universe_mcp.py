@@ -263,7 +263,7 @@ def t_desktop_file(a):
 
 
 # Security stays with the user (Axel, 13 Oct): Claude may not switch the automatic lock off or make it longer.
-SECURITY_SETTINGS = {'lockMinutes'}
+SECURITY_SETTINGS = {'lockMinutes', 'god'}
 
 
 def t_setting(a):

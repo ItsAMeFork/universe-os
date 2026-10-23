@@ -23,6 +23,14 @@ let layout={planets:{},items:[],orbit:true,dock:[],icons:{},hiddenIcons:[],start
 let travelToken=0,backgroundBusy=false,initialFocus=true,nebulaDispose=null;
 on('background-busy',v=>{backgroundBusy=!!v;});
 const root=h('main',{class:'universe','aria-label':'Bureaublad van Universe OS'});
+const zenField=h('input',{type:'text','aria-label':'Vraag aan de assistent',placeholder:'Vraag… Enter in het paneel verstuurt'});
+const zenForm=h('form',{class:'zen-input'},h('label',{class:'sr-only'},'Vraag'),zenField,h('button',{type:'submit'},'In het paneel'));
+zenForm.addEventListener('submit',event=>{
+ event.preventDefault();
+ const tekst=(zenField.value||'').trim();
+ if(!tekst)return;
+ call('claude.ask',{tekst}).then(()=>{zenField.value='';toast('Staat in het paneel. Enter verstuurt.');}).catch(e=>toast(e.message));
+});
 const sky=h('canvas',{class:'space-canvas','aria-hidden':'true'});
 const layer=h('div',{class:'space-layer',role:'listbox','aria-label':'Ruimte met programma\'s, mappen en bestanden'});
 const room=h('section',{class:'room glass',hidden:true,role:'dialog','aria-modal':'true'});
@@ -88,7 +96,7 @@ const planetGlobe=(p,diameter)=>{
  return g;
 };
 function build(){
- root.replaceChildren(h('div',{class:'nebula','aria-hidden':'true'}),sky,layer,room);
+ root.replaceChildren(h('div',{class:'nebula','aria-hidden':'true'}),sky,layer,room,zenForm);
  return refreshSpace();
 }
 

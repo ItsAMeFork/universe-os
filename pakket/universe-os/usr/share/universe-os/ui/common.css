@@ -51,3 +51,9 @@ label.switch-row{display:flex;flex-direction:row;align-items:center;gap:18px;mar
 .ai-switch button[aria-pressed=true] small{color:var(--accent)}
 @media(max-width:1100px){.ai-switch{grid-template-columns:1fr 1fr}}
 @media(max-width:520px){.ai-switch{grid-template-columns:1fr}}
+/* Zen: calm desktop. The taskbar, planets and stray chrome go away. The buddy is its own window and stays. */
+html.mode-zen .dock,html.mode-zen .space-layer,html.mode-zen .space-canvas,html.mode-zen .nebula,html.mode-zen .hint,html.mode-zen .installer,html.mode-zen .folder-orbit,html.mode-zen .desk-item,html.mode-zen .space-paths{display:none!important}
+.zen-input{display:none;position:fixed;z-index:6;left:50%;bottom:36px;translate:-50% 0;gap:10px;align-items:center;padding:12px 14px;border-radius:18px;background:#0b1021f2;border:1px solid var(--line)}
+html.mode-zen .zen-input{display:flex}
+.zen-input input{min-width:min(420px,70vw);background:transparent;border:0}
+html.mode-zen,html.mode-zen body{background:#070b16!important}

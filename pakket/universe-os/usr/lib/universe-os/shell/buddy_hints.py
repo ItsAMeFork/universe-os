@@ -63,6 +63,12 @@ class Hints:
         buddy = self.ui.buddy
         if not buddy:
             return False
+        try:
+            import config
+            if config.settings().get('zen'):
+                return False
+        except Exception:  # noqa: BLE001 - a missing settings module must not raise a hint
+            pass
         if wait and buddy.busy:
             return False
         day = time.strftime('%Y-%m-%d')

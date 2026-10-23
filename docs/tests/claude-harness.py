@@ -215,7 +215,7 @@ def shell_parts():
 
 shell = shell_parts()
 assert shell['ANIMATIONS'] == ANIMATIONS
-assert shell['SECURITY_SETTINGS'] == {'lockMinutes'}
+assert shell['SECURITY_SETTINGS'] == {'lockMinutes', 'god'}
 assert 'claude.anim' in shell['CLAUDE_CALLS']
 
 
@@ -235,6 +235,8 @@ class Blocking:
 
 
 got = answer_to(lambda answer: shell['call'](Blocking(), 'call config.set {"key":"lockMinutes","value":0}', answer))
+assert got == ['fout: Dit is een beveiligingsinstelling; die verandert de gebruiker zelf in het Controlecentrum.']
+got = answer_to(lambda answer: shell['call'](Blocking(), 'call config.set {"key":"god","value":true}', answer))
 assert got == ['fout: Dit is een beveiligingsinstelling; die verandert de gebruiker zelf in het Controlecentrum.']
 
 seen = []

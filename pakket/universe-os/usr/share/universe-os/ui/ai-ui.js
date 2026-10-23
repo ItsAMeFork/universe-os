@@ -25,6 +25,32 @@ function button(title,action){
 export async function mountAi(root, api={}){
  const call=api.call||shellCall;
  const status=await call('ai.status');
+ let modes={zen:false,god:false};
+ try{const cfg=await call('config.get');if(cfg&&cfg.settings)modes={zen:!!cfg.settings.zen,god:!!cfg.settings.god};}catch(e){}
+ function modeSwitch(title,key,copy){
+  const box=h('input',{type:'checkbox',role:'switch'});
+  box.setAttribute('aria-label',title);
+  box.checked=!!modes[key];
+  const state=h('span',{class:'switch-state '+(box.checked?'aan':'uit')},box.checked?'Aan':'Uit');
+  function paint(next){
+   const on=!!(next&&next.settings&&next.settings[key]);
+   modes[key]=on;
+   box.checked=on;
+   state.textContent=on?'Aan':'Uit';
+   state.className='switch-state '+(on?'aan':'uit');
+  }
+  box.addEventListener('change',async()=>{
+   try{paint(await call('config.set',{key,value:box.checked}));}
+   catch(e){box.checked=!box.checked;state.textContent=e.message||'Mislukt.';}
+  });
+  return h('section',{class:'card token-hero','data-mode':key},
+   h('label',{class:'switch-row'},
+    h('span',{class:'switch'},box,h('span',{class:'switch-track','aria-hidden':'true'})),
+    h('span',{class:'switch-copy'},h('span',{class:'switch-title'},title),state)),
+   note(copy));
+ }
+ const zenSwitch=modeSwitch('Zen','zen','Rustig bureaublad. De taakbalk en de planeten verdwijnen. Het personage en dit invoerveld blijven. De vraag gaat het paneel in; Enter verstuurt.');
+ const godSwitch=modeSwitch('God','god','De assistent doet gewone stappen zelf. Versturen, betalen, wissen en wachtwoorden blijven een vraag. Super+Escape zet God uit.');
  let chosen=status.provider||'claude';
  const model=h('input',{type:'text',value:status.model||'',autocomplete:'off'});
  model.setAttribute('aria-label','Model');
@@ -316,6 +342,8 @@ export async function mountAi(root, api={}){
    return next&&next.tekst||'De pagina van de extensie opent.';
   }));
  root.append(
+  zenSwitch,
+  godSwitch,
   switchCard,
   chromeCard,
   autoSwitch,

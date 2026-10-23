@@ -67,8 +67,11 @@ const status = {
   {id:'goose', naam:'Goose', uitleg:'Apache-2.0. Alleen als je een andere agent dan Claude wilt.', geinstalleerd:false, sleutel_mogelijk:false, sleutel_bewaard:false, model_leeg:'het model van Goose'}
  ]
 };
+const desk = {zen:false, god:false, buddy:true};
 const call = async (cmd, args) => {
  if (cmd === 'ai.status') return status;
+ if (cmd === 'config.get') return {settings:{...desk}};
+ if (cmd === 'config.set') { desk[args.key] = !!args.value; return {settings:{...desk}}; }
  if (cmd === 'ai.set') {
   status.provider = args.provider;
   status.model = args.model || '';

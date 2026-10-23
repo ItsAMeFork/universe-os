@@ -49,6 +49,8 @@ SETTING_KEYS = {
     'buddy': (True, False),  # Claude-personage op het bureaublad (alleen als Claude Code er is)
     'sounds': (True, False),  # systeemgeluiden: inloggen, afmelden, afsluiten, meldingen
     'heBuddy': (True, False),  # Hé Buddy: de buddy spreekt meldingen uit. Uit tot de gebruiker het aanzet.
+    'zen': (True, False),  # rustig bureaublad: geen taakbalk, geen planeten
+    'god': (True, False),  # assistent doet gewone stappen zelf; versturen, betalen, wissen en wachtwoorden blijven een vraag
 }
 
 
@@ -56,7 +58,7 @@ def settings():
     base = branding().get('defaults', {})
     merged = {'animations': 'full', 'travel': True, 'uiScale': 100, 'textScale': 100, 'lockMinutes': 10,
               'screenOffMinutes': 15, 'naturalScroll': False, 'tapToClick': True, 'pointerSpeed': 0.0, 'displayScales': {}, 'buddy': True, 'sounds': True,
-              'heBuddy': False}
+              'heBuddy': False, 'zen': False, 'god': False}
     merged.update(base)
     merged.update(read_json(os.path.join(user_dir(), 'settings.json'), {}))
     return merged
