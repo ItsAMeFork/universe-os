@@ -185,43 +185,6 @@ export function mountNebula(parent,api={}){
   drawChips();
  }
 
- function renderBriefing(){
-  const data=state.ochtend;
-  ochtend.replaceChildren(h('h2',{},'Ochtendbriefing'));
-  if(!data){
-   ochtend.append(h('p',{class:'muted'},'De briefing wordt gelezen…'));
-   return;
-  }
-  if(data.fout){
-   ochtend.append(h('p',{role:'alert'},data.fout));
-   return;
-  }
-  ochtend.append(h('h3',{},'Agenda vandaag'));
-  const agenda=data.agenda||[];
-  if(!agenda.length) ochtend.append(h('p',{},data.agenda_tekst||'Niets op de agenda vandaag.'));
-  else{
-   const ul=h('ul',{});
-   for(const item of agenda){
-    const plek=item.plek?' · '+item.plek:'';
-    ul.append(h('li',{},(item.van?item.van+' · ':'')+(item.titel||'Afspraak')+plek));
-   }
-   ochtend.append(ul);
-  }
-  ochtend.append(h('h3',{},'Belangrijke mail'));
-  ochtend.append(h('p',{},data.mail_samenvatting||'Geen belangrijke mail.'));
-  const mail=data.mail||[];
-  if(mail.length){
-   const ul=h('ul',{});
-   for(const item of mail){
-    const from=item.van?' — '+item.van:'';
-    ul.append(h('li',{},(item.onderwerp||'Bericht')+from+(item.samenvatting?' '+item.samenvatting:'')));
-   }
-   ochtend.append(ul);
-  }
-  ochtend.append(h('h3',{},'Geldtip'));
-  ochtend.append(h('p',{},data.geldtip||''));
-  ochtend.append(h('p',{class:'muted'},data.bevestigen||'Versturen en betalen vragen om toestemming.'));
- }
  function paintGoals(data){
   const on=!!(data&&data.achtergrond);
   const box=h('input',{type:'checkbox',role:'switch'});
@@ -277,6 +240,43 @@ export function mountNebula(parent,api={}){
    if(!alive||!still())return;
    paintGoals(data);
   }catch(e){if(alive)status.textContent=e.message||'De doelen konden niet worden gelezen.';}
+ }
+ function renderBriefing(){
+  const data=state.ochtend;
+  ochtend.replaceChildren(h('h2',{},'Ochtendbriefing'));
+  if(!data){
+   ochtend.append(h('p',{class:'muted'},'De briefing wordt gelezen…'));
+   return;
+  }
+  if(data.fout){
+   ochtend.append(h('p',{role:'alert'},data.fout));
+   return;
+  }
+  ochtend.append(h('h3',{},'Agenda vandaag'));
+  const agenda=data.agenda||[];
+  if(!agenda.length) ochtend.append(h('p',{},data.agenda_tekst||'Niets op de agenda vandaag.'));
+  else{
+   const ul=h('ul',{});
+   for(const item of agenda){
+    const plek=item.plek?' · '+item.plek:'';
+    ul.append(h('li',{},(item.van?item.van+' · ':'')+(item.titel||'Afspraak')+plek));
+   }
+   ochtend.append(ul);
+  }
+  ochtend.append(h('h3',{},'Belangrijke mail'));
+  ochtend.append(h('p',{},data.mail_samenvatting||'Geen belangrijke mail.'));
+  const mail=data.mail||[];
+  if(mail.length){
+   const ul=h('ul',{});
+   for(const item of mail){
+    const from=item.van?' — '+item.van:'';
+    ul.append(h('li',{},(item.onderwerp||'Bericht')+from+(item.samenvatting?' '+item.samenvatting:'')));
+   }
+   ochtend.append(ul);
+  }
+  ochtend.append(h('h3',{},'Geldtip'));
+  ochtend.append(h('p',{},data.geldtip||''));
+  ochtend.append(h('p',{class:'muted'},data.bevestigen||'Versturen en betalen vragen om toestemming.'));
  }
  function renderList(){
  list.replaceChildren(ochtend,goals);
