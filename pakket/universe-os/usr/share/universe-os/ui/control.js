@@ -1,4 +1,5 @@
 import {mountAccounts} from './accounts-ui.js';
+import {mountGhost} from './ghost-ui.js';
 import {mountAi} from './ai-ui.js';
 import {audioView} from './audio-ui.js';
 import {updatesView} from './updates-ui.js';
@@ -34,6 +35,7 @@ const pages={
  shortcuts:async root=>{const list=await call('shortcuts.get'),inputs=new Map();for(const s of list){const i=input('text',s.key);i.disabled=!!s.fixed;inputs.set(s.id,i);root.append(field(s.name+(s.fixed?' (vast)':''),i));}root.append(note('W = Windows, C = Ctrl, S = Shift, A = Alt. Voorbeeld: W-e.'),button('Sneltoetsen opslaan',async()=>{const seen=new Set(),changes={};for(const s of list){const key=inputs.get(s.id).value.trim();if(!key||seen.has(key.toLowerCase()))throw Error('Elke sneltoets moet ingevuld en uniek zijn.');seen.add(key.toLowerCase());if(!s.fixed)changes[s.id]=key;}await call('shortcuts.set',{changes});}));},
  updates:async root=>root.append(card('Software en updates',updatesView(),note('Vrijgegeven Universe OS-updates komen uit de eigen ondertekende pakketbron. Debian en Chrome gebruiken hun eigen pakketbronnen.'),tool('Software beheren','software',{mode:'installed'}))),
  security:async root=>{
+  mountGhost(root,h,await call('ghost.status'),aan=>call('ghost.set',{aan}));
   const f=await call('firewall.get');
   root.append(card('Firewall',note(!f.installed?'Firewall niet geïnstalleerd.':f.enabled?'Firewall staat aan.':'Firewall staat niet actief.'),note('Inkomende verbindingen worden standaard geweigerd. De huidige regelset wordt hier niet weergegeven.')));
   const brain=await call('brein.summary');

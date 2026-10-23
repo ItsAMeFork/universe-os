@@ -46,6 +46,12 @@ def _screen():
     return screen
 
 
+def _ghost():
+    _claude()
+    import ghost_modus
+    return ghost_modus
+
+
 def _ai():
     _claude()
     import ai_provider
@@ -414,6 +420,8 @@ def handlers(app):
         'network.status': lambda a: backend.network(),
         'bluetooth.get': bluetooth,
         'firewall.get': lambda a: firewall(),
+        'ghost.status': lambda a: _ghost().public(),
+        'ghost.set': lambda a: _ghost().set_enabled(a.get('aan')),
         'updates.status': lambda a: backend.updates_status(),
         'updates.channel.get': lambda a: backend.update_channel.get(),
         'updates.channel.set': lambda a: backend.update_channel.set_channel(a),

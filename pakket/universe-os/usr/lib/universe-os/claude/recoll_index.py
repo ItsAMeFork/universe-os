@@ -42,8 +42,18 @@ def ensure_config():
                 'idxflushmb = 10\n' % quoted)
 
 
+def _ghost():
+    try:
+        import ghost_modus
+        return ghost_modus.enabled()
+    except Exception:  # noqa: BLE001 - indexing stays available if the switch cannot be read
+        return False
+
+
 def index_command():
-    """Incremental update, as gentle as possible."""
+    """Incremental update, as gentle as possible. Ghost mode does not read the folders."""
+    if _ghost():
+        return ['true']
     ensure_config()
     cmd = ['nice', '-n', '19']
     if shutil.which('ionice'):
@@ -52,7 +62,9 @@ def index_command():
 
 
 def search(query, limit=20):
-    """Returns [{'pad', 'titel', 'soort', 'samenvatting'}]."""
+    """Returns [{'pad', 'titel', 'soort', 'samenvatting'}]. Ghost mode returns no file contents."""
+    if _ghost():
+        return []
     if not available():
         return None
     ensure_config()

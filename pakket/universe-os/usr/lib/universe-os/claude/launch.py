@@ -10,8 +10,12 @@ import sandbox  # noqa: E402
 
 def prepare(fresh=False, env=None):
     plan = ai_provider.launch_plan(fresh=fresh, env=env)
-    if not plan['ok']:
+    if not plan.get('ok'):
         return plan
+    import ghost_modus
+    refusal = ghost_modus.cloud_refusal(plan.get('provider'))
+    if refusal:
+        return {'ok': False, 'provider': plan.get('provider'), 'fout': refusal}
     for item in plan['writes']:
         folder = os.path.dirname(item['path'])
         os.makedirs(folder, mode=0o700, exist_ok=True)

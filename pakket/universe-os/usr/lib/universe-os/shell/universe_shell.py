@@ -74,8 +74,25 @@ DOCK_HEIGHT = 64  # CSS pixels of .dock in dock.html
 DOCK_MARGIN = 8
 
 
+_ghost = None
+
+
 def log(text):
-    print('[universe-shell] %s' % text, file=sys.stderr, flush=True)
+    """Session log. Ghost mode keeps a short failure label and drops routine lines and payloads."""
+    global _ghost
+    if _ghost is None:
+        try:
+            folder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'claude')
+            if folder not in sys.path:
+                sys.path.insert(0, folder)
+            import ghost_modus
+            _ghost = ghost_modus
+        except Exception:  # noqa: BLE001 - logging must keep working if the switch cannot be read
+            _ghost = False
+    if _ghost:
+        text = _ghost.shell_line(text)
+    if text:
+        print('[universe-shell] %s' % text, file=sys.stderr, flush=True)
 
 
 def _brein():
