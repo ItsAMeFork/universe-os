@@ -28,7 +28,13 @@ find "$LIVE/auto" "$LIVE/config/hooks/live" -type f -user "$(id -u)" -exec chmod
 
 echo "== 3/4 live-build (dit duurt lang)"
 cd "$LIVE"
-sudo lb clean --purge >/dev/null 2>&1 || true
+# UNIVERSE_KEEP_CACHE=1 (optioneel, voor een vaste bouwmachine): pakketcache in live/cache bewaren, dan haalt de
+# volgende bouw niet alles opnieuw binnen. Standaard blijft alles weg (schone bouw).
+if [ "${UNIVERSE_KEEP_CACHE:-0}" = 1 ]; then
+    sudo lb clean >/dev/null 2>&1 || true
+else
+    sudo lb clean --purge >/dev/null 2>&1 || true
+fi
 lb config >"$LOGS/lb-config.log" 2>&1
 sudo lb build 2>&1 | tee "$LOGS/lb-build.log" | grep -E '^(P:|E:|W:)|Error|error:' || true
 
