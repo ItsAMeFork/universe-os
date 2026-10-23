@@ -15,11 +15,11 @@ done
 # De NVIDIA-module moet voor elke kernel in het image gebouwd zijn (DKMS); anders stoppen we de bouw.
 for k in /boot/vmlinuz-*; do
     kv=${k#/boot/vmlinuz-}
-    if ! find "/lib/modules/$kv" -name 'nvidia*.ko*' | grep -q .; then
+    if ! find "/lib/modules/$kv" -name 'nvidia-current.ko*' | grep -q .; then
         echo "Universe OS: NVIDIA-module ontbreekt voor $kv, DKMS opnieuw" >&2
         dkms autoinstall -k "$kv" || true
     fi
-    if ! find "/lib/modules/$kv" -name 'nvidia*.ko*' | grep -q .; then
+    if ! find "/lib/modules/$kv" -name 'nvidia-current.ko*' | grep -q .; then
         echo "Universe OS: FOUT, geen NVIDIA-module voor kernel $kv" >&2
         exit 1
     fi
