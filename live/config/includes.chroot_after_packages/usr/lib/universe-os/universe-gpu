@@ -1,0 +1,133 @@
+#!/usr/bin/python3
+"""Universe OS 0.2.23: kiest bij het opstarten het stuurprogramma voor een NVIDIA-kaart, vóór het inlogscherm.
+
+Het eigen NVIDIA-stuurprogramma (550) kent alleen Maxwell en nieuwer (GTX 750 en later). Oudere kaarten, en pc's met
+Secure Boot aan (de DKMS-module is niet ondertekend met een sleutel die de pc vertrouwt), krijgen nouveau. Pc's zonder
+NVIDIA-kaart merken niets: hun stuurprogramma's (i915, amdgpu, virtio, ...) laden zoals altijd.
+/etc/modprobe.d/universe-gpu.conf houdt nouveau en nvidia tegen bij het automatisch laden; dit script laadt er één.
+
+Opstartopties (in het opstartmenu, of met 'e'):
+  universe.gpu=nvidia    altijd het NVIDIA-stuurprogramma proberen (valt terug op nouveau als het niet laadt)
+  universe.gpu=nouveau   altijd nouveau
+  universe.gpu=veilig    geen van beide (eenvoudig beeld via de firmware, simpledrm); ook bij nomodeset
+Uitkomst: /run/universe-os/gpu.json en het systeemlogboek (journalctl -u universe-gpu).
+"""
+import fnmatch
+import glob
+import json
+import os
+import subprocess
+
+NVIDIA_VENDOR = '0x10de'
+NVIDIA_MODULES = ('nvidia-current', 'nvidia')        # Debian noemt de module nvidia-current
+NVIDIA_DRM = ('nvidia-current-drm', 'nvidia-drm')
+RESULT = '/run/universe-os/gpu.json'
+
+
+def nvidia_gpus(root='/sys/bus/pci/devices'):
+    """Modalias of every NVIDIA display controller (PCI class 0x03xxxx)."""
+    found = []
+    for dev in sorted(glob.glob(os.path.join(root, '*'))):
+        try:
+            vendor = open(os.path.join(dev, 'vendor')).read().strip()
+            klass = open(os.path.join(dev, 'class')).read().strip()
+            alias = open(os.path.join(dev, 'modalias')).read().strip()
+        except OSError:
+            continue
+        if vendor == NVIDIA_VENDOR and klass.startswith('0x03'):
+            found.append(alias)
+    return found
+
+
+def option(cmdline):
+    words = cmdline.split()
+    if 'nomodeset' in words:
+        return 'veilig'
+    for word in words:
+        if word.startswith('universe.gpu='):
+            value = word.split('=', 1)[1]
+            if value in ('nvidia', 'nouveau', 'veilig'):
+                return value
+    return None
+
+
+def supported(modalias, aliases):
+    """True when the NVIDIA module lists this card (its PCI id) as one it drives."""
+    return any(fnmatch.fnmatchcase(modalias, pattern) for pattern in aliases)
+
+
+def choose(cmdline, gpus, aliases):
+    """('nvidia' | 'nouveau' | 'veilig' | None, reason). None: no NVIDIA card, nothing to do."""
+    if not gpus:
+        return None, 'geen NVIDIA-kaart'
+    asked = option(cmdline)
+    if asked:
+        return asked, 'opstartoptie'
+    if not aliases:
+        return 'nouveau', 'NVIDIA-module ontbreekt'
+    if all(supported(gpu, aliases) for gpu in gpus):
+        return 'nvidia', 'kaart ondersteund door nvidia 550'
+    return 'nouveau', 'kaart te oud voor nvidia 550 (of onbekend)'
+
+
+def module_aliases():
+    for name in NVIDIA_MODULES:
+        try:
+            out = subprocess.run(['modinfo', '-F', 'alias', name], capture_output=True, text=True, timeout=20)
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if out.returncode == 0 and out.stdout.strip():
+            return [line.strip() for line in out.stdout.splitlines() if line.strip().startswith('pci:')]
+    return []
+
+
+def secure_boot():
+    try:
+        out = subprocess.run(['mokutil', '--sb-state'], capture_output=True, text=True, timeout=10)
+        return 'enabled' in out.stdout.lower()
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def modprobe(names):
+    errors = []
+    for name in names:
+        out = subprocess.run(['modprobe', name], capture_output=True, text=True)
+        if out.returncode == 0:
+            return True, ''
+        errors.append(out.stderr.strip())
+    return False, ' / '.join(e for e in errors if e)
+
+
+def main():
+    try:
+        cmdline = open('/proc/cmdline').read()
+    except OSError:
+        cmdline = ''
+    gpus = nvidia_gpus()
+    aliases = module_aliases() if gpus else []
+    choice, reason = choose(cmdline, gpus, aliases)
+    info = {'kaarten': gpus, 'keuze': choice, 'reden': reason, 'secure_boot': secure_boot() if gpus else None}
+    if choice == 'nvidia':
+        ok, error = modprobe(NVIDIA_DRM)
+        if ok:
+            info['geladen'] = 'nvidia'
+        else:
+            info['fout'] = error
+            if info['secure_boot']:
+                info['reden'] += '; laadt niet met Secure Boot aan (module niet ondertekend), dus nouveau'
+            choice = 'nouveau'
+    if choice == 'nouveau':
+        ok, error = modprobe(['nouveau'])
+        info['geladen'] = 'nouveau' if ok else None
+        if not ok:
+            info['fout'] = error
+    subprocess.run(['udevadm', 'settle', '--timeout=10'], check=False)
+    os.makedirs(os.path.dirname(RESULT), exist_ok=True)
+    with open(RESULT, 'w') as f:
+        json.dump(info, f, ensure_ascii=False)
+    print('universe-gpu:', json.dumps(info, ensure_ascii=False))
+
+
+if __name__ == '__main__':
+    main()

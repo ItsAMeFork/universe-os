@@ -1,0 +1,34 @@
+#!/bin/sh
+# 0.2.23: stuurprogramma's (zie docs/stuurprogrammas.md).
+set -e
+
+# Het NVIDIA-pakket blokkeert nouveau op elke pc. Dan hebben oude NVIDIA-kaarten (die nvidia 550 niet kent) geen
+# beeld. universe-gpu.service kiest per pc; zijn eigen regels staan in /etc/modprobe.d/universe-gpu.conf.
+for f in /etc/modprobe.d/nvidia-blacklists-nouveau.conf /lib/modprobe.d/nvidia-blacklists-nouveau.conf \
+         /usr/lib/modprobe.d/nvidia-blacklists-nouveau.conf; do
+    if [ -e "$f" ]; then
+        echo "Universe OS: $f weggehaald (universe-gpu kiest)"
+        rm -f "$f"
+    fi
+done
+
+# De NVIDIA-module moet voor elke kernel in het image gebouwd zijn (DKMS); anders stoppen we de bouw.
+for k in /boot/vmlinuz-*; do
+    kv=${k#/boot/vmlinuz-}
+    if ! find "/lib/modules/$kv" -name 'nvidia*.ko*' | grep -q .; then
+        echo "Universe OS: NVIDIA-module ontbreekt voor $kv, DKMS opnieuw" >&2
+        dkms autoinstall -k "$kv" || true
+    fi
+    if ! find "/lib/modules/$kv" -name 'nvidia*.ko*' | grep -q .; then
+        echo "Universe OS: FOUT, geen NVIDIA-module voor kernel $kv" >&2
+        exit 1
+    fi
+done
+
+# DKMS maakt een eigen sleutel om de module te ondertekenen. Die mag niet in een openbaar ISO staan (dan kan iedereen
+# er modules mee ondertekenen). Een geïnstalleerd systeem maakt bij de volgende DKMS-bouw een nieuwe.
+rm -f /var/lib/dkms/mok.key /var/lib/dkms/mok.pub
+
+systemctl enable universe-gpu.service
+# De regels uit universe-gpu.conf moeten ook in de initramfs staan, anders laadt nouveau daar al.
+update-initramfs -u -k all

@@ -46,6 +46,8 @@ with tempfile.TemporaryDirectory() as tmp:
     g.remember(path, ['nouveau'], 'safe')
     assert g.remembered(path, ['nouveau']) == 'safe'
     assert g.remembered(path, ['i915']) is None
+    # 0.2.23: universe-gpu can switch the H310M pc from nouveau to nvidia (PCI driver name 'nvidia'): test again.
+    assert g.remembered(path, ['nvidia']) is None
     with open(path) as f:
         data = json.load(f)
     data['kernel'] = 'een-andere-kernel'

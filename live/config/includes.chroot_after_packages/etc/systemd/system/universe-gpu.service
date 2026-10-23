@@ -1,0 +1,12 @@
+[Unit]
+Description=Universe OS: stuurprogramma voor NVIDIA-kaarten kiezen (nvidia of nouveau)
+After=systemd-udev-trigger.service systemd-modules-load.service local-fs.target
+Before=display-manager.service systemd-user-sessions.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/python3 /usr/lib/universe-os/universe-gpu
+
+[Install]
+WantedBy=multi-user.target
