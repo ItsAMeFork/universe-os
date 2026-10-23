@@ -27,6 +27,10 @@ import sys
 
 SAFE_FILE = '/etc/universe-os/grafisch-veilig'
 SAFE_VARS = {'WEBKIT_DMABUF_RENDERER_FORCE_SHM': '1', 'LIBGL_ALWAYS_SOFTWARE': '1', 'GALLIUM_DRIVER': 'llvmpipe'}
+# 23 Oct, H310M with the NVIDIA driver (0.2.24): after the screen mode changed at login the world page froze on its
+# first picture (Earth in the warp streaks, the planets never came) and turned pale grey-blue when the start menu opened.
+# WebKit's DMA-BUF buffers do not survive that on the proprietary driver; shared memory does (the GPU still draws).
+NVIDIA_VARS = {'WEBKIT_DMABUF_RENDERER_FORCE_SHM': '1'}
 PROBE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'grafisch_proef.py')
 PROBE_TIMEOUT = 30
 
@@ -144,4 +148,8 @@ def apply():
     if mode == 'safe':
         for name, value in SAFE_VARS.items():
             os.environ.setdefault(name, value)
+    elif 'nvidia' in drivers and 'universe.gfx=normal' not in cmdline.split():
+        for name, value in NVIDIA_VARS.items():
+            os.environ.setdefault(name, value)
+        reason += '; nvidia: gedeeld geheugen'
     return drivers, has_render_node, mode, reason

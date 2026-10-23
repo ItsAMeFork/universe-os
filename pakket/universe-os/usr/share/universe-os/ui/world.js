@@ -86,7 +86,8 @@ async function start(){
  call('world.ready',{milliseconds:performance.now()}).catch(()=>{});
  window.__universePageReady?.();
  // The planets burst out of the Earth that exploded on the login screen.
- if(intro)loaded.then(()=>earthsPainted()).then(()=>animateWorld('in',saved,{core:true}));
+ // At most 6 s of waiting (23 Oct, H310M: the world stayed in the warp picture): the planets come when they are loaded.
+ if(intro){const wait=ms=>new Promise(r=>setTimeout(r,ms));Promise.race([loaded.then(()=>earthsPainted()),wait(6000)]).catch(()=>{}).then(()=>animateWorld('in',saved,{core:true}));}
  setTimeout(paintEarths,1500);
 }
 // Planets of the rooms (Applicaties, Softwarewinkel, ...): the quick picture at once, the sharp one right after.

@@ -72,11 +72,28 @@ def resolution():
         data = json.loads(subprocess.run(['wlr-randr', '--json'], capture_output=True, text=True, timeout=5).stdout or '[]')
     except (OSError, ValueError, subprocess.TimeoutExpired):
         return
+    changed = []
     for o in data:
         mode = o.get('enabled', True) and choose_mode(o.get('modes', []), target)
         if mode:
             subprocess.run(['wlr-randr', '--output', o['name'], '--mode',
                             '%dx%d@%.3f' % (mode['width'], mode['height'], mode.get('refresh') or 60)], check=False, timeout=10)
+            changed.append((o['name'], mode['width'], mode['height']))
+    settle(changed)
+
+
+def settle(changed, timeout=4.0):
+    """Wait until the new modes are really on screen (NVIDIA takes a moment) plus one second, so the shell starts at the
+    final size: a size change under a running world page froze it on the H310M (23 Oct)."""
+    if not changed:
+        return
+    end = time.monotonic() + timeout
+    while time.monotonic() < end:
+        now = {o['name']: (o['width'], o['height']) for o in outputs()}
+        if all(now.get(n) == (w, h) for n, w, h in changed):
+            break
+        time.sleep(0.25)
+    time.sleep(1.0)
 
 
 def apply():
