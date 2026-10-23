@@ -1,0 +1,60 @@
+# Stuurprogramma's zodat Universe OS op zo veel mogelijk pc's werkt, zoals Ubuntu, Pop!_OS en Mint (0.2.23).
+# Firmware voor wifi, bluetooth, geluid en grafisch komt al mee via --firmware-chroot (firmware-linux-nonfree e.a.).
+# Zie docs/stuurprogrammas.md.
+
+# Grafisch: volledige Mesa (OpenGL, Vulkan, video-versnelling) en alle Xorg-stuurprogramma's
+libgl1-mesa-dri
+mesa-vulkan-drivers
+mesa-va-drivers
+mesa-vdpau-drivers
+xserver-xorg-video-all
+xserver-xorg-video-amdgpu
+# Intel: video-versnelling voor nieuwe (iHD) en oude (i965) chips
+intel-media-va-driver-non-free
+i965-va-driver
+# AMD
+firmware-amd-graphics
+# NVIDIA (eigen stuurprogramma, 550). Alleen gebruikt als de kaart het ondersteunt: universe-gpu kiest bij het opstarten
+# tussen nvidia en nouveau (oude kaarten, Secure Boot). De module wordt in de bouw gemaakt (DKMS), dus de kernelheaders
+# moeten mee; ze zorgen er ook voor dat een geïnstalleerd systeem de module na een kernelupdate opnieuw maakt.
+linux-headers-amd64
+dkms
+nvidia-kernel-dkms
+nvidia-driver
+nvidia-vulkan-icd
+firmware-misc-nonfree
+firmware-nvidia-graphics
+pciutils
+
+# Video afspelen met hardware (codecs)
+gstreamer1.0-plugins-good
+gstreamer1.0-plugins-bad
+gstreamer1.0-plugins-ugly
+gstreamer1.0-libav
+gstreamer1.0-vaapi
+
+# Printen: printers zonder stuurprogramma (IPP Everywhere/AirPrint, ook via USB) en de gangbare merken
+cups
+cups-filters
+cups-browsed
+ipp-usb
+system-config-printer
+printer-driver-gutenprint
+printer-driver-hpcups
+printer-driver-brlaser
+printer-driver-splix
+printer-driver-foo2zjs
+
+# Scannen (netwerk- en USB-scanners zonder stuurprogramma)
+sane-airscan
+sane-utils
+simple-scan
+
+# Invoer: tekentabletten en touchscreens met pen
+xserver-xorg-input-wacom
+
+# Firmware-updates (UEFI, docks, SSD's), Thunderbolt en Windows-schijven
+fwupd
+bolt
+ntfs-3g
+exfatprogs
