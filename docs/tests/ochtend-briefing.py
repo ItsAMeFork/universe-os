@@ -11,6 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 CLAUDE = ROOT / 'pakket/universe-os/usr/lib/universe-os/claude'
+sys.path.insert(0, str(CLAUDE))  # auto_accept importeert broermodules (modes, brein)
 SHELL = ROOT / 'pakket/universe-os/usr/lib/universe-os/shell/universe_shell.py'
 UI = ROOT / 'pakket/universe-os/usr/share/universe-os/ui'
 
