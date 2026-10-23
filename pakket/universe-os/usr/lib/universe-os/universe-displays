@@ -7,12 +7,25 @@
   universe-displays scale NAME S    set and save scale S for screen NAME
 """
 import json
+import os
 import subprocess
 import sys
 import time
 
 sys.path.insert(0, '/usr/lib/universe-os/shell')
 import config  # noqa: E402
+
+# The autostart sends this program's output to /dev/null, so failures are written to the shell log instead.
+LOG = os.path.join(os.environ.get('XDG_STATE_HOME') or os.path.expanduser('~/.local/state'), 'universe-os', 'shell.log')
+
+
+def note(text):
+    try:
+        os.makedirs(os.path.dirname(LOG), exist_ok=True)
+        with open(LOG, 'a') as f:
+            f.write('[universe-displays] %s\n' % text)
+    except OSError:
+        pass
 
 
 def outputs():
@@ -70,14 +83,18 @@ def resolution():
     target = config.settings().get('displayResolution') or DEFAULT_RESOLUTION
     try:
         data = json.loads(subprocess.run(['wlr-randr', '--json'], capture_output=True, text=True, timeout=5).stdout or '[]')
-    except (OSError, ValueError, subprocess.TimeoutExpired):
+    except (OSError, ValueError, subprocess.TimeoutExpired) as error:
+        note('resolutie niet ingesteld, wlr-randr geeft geen schermen: %s' % error)
         return
     changed = []
     for o in data:
         mode = o.get('enabled', True) and choose_mode(o.get('modes', []), target)
         if mode:
-            subprocess.run(['wlr-randr', '--output', o['name'], '--mode',
-                            '%dx%d@%.3f' % (mode['width'], mode['height'], mode.get('refresh') or 60)], check=False, timeout=10)
+            r = subprocess.run(['wlr-randr', '--output', o['name'], '--mode',
+                                '%dx%d@%.3f' % (mode['width'], mode['height'], mode.get('refresh') or 60)], check=False, timeout=10,
+                               capture_output=True, text=True)
+            if r.returncode:
+                note('%s naar %dx%d mislukt (code %d): %s' % (o['name'], mode['width'], mode['height'], r.returncode, r.stderr.strip()))
             changed.append((o['name'], mode['width'], mode['height']))
     settle(changed)
 
@@ -93,6 +110,8 @@ def settle(changed, timeout=4.0):
         if all(now.get(n) == (w, h) for n, w, h in changed):
             break
         time.sleep(0.25)
+    else:
+        note('na %.0f s staat het scherm nog niet op de nieuwe modus: %s' % (timeout, changed))
     time.sleep(1.0)
 
 

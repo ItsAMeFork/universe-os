@@ -279,7 +279,8 @@ def screen_factor():
         if monitor.get_scale_factor() > 1:
             return 1.0  # the compositor already scales
         return auto_factor(monitor.get_geometry().height)
-    except Exception:
+    except Exception as error:  # noqa: BLE001 - the pages still work at 1x
+        log('Schaal van het scherm niet bepaald, 1x gebruikt: %s' % error)
         return 1.0
 
 
@@ -360,8 +361,8 @@ class Shell:
         display = Gdk.Display.get_default()
         for i in range(display.get_n_monitors()):
             self.add_world(display.get_monitor(i))
-        display.connect('monitor-added', lambda d, m: self.add_world(m))
-        display.connect('monitor-removed', self.remove_world)
+        display.connect('monitor-added', self.monitor_added)
+        display.connect('monitor-removed', self.monitor_removed)
         # Panel and dock follow once the world is visible (ready()): every page starts its own WebKit process, and
         # three at once made the world wait for the CPU after login. The timeout covers a world that never reports.
         GLib.timeout_add_seconds(15, lambda: self.build_bars() and False)
@@ -387,6 +388,15 @@ class Shell:
             GLib.timeout_add_seconds(3, self.claude.update_buddy)  # the buddy comes last, after panel and dock
         GLib.timeout_add(1500, lambda: [s.redraw() for s in (self.panel, self.dock) if s] and False)  # first frame (23 Oct)
         return False
+
+    def monitor_added(self, display, monitor):
+        geometry = monitor.get_geometry()
+        log('Scherm aangesloten (%dx%d); wereld erbij.' % (geometry.width, geometry.height))
+        self.add_world(monitor)
+
+    def monitor_removed(self, display, monitor):
+        log('Scherm losgekoppeld; wereld verwijderd.')
+        self.remove_world(display, monitor)
 
     def add_world(self, monitor):
         L, E, K = GtkLayerShell.Layer, GtkLayerShell.Edge, GtkLayerShell.KeyboardMode

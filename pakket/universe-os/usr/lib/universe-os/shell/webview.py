@@ -112,6 +112,18 @@ def make_view(page, bridge, transparent=False, zoom=1.0):
         bridge.handle(view, raw)
 
     manager.connect('script-message-received::universe', received)
+
+    # Without these a crashed or failed page is a dark window with no trace; shell.log is the only place to see why.
+    def crashed(_view):
+        bridge.log('Pagina %s: WebKit-proces is gecrasht' % page)
+        return False
+
+    def failed(_view, _event, uri, error):
+        bridge.log('Pagina %s niet geladen (%s): %s' % (page, uri, error.message))
+        return False
+
+    view.connect('web-process-crashed', crashed)
+    view.connect('load-failed', failed)
     settings = view.get_settings()
     settings.set_allow_file_access_from_file_urls(True)
     settings.set_enable_developer_extras(False)
