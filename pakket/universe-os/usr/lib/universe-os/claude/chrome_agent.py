@@ -81,11 +81,44 @@ def install_script():
     ) % (APT_LINE, url, url)
 
 
-def plan_setup(chrome_present):
+def plan_setup(chrome_present, which=None):
     """What the confirmed button runs. No apt and no browser until the caller spawns it."""
     if chrome_present:
-        return {'script': '', 'open': [binary() or 'google-chrome', STORE_URL], 'url': STORE_URL}
+        return {'script': '', 'open': [binary(which) or 'google-chrome', STORE_URL], 'url': STORE_URL}
     return {'script': install_script(), 'open': [], 'url': STORE_URL}
+
+
+def perform_setup(spawn, ask, which_terminal=None, which=None):
+    """One confirmed step: install Chrome when it is missing, otherwise open the extension page.
+
+    ask(title, text) must return True before spawn runs. which_terminal('xfce4-terminal')
+    is only required for the apt script. which() is the same lookup as status().
+    """
+    info = status(which=which)
+    if not ask(
+            'Chrome en Claude in Chrome',
+            'Chrome wordt, als het er nog niet is, geïnstalleerd uit de officiële apt-bron van Google. '
+            'Daarna opent de pagina van de officiële Claude-extensie. Je logt zelf in.'):
+        raise PermissionError('Geannuleerd. Er is niets geïnstalleerd.')
+    plan = plan_setup(info['chrome'], which)
+    if plan['script']:
+        terminal = which_terminal or shutil.which
+        if not terminal('xfce4-terminal'):
+            raise RuntimeError('Er is geen terminal beschikbaar om Chrome te installeren.')
+        spawn(['xfce4-terminal', '--title', 'Chrome installeren', '-x', 'bash', '-c', plan['script']])
+        fresh = dict(status(which=which))
+        fresh['tekst'] = ('De terminal installeert Chrome uit de officiële bron van Google. '
+                          'Daarna opent de extensiepagina. Log zelf in.')
+        fresh['bezig'] = True
+        fresh['route'] = 'claude-in-chrome'
+        return fresh
+    if plan['open']:
+        spawn(list(plan['open']))
+    fresh = dict(status(which=which))
+    fresh['route'] = 'claude-in-chrome'
+    if not fresh.get('verbonden'):
+        fresh['tekst'] = 'De pagina van de officiële Claude-extensie opent. Log in met je Claude-account.'
+    return fresh
 
 
 def judge_browser(tool, payload):

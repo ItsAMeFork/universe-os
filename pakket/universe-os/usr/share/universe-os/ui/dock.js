@@ -55,6 +55,7 @@ function render(){
   reorderable(b,e.key);
   b.addEventListener('contextmenu',ev=>{ev.preventDefault();openPopup(b,[
    {label:mine.length?'Naar voren halen':'Openen',run:()=>mine.length?call('windows.activate',{id:mine[0].id}):e.click()},
+   ...(e.key==='browser'?[{label:'Claude in Chrome',run:()=>call('world.open',{id:'chat',chooseBrowser:true})}]:[]),
    {label:'Losmaken van de taakbalk',run:()=>saveDock(layout.dock.filter(k=>k!==e.key))}]);});
   return b;
  });

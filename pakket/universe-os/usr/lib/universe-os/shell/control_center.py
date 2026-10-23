@@ -269,20 +269,10 @@ def chrome_setup():
     """One button: confirm, install Chrome from Google's apt repo if needed, open the extension page."""
     import confirm
     agent = _chrome_agent()
-    info = agent.status()
-    if not confirm.ask(
-            'Chrome en Claude in Chrome',
-            'Chrome wordt, als het er nog niet is, geïnstalleerd uit de officiële apt-bron van Google. '
-            'Daarna opent de pagina van de officiële Claude-extensie. Je logt zelf in.'):
-        raise PermissionError('Geannuleerd. Er is niets geïnstalleerd.')
-    plan = agent.plan_setup(info['chrome'])
-    if plan['script']:
-        if not shutil.which('xfce4-terminal'):
-            raise RuntimeError('Er is geen terminal beschikbaar om Chrome te installeren.')
-        backend.spawn(['xfce4-terminal', '--title', 'Chrome installeren', '-x', 'bash', '-c', plan['script']])
-    elif plan['open']:
-        backend.spawn(plan['open'])
-    return agent.status()
+    return agent.perform_setup(
+        backend.spawn,
+        lambda title, text: confirm.ask(title, text, force=True),
+        shutil.which)
 
 
 def _chrome_agent():

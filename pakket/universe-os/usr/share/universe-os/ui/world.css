@@ -300,5 +300,9 @@ html.reduce-motion .launch-number.beat,html.no-motion .launch-number.beat{animat
  .nebula-goal input[type=text]{flex:none;width:100%}
  .nebula-goal form button{width:100%}
 }
+.claude-route h2{text-transform:none;letter-spacing:0;color:var(--accent-strong);font-size:1.25em;margin:0 0 8px}
+.claude-route p{margin:0 0 10px;line-height:1.45}
+.claude-route .primary{font-weight:700;padding:14px 20px;margin-top:6px;background:#85ffe3;color:#06221c;border-color:#85ffe3;font-size:1.05em}
+.claude-route .primary:hover{background:#baf7e8;color:#06221c}
 html.reduce-motion .room.room-nebula,html.no-motion .room.room-nebula{animation:none}
 @media(prefers-reduced-motion:reduce){.room.room-nebula{animation:none}}

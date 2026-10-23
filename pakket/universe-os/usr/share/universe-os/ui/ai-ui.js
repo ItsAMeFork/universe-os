@@ -333,7 +333,7 @@ export async function mountAi(root, api={}){
  const chromeState=h('p',{class:'switch-state uit'},'Nog niet gecontroleerd.');
  const chromeCard=h('section',{class:'card token-hero'},
   h('h3',{},'Claude in Chrome'),
-  note('De officiële extensie in jouw Chrome. Gmail en Outlook werken zo, zonder OAuth-client. Log gewoon in.'),
+  note('De voorkeursroute voor de browser, ook voor Gmail en Outlook. Claude werkt in jouw eigen Chrome. Lezen, concepten, sorteren en formulieren gaan door. Versturen, betalen, wissen, wachtwoorden en belangrijke mail blijven een vraag met Toestaan. De Internet-planeet heeft dezelfde installatie.'),
   chromeState,
   button('Chrome en de extensie klaarzetten',async()=>{
    const next=await call('chrome.setup');

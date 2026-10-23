@@ -50,6 +50,6 @@ Een sessie van Claude blijft bij Claude tot je OmniRoute of LiteLLM kiest. Dat z
 
 Automatisch toestaan staat uit. Kies 30 minuten, 1 uur, 2 uur of tot je het uitzet. Gewone vragen gaan dan zonder venster door en komen in Acties te staan. Een kort antwoord naar een bekend adres mag dan ook weg; de volledige tekst staat onder Acties. Belangrijke mail (de lijst met domeinen en woorden op de pagina AI, een nieuwe ontvanger, een bijlage, meer dan drie ontvangers, of iets dat het model als belangrijk markeert), betalen, wissen en wachtwoorden blijven in de wachtrij. Super+Escape zet de stand uit.
 
-Claude in Chrome is de weg naar Gmail en Outlook. De knop op de pagina AI installeert Chrome uit de officiële apt-bron van Google, na een vraag, en opent de extensie. Een sessie van Claude start met `--chrome` zodra Chrome er is.
+Claude in Chrome is de voorkeursroute voor de browser, en de weg naar Gmail en Outlook. De knop op de Internet-planeet en de knop op de pagina AI installeren Chrome uit de officiële apt-bron van Google, na een vraag, en openen de extensie. Een sessie van Claude start met `--chrome` zodra Chrome er is. Versturen, betalen, wissen, wachtwoorden en belangrijke mail blijven een vraag, ook als automatisch toestaan aan staat.
 
 Paden met `..`, `hooks` of `rules` worden geweigerd. Er wordt geen hookbestand uit die repo's in de instellingen gezet. Het installatieprogramma weigert een `cp` en weigert een pad met `rules/`, behalve het verwijderen van `~/.claude/rules/ecc`.

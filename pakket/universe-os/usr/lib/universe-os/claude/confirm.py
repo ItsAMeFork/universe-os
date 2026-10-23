@@ -44,20 +44,27 @@ def _zenity(title, text):
     return result.returncode == 0
 
 
-def ask(title, text, runner=None):
-    """Returns True only when the user presses Toestaan. runner(title, text) replaces zenity in tests."""
+def ask(title, text, runner=None, force=False):
+    """Returns True only when the user presses Toestaan. runner(title, text) replaces zenity in tests.
+
+    force=True always shows the dialog. Installing Chrome is a system change, so away-mode
+    must not answer it. Mail, payment, deletion and passwords already stay a question.
+    """
     global _depth
     title = str(title or 'Bevestigen')[:200]
     text = str(text or '')[:8000]
-    import auto_accept
-    kind = auto_accept.decide(title, text)
-    _last.kind = kind
-    if kind == 'automatisch':
-        auto_accept.record(title, text, 'automatisch')
-        return True
-    if kind == 'wacht':
-        auto_accept.record(title, text, 'wacht')
-        return False
+    if not force:
+        import auto_accept
+        kind = auto_accept.decide(title, text)
+        _last.kind = kind
+        if kind == 'automatisch':
+            auto_accept.record(title, text, 'automatisch')
+            return True
+        if kind == 'wacht':
+            auto_accept.record(title, text, 'wacht')
+            return False
+    else:
+        _last.kind = 'vraag'
     _depth += 1
     try:
         if runner is not None:
