@@ -2,6 +2,29 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
+## 23 oktober: versies 0.2.24 en 0.2.25 (in deze branch, nog NIET gepubliceerd)
+**0.2.24** (H310M en andere grote beeldschermen):
+- Donkere, bijna ondoorzichtige taakbalk: de lichte glazen balk werd op de H310M een witte balk, met onzichtbare iconen (`ui/dock.html`).
+- Eigen iconen voor de vaste knoppen (`ui/dock.js`).
+- Schaal automatisch op schermhoogte: 1080 = 1x, 1440 = 1,25x, 2160 = 2x (`shell/universe_shell.py`, `screen_factor`). Paneelvenster schaalt mee.
+- Opnieuw tekenen na opstarten en na grootte- of zoomwijziging, zonder dat de muis erover hoeft (`Surface.redraw`). Test: `docs/tests/ui-schaal.py`.
+- Standaardresolutie 1920x1080 waar het scherm die heeft: `universe-displays resolution` draait als eerste in de labwc-autostart; instelling `displayResolution` (`'WxH'` of `'preferred'`). Het inlogscherm zet dezelfde modus met xrandr (`universe-xrandr-1080`). Test: `docs/tests/resolutie.py`.
+
+**0.2.25** (wereld bevroor op NVIDIA na de resolutiewissel):
+- Op NVIDIA gedeeld WebKit-geheugen (`WEBKIT_DMABUF_RENDERER_FORCE_SHM=1`), niet in de veilige modus en niet bij `universe.gfx=normal` (`shell/grafisch.py`). Test: `docs/tests/nvidia-wereld.py`.
+- Na een schermmodus-wissel wacht `universe-displays` tot de nieuwe modus echt staat (maximaal 4 s) plus 1 s, voordat de shell start (`settle`).
+- De intro van de wereld wacht hooguit 6 s op de planeten (`ui/world.js`).
+
+**Ook in deze branch:**
+- Logboek (`shell.log`): renderer-crashes en paginaladen-fouten (`webview.py`, via `bridge.log`), en de resolutiewissel (`universe-displays` schrijft naar stderr; de autostart voegt dat toe aan `shell.log`). Voorheen verdwenen die stil. Test: `docs/tests/shell-logboek.py`.
+- Taakbalk toegankelijk met het toetsenbord en voor schermlezers: Nederlandse tooltips en `aria-label` op elke knop, pijltjestoetsen in het snelmenu, Escape zet de focus terug op de knop (`ui/dock.js`). Test: `docs/tests/dock-a11y.py`.
+- Opstartmenu GRUB en syslinux: automatische start na 8 seconden (GRUB had geen timeout, syslinux `timeout 0` = eeuwig wachten). Syslinux-keuzes hebben Nederlandse helpteksten (`TEXT HELP`). Labels zijn ongewijzigd.
+- `.gitignore`: ISO-bouw-artefacten (`iso/`, `live/.build/`, `live/binary/`, `live/cache/`, `live/chroot*`, `live/build.log`, ...).
+
+**Nog niet gecontroleerd:**
+- Startmenu op 1920x1080: horizontaal gecentreerd door layer-shell (geen links/rechts-anker), onderaan verankerd boven de taakbalk, schaalt via `ui_zoom`. Geen CSS-wijziging gedaan: de layout kon hier niet op een echt scherm bekeken worden.
+- `docs/tests/animation-layout.cjs` vraagt het pakket `playwright`, dat hier niet staat.
+
 ## 14 oktober: alles in main, ISO 0.2.15 klaar (update NIET gepubliceerd; online 0.2.12)
 - PR #39-#44 (GitHub-assistent Henk: tests, Claude-harness, brein-nevel, AI-assistent, AI wisselen, Claude in Chrome) nagekeken
   en op volgorde samengevoegd in spoor-a; daarna spoor-a -> main (#38). Alle 20 tests (16 py, 4 js) slagen.
