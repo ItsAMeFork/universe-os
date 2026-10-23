@@ -1,8 +1,11 @@
 """The second brain: one local SQLite database with full-text search (FTS5), for Claude Code via universe-mcp.
 
 Lives in ~/.local/share/universe-os/brein.db and never leaves the computer; only what Claude asks for goes into the
-conversation. Preferences, notes and facts, plus a 30-day timeline. The Brein nebula reads the same rows: stars are
-capped, and constellation lines come from shared tags and words through FTS5 (no embeddings).
+conversation. Preferences, notes and facts, plus a 30-day timeline of programs and files opened through Universe.
+That timeline stays in this database: nothing copies it to a cloud. It is off until the user turns it on in the
+Brein, and pause writes no new rows. Ghost mode, when that switch is installed, still drops new open-app rows.
+The Brein nebula reads the same rows: stars are capped, and constellation lines come from shared tags and words
+through FTS5 (no embeddings).
 """
 import json
 import math
@@ -328,6 +331,8 @@ def summary():
             'accounts': db.execute('SELECT count(*) FROM accounts').fetchone()[0],
             'bewaarplaats': '~/.local/share/universe-os/brein.db',
             'dagen_tijdlijn': TIMELINE_DAYS,
+            'tijdlijn_stand': timeline_status()['tekst'],
+            'tijdlijn_lokaal': True,
         }
 
 
@@ -362,16 +367,91 @@ def write_export(folder):
 
 
 # ----- timeline: what the user opened (30 days), for Claude and for the buddy's suggestions -----
+# The rows live only in brein.db. The on/pause switch is a local file. There is no upload.
 TIMELINE_DAYS = 30
 
 
+def timeline_config_path():
+    base = os.environ.get('XDG_CONFIG_HOME') or os.path.expanduser('~/.config')
+    return os.path.join(base, 'universe-os', 'brein-tijdlijn.json')
+
+
+def _ghost_open_app_stopped():
+    """Ghost mode (PR #55, ghost_modus) stops new open-app rows while it is on.
+
+    A missing module, or a broken read, does not invent that stop. When the module
+    says it is on, this timeline does not write anyway.
+    """
+    try:
+        import ghost_modus
+        return bool(ghost_modus.enabled())
+    except Exception:  # noqa: BLE001 - no Ghost switch on this install
+        return False
+
+
+def timeline_status():
+    """Off unless the local file says otherwise. lokaal/wolk are not stored: the cloud is never a destination."""
+    raw = {}
+    try:
+        with open(timeline_config_path(), encoding='utf-8') as handle:
+            loaded = json.load(handle)
+        if isinstance(loaded, dict):
+            raw = loaded
+    except (OSError, ValueError):
+        raw = {}
+    aan = raw.get('aan') is True
+    pauze = raw.get('pauze') is True
+    ghost = _ghost_open_app_stopped()
+    if ghost:
+        tekst, uitleg = 'Ghost', 'Ghost-modus staat aan, dus nieuwe openingen worden niet bijgeschreven. De tijdlijn blijft op deze computer.'
+    elif not aan and pauze:
+        tekst, uitleg = 'Uit', 'De tijdlijn staat uit en op pauze. Er wordt niets bijgeschreven. Wat er staat blijft op deze computer.'
+    elif not aan:
+        tekst, uitleg = 'Uit', 'De tijdlijn staat uit. Er wordt niets bijgeschreven. Wat er staat blijft op deze computer.'
+    elif pauze:
+        tekst, uitleg = 'Pauze', 'Pauze. Er wordt niets bijgeschreven. De tijdlijn blijft op deze computer.'
+    else:
+        tekst, uitleg = 'Aan', 'De tijdlijn loopt, alleen op deze computer. Niets gaat naar de wolk.'
+    return {'aan': aan, 'pauze': pauze, 'lokaal': True, 'wolk': False, 'ghost': ghost, 'tekst': tekst, 'uitleg': uitleg}
+
+
+def set_timeline(aan=None, pauze=None):
+    """Writes the local switch only. Does not send the file or the timeline anywhere."""
+    current = timeline_status()
+    if aan is not None:
+        current['aan'] = bool(aan)
+    if pauze is not None:
+        current['pauze'] = bool(pauze)
+    folder = os.path.dirname(timeline_config_path())
+    os.makedirs(folder, mode=0o700, exist_ok=True)
+    dest = timeline_config_path()
+    tmp = dest + '.tmp'
+    with open(tmp, 'w', encoding='utf-8') as handle:
+        json.dump({'aan': current['aan'], 'pauze': current['pauze']}, handle)
+        handle.write('\n')
+    os.chmod(tmp, 0o600)
+    os.replace(tmp, dest)
+    return timeline_status()
+
+
+def _timeline_recording():
+    state = timeline_status()
+    return state['aan'] and not state['pauze'] and not state['ghost']
+
+
 def log_event(kind, item, label=''):
-    """kind: 'app' (a .desktop id) or 'file' (a path). Old entries go away after TIMELINE_DAYS."""
+    """kind: 'app' (a .desktop id) or 'file' (a path). Old entries go away after TIMELINE_DAYS.
+
+    Writes nothing while the timeline is off, paused, or while Ghost mode is stopping open-app rows.
+    """
+    if not _timeline_recording():
+        return None
     now = time.time()
     with connect() as db:
         db.execute('INSERT INTO timeline(at, kind, item, label) VALUES (?, ?, ?, ?)', (now, kind, str(item)[:500], str(label)[:200]))
         if int(now) % 50 == 0:  # tidy up now and then, not on every insert
             db.execute('DELETE FROM timeline WHERE at < ?', (now - TIMELINE_DAYS * 86400,))
+    return None
 
 
 def timeline(days=7, kind=None, limit=100):

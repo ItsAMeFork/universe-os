@@ -250,6 +250,10 @@ html.reduce-motion .launch-number.beat,html.no-motion .launch-number.beat{animat
 .nebula-title strong{font-size:1.25em;letter-spacing:.8px;color:var(--accent);font-weight:650}
 .nebula-title span{color:var(--muted);font-size:.78em}
 .nebula-search{flex:1 1 180px;max-width:440px;background:#0b1021d4}
+.nebula-pause{min-height:46px;padding:10px 22px;font-size:1.05em;font-weight:800;letter-spacing:.06em;border-color:#85ffe366;color:var(--accent-strong);background:#102033}
+.nebula-pause[aria-pressed=true]{border-color:#ffc98a;color:#ffc98a;background:#2a2114}
+.nebula-timeline{min-height:46px;padding:10px 16px;font-weight:700}
+.nebula-timeline-state{flex:1 1 160px;max-width:280px;color:var(--muted);font-size:.82em;line-height:1.35}
 .nebula-legend{display:flex;gap:12px;color:var(--muted);font-size:.78em}
 .nebula-legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;box-shadow:0 0 8px currentColor}
 .nebula-chips{position:absolute;z-index:2;left:18px;right:min(398px,calc(46% + 28px));top:250px;display:flex;gap:8px;flex-wrap:wrap;pointer-events:none}

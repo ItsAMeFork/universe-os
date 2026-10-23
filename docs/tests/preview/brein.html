@@ -30,12 +30,12 @@ const rijen = [
  {soort:'herinnering', titel:'voorkeur', tekst:'Houdt van koffie in de ochtend', tijd:'2026-10-14 07:30', status:''}
 ];
 let heBuddy = false;
+const tijdlijn = {aan:false, pauze:false, lokaal:true, wolk:false, ghost:false, tekst:'Uit', uitleg:'De tijdlijn staat uit. Er wordt niets bijgeschreven. Wat er staat blijft op deze computer.'};
 const call = async (cmd, args={}) => {
  if (cmd === 'config.get') return {settings:{heBuddy}};
  if (cmd === 'buddy.stem') { heBuddy = !!args.aan; return {aan:heBuddy, tekst:heBuddy?'Aan':'Uit'}; }
  if (cmd === 'brein.list') return {sterren: memories};
  if (cmd === 'brein.links') return {lijnen:[{van:1, naar:2, via:'tuin'}]};
- if (cmd === 'brein.timeline') return {spoor:[]};
  if (cmd === 'brein.ochtend') return {
   dag:'2026-10-15',
   agenda:[{titel:'Tandarts', plek:'Centrum', van:'09:00', tot:'09:30'}],
@@ -45,6 +45,21 @@ const call = async (cmd, args={}) => {
   geldtip:'Vergelijk één abonnement met wat je er de afgelopen maand echt van gebruikte.',
   bevestigen:'Versturen en betalen vragen om toestemming.'
  };
+ if (cmd === 'brein.timeline') return {spoor:[], dagen:30, ...tijdlijn};
+ if (cmd === 'brein.tijdlijn') return {...tijdlijn};
+ if (cmd === 'brein.tijdlijn.set') {
+  if ('aan' in args) tijdlijn.aan = !!args.aan;
+  if ('pauze' in args) tijdlijn.pauze = !!args.pauze;
+  tijdlijn.wolk = false;
+  tijdlijn.lokaal = true;
+  tijdlijn.tekst = !tijdlijn.aan ? 'Uit' : (tijdlijn.pauze ? 'Pauze' : 'Aan');
+  tijdlijn.uitleg = tijdlijn.pauze
+   ? 'Pauze. Er wordt niets bijgeschreven. De tijdlijn blijft op deze computer.'
+   : (tijdlijn.aan
+     ? 'De tijdlijn loopt, alleen op deze computer. Niets gaat naar de wolk.'
+     : 'De tijdlijn staat uit. Er wordt niets bijgeschreven. Wat er staat blijft op deze computer.');
+  return {...tijdlijn};
+ }
  if (cmd === 'brein.lijst') {
   const soort = args.soort || 'alles';
   const rows = soort === 'alles' ? rijen : rijen.filter(r => (soort === 'acties' ? r.soort === 'actie' : r.soort === soort.replace('en','').replace('herinnering','herinnering')));

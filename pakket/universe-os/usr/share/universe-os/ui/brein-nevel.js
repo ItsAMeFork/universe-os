@@ -93,6 +93,9 @@ export function mountNebula(parent,api={}){
  const privacy=h('button',{type:'button'},'Privacy');
  privacy.addEventListener('click',()=>call('run',{tool:'control',page:'security'}).catch(e=>{status.textContent=e.message;}));
  const title=h('div',{class:'nebula-title'},h('strong',{},'Brein'),h('span',{},'Herinneringen in de nevel'));
+ const enable=h('button',{type:'button',class:'nebula-timeline','aria-pressed':'false'},'Tijdlijn aanzetten');
+ const pause=h('button',{type:'button',class:'nebula-pause','aria-pressed':'false','aria-label':'Tijdlijn pauzeren'},'Pauze');
+ const timelineNote=h('span',{class:'nebula-timeline-state'},'Tijdlijn uit · alleen op deze computer');
  const listBtn=h('button',{type:'button','aria-pressed':'true'},'Lijst');
  const voiceBox=h('input',{type:'checkbox',role:'switch'});
  voiceBox.setAttribute('aria-label','Hé Buddy');
@@ -125,7 +128,7 @@ export function mountNebula(parent,api={}){
     h('span',{class:'switch-title'},'Hé Buddy'),
     voiceState,
     h('span',{class:'muted'},'Aan: de buddy spreekt meldingen uit. Uit: stil.'))));
- const hud=h('div',{class:'nebula-hud'},back,title,search,legend,listBtn,privacy);
+ const hud=h('div',{class:'nebula-hud'},back,title,enable,pause,timelineNote,search,legend,listBtn,privacy);
  const chips=h('div',{class:'nebula-chips'});
  const ochtend=h('section',{class:'ochtend','aria-label':'Ochtendbriefing'});
  const list=h('aside',{class:'nebula-list','aria-label':'Lijst van mail, agenda en acties'});
@@ -134,6 +137,38 @@ export function mountNebula(parent,api={}){
  const card=h('article',{class:'nebula-card',hidden:true,'aria-live':'polite'});
  const status=h('p',{class:'nebula-status',role:'alert'});
  parent.replaceChildren(canvas,hud,voice,chips,list,caption,hover,card,status);
+
+ function showTimeline(info){
+  const on=!!info?.aan;
+  const paused=!!info?.pauze;
+  pause.textContent=paused?'Verder':'Pauze';
+  pause.setAttribute('aria-pressed',paused?'true':'false');
+  pause.setAttribute('aria-label',paused?'Tijdlijn verder laten lopen':'Tijdlijn pauzeren');
+  enable.textContent=on?'Tijdlijn uitzetten':'Tijdlijn aanzetten';
+  enable.setAttribute('aria-pressed',on?'true':'false');
+  const stand=info?.ghost?'Tijdlijn stil door Ghost':(!on?(paused?'Tijdlijn uit en pauze':'Tijdlijn uit'):(paused?'Tijdlijn pauze':'Tijdlijn aan'));
+  timelineNote.textContent=stand+' · '+(info?.uitleg||'Alleen op deze computer.');
+ }
+ pause.addEventListener('click',async()=>{
+  const paused=pause.getAttribute('aria-pressed')==='true';
+  pause.disabled=true;
+  try{
+   const next=await call('brein.tijdlijn.set',{pauze:!paused});
+   if(!alive)return;
+   showTimeline(next||{pauze:!paused});
+  }catch(e){if(alive)status.textContent=e.message||'Pauze mislukt.';}
+  finally{pause.disabled=false;}
+ });
+ enable.addEventListener('click',async()=>{
+  const on=enable.getAttribute('aria-pressed')==='true';
+  enable.disabled=true;
+  try{
+   const next=await call('brein.tijdlijn.set',{aan:!on});
+   if(!alive)return;
+   showTimeline(next||{aan:!on});
+  }catch(e){if(alive)status.textContent=e.message||'De tijdlijn kon niet worden gezet.';}
+  finally{enable.disabled=false;}
+ });
 
  const state={stars:[],lines:[],trail:[],moons:[],rows:[],filter:'alles',match:null,hover:null,flash:null,selected:null,ochtend:null};
  const hits={stars:[],moons:[]};
@@ -269,6 +304,11 @@ export function mountNebula(parent,api={}){
    state.stars=(mem?.sterren||[]).filter(s=>!s.bron).slice(0,STAR_CAP);
    state.lines=lines?.lijnen||[];
    state.trail=(trail?.spoor||[]).slice(-TRAIL_CAP);
+   if(trail&&Object.prototype.hasOwnProperty.call(trail,'aan'))showTimeline(trail);
+   else{
+    const stand=await call('brein.tijdlijn');
+    if(alive&&stand&&Object.prototype.hasOwnProperty.call(stand,'aan'))showTimeline(stand);
+   }
    status.textContent='';
   }catch(e){if(alive)status.textContent=e.message||'Het brein kon niet worden gelezen.';}
   if(alive){await briefing;renderBriefing();}

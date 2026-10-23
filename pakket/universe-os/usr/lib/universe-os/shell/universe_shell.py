@@ -689,7 +689,10 @@ class Shell:
             'claude.toggle': lambda a: bool(self.claude) and self.claude.toggle(a.get('open')),
             'brein.list': lambda a: {'sterren': _brein().list_memories(a.get('max'))},
             'brein.links': lambda a: {'lijnen': _brein().links(a.get('max'))},
-            'brein.timeline': lambda a: {'spoor': _brein().trail(a.get('max')), 'dagen': _brein().TIMELINE_DAYS},
+            'brein.timeline': lambda a: {'spoor': _brein().trail(a.get('max')), 'dagen': _brein().TIMELINE_DAYS, **_brein().timeline_status()},
+            # Not in CLAUDE_CALLS: the on/pause switch stays on this computer. The assistant cannot turn recording on.
+            'brein.tijdlijn': lambda a: _brein().timeline_status(),
+            'brein.tijdlijn.set': lambda a: _brein().set_timeline(a.get('aan') if 'aan' in a else None, a.get('pauze') if 'pauze' in a else None),
             'brein.update': _brein_update,
             'brein.forget': _brein_forget,
             'brein.search': _brein_search,
