@@ -22,4 +22,15 @@ assert a.index('universe-displays resolution') < a.index('universe-shell-supervi
 conf = open(os.path.join(root, 'usr/share/lightdm/lightdm.conf.d/60-universe.conf')).read()
 assert 'display-setup-script=/usr/lib/universe-os/universe-xrandr-1080' in conf
 assert 'x11-xserver-utils' in open(os.path.join(root, 'DEBIAN/control')).read()
+# Controlecentrum: every offered resolution is accepted by the setting (in a temporary config dir, not the user's own)
+import re, tempfile
+control = open(os.path.join(root, 'usr/share/universe-os/ui/control.js'), encoding='utf-8').read()
+offered = re.findall(r"\['((?:\d+x\d+)|preferred)','", control.split("displays:async", 1)[1].split("bluetooth:async", 1)[0])
+assert '1920x1080' in offered and 'preferred' in offered, offered
+with tempfile.TemporaryDirectory() as tmp:
+    os.environ['XDG_CONFIG_HOME'] = tmp
+    for value in offered:
+        config.set_setting('displayResolution', value)
+        assert config.settings()['displayResolution'] == value
+    os.environ.pop('XDG_CONFIG_HOME')
 print('ok')
