@@ -697,6 +697,8 @@ class Shell:
             'brein.lijst': lambda a: _brein().lijst(a.get('soort') or a.get('filter') or 'alles', a.get('q') if 'q' in a else a.get('zoek') or '', a.get('max') or 40),
             'brein.ochtend': lambda a: _ochtend().compose(),
             'brein.les': lambda a: _brein().set_lesson_active(a.get('id'), a.get('aan')),
+            # Not in CLAUDE_CALLS: the user turns spoken prompts on in the Brein. Off stays silent.
+            'buddy.stem': lambda a: __import__('buddy_voice').configure(a.get('aan')),
             'brein.ongedaan': lambda a: _brein().undo_actie(a.get('id')),
             'auto.status': lambda a: _auto().public(),
             'auto.set': lambda a: self._auto_set(a),
@@ -832,6 +834,8 @@ class Shell:
             return answer('fout: niet toegestaan: run %s' % args.get('tool'))
         if name == 'config.set' and args.get('key') in SECURITY_SETTINGS:
             return answer('fout: Dit is een beveiligingsinstelling; die verandert de gebruiker zelf in het Controlecentrum.')
+        if name == 'config.set' and args.get('key') == 'heBuddy':
+            return answer('fout: Hé Buddy zet je zelf aan in het Brein.')
         if name == 'claude.anim' and args.get('naam') not in ANIMATIONS:
             return answer('fout: Onbekende animatie: %s. Kies uit: %s' % (args.get('naam'), ', '.join(ANIMATIONS)))
         fn = self.handlers()[name]

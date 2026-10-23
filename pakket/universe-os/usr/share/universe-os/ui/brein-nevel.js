@@ -94,6 +94,37 @@ export function mountNebula(parent,api={}){
  privacy.addEventListener('click',()=>call('run',{tool:'control',page:'security'}).catch(e=>{status.textContent=e.message;}));
  const title=h('div',{class:'nebula-title'},h('strong',{},'Brein'),h('span',{},'Herinneringen in de nevel'));
  const listBtn=h('button',{type:'button','aria-pressed':'true'},'Lijst');
+ const voiceBox=h('input',{type:'checkbox',role:'switch'});
+ voiceBox.setAttribute('aria-label','Hé Buddy');
+ const voiceState=h('span',{class:'switch-state uit'},'Uit');
+ let voiceToken=0;
+ function paintVoice(on,text){
+  voiceBox.checked=!!on;
+  voiceState.textContent=text||(on?'Aan':'Uit');
+  voiceState.className='switch-state '+(on?'aan':'uit');
+ }
+ voiceBox.addEventListener('change',async()=>{
+  const want=voiceBox.checked;
+  const token=++voiceToken;
+  paintVoice(want);
+  try{
+   const next=await call('buddy.stem',{aan:want});
+   if(token!==voiceToken)return;
+   const on=!!(next&&next.aan);
+   paintVoice(on,(next&&next.tekst)||'');
+  }catch(e){
+   if(token!==voiceToken)return;
+   paintVoice(!want);
+   status.textContent=e.message||'Hé Buddy kon niet worden gezet.';
+  }
+ });
+ const voice=h('section',{class:'nebula-voice token-hero'},
+  h('label',{class:'switch-row'},
+   h('span',{class:'switch'},voiceBox,h('span',{class:'switch-track','aria-hidden':'true'})),
+   h('span',{class:'switch-copy'},
+    h('span',{class:'switch-title'},'Hé Buddy'),
+    voiceState,
+    h('span',{class:'muted'},'Aan: de buddy spreekt meldingen uit. Uit: stil.'))));
  const hud=h('div',{class:'nebula-hud'},back,title,search,legend,listBtn,privacy);
  const chips=h('div',{class:'nebula-chips'});
  const ochtend=h('section',{class:'ochtend','aria-label':'Ochtendbriefing'});
@@ -102,7 +133,7 @@ export function mountNebula(parent,api={}){
  const hover=h('div',{class:'nebula-hover',hidden:true});
  const card=h('article',{class:'nebula-card',hidden:true,'aria-live':'polite'});
  const status=h('p',{class:'nebula-status',role:'alert'});
- parent.replaceChildren(canvas,hud,chips,list,caption,hover,card,status);
+ parent.replaceChildren(canvas,hud,voice,chips,list,caption,hover,card,status);
 
  const state={stars:[],lines:[],trail:[],moons:[],rows:[],filter:'alles',match:null,hover:null,flash:null,selected:null,ochtend:null};
  const hits={stars:[],moons:[]};
@@ -220,6 +251,14 @@ export function mountNebula(parent,api={}){
   }catch(e){if(alive)status.textContent=e.message||'De lijst kon niet worden gelezen.';}
   renderList();paint();
  }
+ async function loadVoice(){
+  const token=++voiceToken;
+  try{
+   const cfg=await call('config.get');
+   if(token!==voiceToken||!alive||!still())return;
+   paintVoice(!!(cfg&&cfg.settings&&cfg.settings.heBuddy));
+  }catch(e){/* uit blijven: Hé Buddy staat standaard uit */}
+ }
  async function load(){
   const briefing=call('brein.ochtend').then(data=>{state.ochtend=data||{};}).catch(e=>{
    state.ochtend={fout:e.message||'De ochtendbriefing kon niet worden gelezen.'};
@@ -234,6 +273,7 @@ export function mountNebula(parent,api={}){
   }catch(e){if(alive)status.textContent=e.message||'Het brein kon niet worden gelezen.';}
   if(alive){await briefing;renderBriefing();}
   await loadList();
+  await loadVoice();
   paint();arm();
   if(alive)parent.dataset.nebula='ready';
  }

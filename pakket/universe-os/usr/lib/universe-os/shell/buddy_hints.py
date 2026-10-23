@@ -82,7 +82,18 @@ class Hints:
         if claude:
             buttons.append(('Vraag de AI', lambda: self.ui.ask(claude)))
         buddy.show_hint(text, buttons, on_answer=lambda a: self.answered(key, a))
+        self.voice_prompt(text)
         return True
+
+    def voice_prompt(self, text):
+        """Speak the prompt only when Hé Buddy is on. Off stays silent and never blocks the bubble."""
+        def work():
+            try:
+                import buddy_voice
+                buddy_voice.speak(text)
+            except Exception:  # noqa: BLE001 - a missing voice stays a text bubble
+                pass
+        threading.Thread(target=work, daemon=True).start()
 
     def answered(self, key, answer):
         try:
