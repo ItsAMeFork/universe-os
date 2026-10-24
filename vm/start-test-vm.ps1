@@ -34,10 +34,10 @@ $qargs = @(
     # with the flags below Claude Code runs. Do not add bmi/movbe/aes: WHPX announces them but the login screen then
     # crashed with 'invalid opcode' in libatomic (black screen, 11 Oct).
     '-cpu', $Processor,
-    # Quoted: Start-Process joins arguments with spaces, and the firmware lives under "C:\Program Files".
+    # Quoted: Start-Process joins arguments with spaces; the firmware lives under "C:\Program Files" and the ISO is often under "C:\Users\Axel Van Lienen" (24 Oct).
     '-drive', "`"if=pflash,format=raw,unit=0,readonly=on,file=$code`"",
-    '-drive', "if=pflash,format=raw,unit=1,file=$vars",
-    '-drive', "file=$disk,if=none,id=schijf,discard=unmap", '-device', 'virtio-blk-pci,drive=schijf,bootindex=1',
+    '-drive', "`"if=pflash,format=raw,unit=1,file=$vars`"",
+    '-drive', "`"file=$disk,if=none,id=schijf,discard=unmap`"", '-device', 'virtio-blk-pci,drive=schijf,bootindex=1',
     # SSH alleen vanaf deze pc (127.0.0.1:2223). In de test-VM staat ontwikkeltoegang voor `tester` (sleutel uit keys\).
     '-nic', 'user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:2223-:22',
     # virtio-vga (default since 11 Oct): with the standard VGA every screen change (even the mouse pointer) copied the
@@ -51,14 +51,14 @@ $qargs = @(
     '-device', 'qemu-xhci', '-device', 'usb-tablet',
     # -Geluid dsound: hear the VM on this pc. (The wav backend paused the VM at a reboot, 12 Oct.)
     '-audiodev', "$Geluid,id=geluid", '-device', 'ich9-intel-hda', '-device', 'hda-duplex,audiodev=geluid',
-    '-serial', "file:$vm\test-vm-serial.log",
+    '-serial', "`"file:$vm\test-vm-serial.log`"",
     '-qmp', 'tcp:127.0.0.1:4445,server,nowait'
 )
 if ($VolledigScherm -and -not $ZonderVenster) { $qargs += @('-full-screen') }
 if ($SecureBoot) { $qargs += @('-global', 'driver=cfi.pflash01,property=secure,value=on') }
 if ($Iso) {
     if (-not (Test-Path $Iso)) { throw "ISO niet gevonden: $Iso" }
-    $qargs += @('-drive', "file=$Iso,if=none,id=cd,media=cdrom,readonly=on", '-device', 'ide-cd,drive=cd,bootindex=0')
+    $qargs += @('-drive', "`"file=$((Resolve-Path $Iso).Path),if=none,id=cd,media=cdrom,readonly=on`"", '-device', 'ide-cd,drive=cd,bootindex=0')
 }
 $p = Start-Process "$qemu\qemu-system-x86_64.exe" -ArgumentList $qargs -PassThru
 $met = if ($Iso) { "met ISO $(Split-Path $Iso -Leaf)" } else { 'zonder ISO' }
