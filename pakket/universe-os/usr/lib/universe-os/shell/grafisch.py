@@ -41,8 +41,10 @@ def state_file():
     return os.path.join(base, 'universe-os', 'grafisch.json')
 
 
-def choose(cmdline, safe_file, has_render_node, proef=None):
-    """'safe' or 'normal', with the reason (for shell.log). proef: the remembered test result of this pc, or None."""
+def choose(cmdline, safe_file, has_render_node, proef=None, nvidia=False):
+    """'safe' or 'normal', with the reason (for shell.log). proef: the remembered test result of this pc, or None.
+    nvidia: the own NVIDIA driver is active (0.2.29): never tested and a 'safe' test result never makes the processor
+    draw there (24 Oct, NVIDIA pc: the test said 'safe', the world was too slow with llvmpipe and fell back to 2D)."""
     options = cmdline.split()
     if 'universe.gfx=normal' in options:
         return 'normal', 'opstartoptie universe.gfx=normal'
@@ -52,6 +54,8 @@ def choose(cmdline, safe_file, has_render_node, proef=None):
         return 'safe', SAFE_FILE
     if not has_render_node:
         return 'safe', 'geen render-node'
+    if nvidia:
+        return 'normal', 'nvidia: geen proef'
     if proef == 'safe':
         return 'safe', 'proef: normaal tekenen bleef donker'
     if proef == 'normal':
@@ -142,9 +146,10 @@ def apply():
     except OSError:
         cmdline = ''
     safe_file = os.path.exists(SAFE_FILE)
-    mode, reason = choose(cmdline, safe_file, has_render_node)
+    nvidia = 'nvidia' in drivers
+    mode, reason = choose(cmdline, safe_file, has_render_node, nvidia=nvidia)
     if needs_probe(reason) and not any(name in os.environ for name in SAFE_VARS):
-        mode, reason = choose(cmdline, safe_file, has_render_node, probed(drivers))
+        mode, reason = choose(cmdline, safe_file, has_render_node, probed(drivers), nvidia)
     if mode == 'safe':
         for name, value in SAFE_VARS.items():
             os.environ.setdefault(name, value)

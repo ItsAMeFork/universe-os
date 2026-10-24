@@ -2,7 +2,14 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
-## 23 oktober: versies 0.2.24 en 0.2.25 (in deze branch, nog NIET gepubliceerd)
+## 24 oktober: versie 0.2.29 (NVIDIA-pc; ISO gebouwd, update nog NIET gepubliceerd)
+Gepubliceerd (apt test + stable): 0.2.24 t/m 0.2.28 (0.2.28 op 24 okt).
+- Met het eigen NVIDIA-stuurprogramma geen grafische proef meer en nooit processor-tekenen door een proefuitslag; normaal tekenen met gedeeld geheugen (`shell/grafisch.py`). Oorzaak van de 2D-terugval: proef zei 'safe' -> llvmpipe -> wereld te traag -> world-lite.
+- Proefpagina neutraal donker (#050815 / #151828) met "Beeld wordt getest…" in plaats van blauw/paars (`shell/grafisch_proef.py`). Dat was het blauw/paarse beeld na inloggen.
+- `ui/world.js`: frame-/planeetcontrole 25 s in plaats van 12/14 s bij `gfx=soft`.
+- Test: `docs/tests/nvidia-proef.py`.
+
+## 23 oktober: versies 0.2.24 en 0.2.25 (inmiddels gepubliceerd)
 **0.2.24** (H310M en andere grote beeldschermen):
 - Donkere, bijna ondoorzichtige taakbalk: de lichte glazen balk werd op de H310M een witte balk, met onzichtbare iconen (`ui/dock.html`).
 - Eigen iconen voor de vaste knoppen (`ui/dock.js`).

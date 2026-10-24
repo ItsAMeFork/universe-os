@@ -91,7 +91,7 @@ async function start(){
  // 0.2.28 (photo H310M 23 Oct: only the glowing core, no Earth and no planets, while dock and top bar were there):
  // the intro had left mix=0 with the core on top. 14 s after the start the end state is forced; when still nothing
  // shows, the shell gets world.failed and switches to the simple world with plain icons.
- setTimeout(()=>checkVisible(saved),14000);
+ setTimeout(()=>checkVisible(saved),SOFT_GFX?25000:14000); // 0.2.29: the processor draws (gfx=soft): more time
  setTimeout(paintEarths,1500);
 }
 const visibleCount=()=>objects.filter(o=>o.el&&o.el.isConnected&&o.el._d!=='none').length;
@@ -103,7 +103,7 @@ function checkVisible(saved){
    mix=1;earthScale=1;glow=0;boom=0;setFlash(0);setCore(0,1);if(saved)cam={...saved};render();
   }
   const n=visibleCount();
-  if(!n)failed('geen planeten zichtbaar na 14 s');else call('world.ok',{visible:n}).catch(()=>{});
+  if(!n)failed('geen planeten zichtbaar na '+(SOFT_GFX?25:14)+' s');else call('world.ok',{visible:n}).catch(()=>{});
  }catch(e){failed('controle mislukt: '+(e?.message||e));}
 }
 // Planets of the rooms (Applicaties, Softwarewinkel, ...): the quick picture at once, the sharp one right after.
@@ -830,5 +830,5 @@ on('config',c=>{if(current)leave();config=c;settings=c.settings;user=c.user||use
 let framed=false,reported=false;
 const failed=reason=>{if(reported)return;reported=true;call('world.failed',{reason:String(reason)}).catch(()=>{});};
 requestAnimationFrame(()=>{framed=true;});
-setTimeout(()=>{if(!framed)failed('geen beeld getekend binnen 12 s');},12000);
+setTimeout(()=>{if(!framed)failed('geen beeld getekend binnen '+(SOFT_GFX?25:12)+' s');},SOFT_GFX?25000:12000);
 start().catch(e=>failed('start mislukt: '+(e?.message||e)));

@@ -19,9 +19,10 @@ gi.require_version('Gdk', '3.0')
 gi.require_version('WebKit2', '4.1')
 from gi.repository import Gdk, GdkPixbuf, GLib, Gtk, WebKit2  # noqa: E402
 
-LEFT = (0x1a, 0x3d, 0x7c)   # page background (dark blue)
-RIGHT = (0x7c, 0x1a, 0x5e)  # canvas on its own composited layer (purple)
-TOLERANCE = 14              # per channel: dithering and colour depth
+# 0.2.29: neutral dark near the world background #050815 (24 Oct: the blue/purple test page was seen after login)
+LEFT = (0x05, 0x08, 0x15)   # page background
+RIGHT = (0x15, 0x18, 0x28)  # canvas on its own composited layer (a little lighter)
+TOLERANCE = 6               # per channel: dithering and colour depth
 SHARE = 0.01                # each colour must cover at least 1 % of the screen picture
 WAIT_MS = 6000              # after the page has loaded
 POLL_MS = 300
@@ -29,7 +30,7 @@ POLL_MS = 300
 PAGE = '''<!doctype html><html><head><meta charset="utf-8"><style>
 html, body { margin: 0; height: 100%%; background: rgb(%d,%d,%d); overflow: hidden; cursor: none; }
 canvas { position: fixed; top: 0; right: 0; width: 50%%; height: 100%%; will-change: transform; transform: translateZ(0); }
-</style></head><body><canvas id="c" width="64" height="64"></canvas><script>
+</style></head><body><div style="position:fixed;left:0;right:0;bottom:12%%;text-align:center;font:24px sans-serif;color:#8a90a8">Beeld wordt getest…</div><canvas id="c" width="64" height="64"></canvas><script>
 const c = document.getElementById('c').getContext('2d');
 c.fillStyle = 'rgb(%d,%d,%d)'; c.fillRect(0, 0, 64, 64);
 </script></body></html>''' % (LEFT + RIGHT)
