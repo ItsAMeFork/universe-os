@@ -1,0 +1,52 @@
+# Universe OS opstartmenu (UEFI/GRUB), 0.2.33: dezelfde 'home'-wereld als het ingelogde bureaublad.
+# Achtergrond = schermopname van de ingelogde home (1920x1080, zonder dock/bovenbalk), schaalt mee met elke resolutie.
+# Lettertype = Noto Sans (zoals de shell), als pf2 gemaakt met grub-mkfont. Kleuren uit de shell-UI.
+title-text: ""
+desktop-image: "achtergrond.png"
+desktop-image-scale-method: "crop"
+desktop-color: "#050815"
+message-font: "Universe Noto Regular 20"
+message-color: "#e2e6fa"
+terminal-font: "Unifont Regular 16"
+
++ boot_menu {
+	left = 50%-120
+	top = 81%-24
+	width = 240
+	height = 60
+	item_font = "Universe Noto Regular 26"
+	selected_item_font = "Universe Noto Bold 26"
+	item_color = "#e2e6fa"
+	selected_item_color = "#85ffe3"
+	item_height = 52
+	item_padding = 0
+	item_spacing = 0
+	icon_width = 0
+	icon_height = 0
+	item_icon_space = 16
+	selected_item_pixmap_style = "sel_*.png"
+	scrollbar = false
+}
+
++ label {
+	id = "__timeout__"
+	left = 0
+	top = 81%+58
+	width = 100%
+	height = 24
+	align = "center"
+	font = "Universe Noto Regular 20"
+	color = "#a7b8ca"
+	text = "Start automatisch over %d s"
+}
+
++ label {
+	left = 0
+	top = 100%-40
+	width = 100%
+	height = 20
+	align = "center"
+	font = "Universe Noto Regular 16"
+	color = "#6f7f99"
+	text = "Enter: starten   ·   e: opstartopties bewerken"
+}

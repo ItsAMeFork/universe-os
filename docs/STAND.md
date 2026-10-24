@@ -2,6 +2,12 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
+## 24 oktober: versie 0.2.33 (opstartmenu in home-wereld-stijl; ISO gebouwd; NIET gepubliceerd)
+- BIOS (syslinux) en UEFI (GRUB) tonen de ingelogde 'home'-wereld (aarde + sterren, zonder dock/bovenbalk) als achtergrond.
+- Geen menutitel meer over het logo; één optie 'Universe OS' in een pil zoals de dock, aftelling en hint in shell-kleuren.
+- GRUB: eigen thema (1920x1080, schaalt mee), Noto Sans als pf2 (grub-mkfont), geen piep meer. Geïnstalleerde GRUB ongewijzigd.
+- Test: docs/tests/opstartmenu-thema.py.
+
 ## 24 oktober: versie 0.2.32 (lichte modus volledig automatisch, geen keuzescherm; ISO gebouwd; GEPUBLICEERD 24 okt 22:20, apt test + stable)
 Jesse testte 0.2.31 op de GT 710: werkt. Wens: de gebruiker kiest niets.
 - Installer: zichtbare stap 'Beeld' weg. Stille `shellprocess@beeld` (dontChroot) draait `universe-beeld-keuze ${ROOT}`: zelfde detectie als de live-sessie (plus de live-noodoptie `universe.gfx=licht`) en zet `grafisch-licht` of `grafisch-normaal` op de doelschijf. Handmatig wijzigen alleen in Controlecentrum > Vormgeving.
