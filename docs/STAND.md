@@ -2,7 +2,7 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
-## 24 oktober: versie 0.2.33 (opstartmenu in home-wereld-stijl; ISO gebouwd; NIET gepubliceerd)
+## 24 oktober: versie 0.2.33 (opstartmenu in home-wereld-stijl; ISO gebouwd; GEPUBLICEERD 24 okt 23:29, apt test + stable)
 - BIOS (syslinux) en UEFI (GRUB) tonen de ingelogde 'home'-wereld (aarde + sterren, zonder dock/bovenbalk) als achtergrond.
 - Geen menutitel meer over het logo; één optie 'Universe OS' in een pil zoals de dock, aftelling en hint in shell-kleuren.
 - GRUB: eigen thema (1920x1080, schaalt mee), Noto Sans als pf2 (grub-mkfont), geen piep meer. Geïnstalleerde GRUB ongewijzigd.
@@ -39,7 +39,7 @@ world.html steeds (`free(): invalid pointer`), na 3 keer world-lite (2D).
 - Windows-sneltoetsen (Win+R/S/V/./M, Win+Shift+S, Ctrl+Alt+Del-menu) in `shortcuts.json`; `universe-klembord` (klembordgeschiedenis, emoji, Ctrl+Alt+Del); Ctrl+V plakt in de terminal (sessie zet `~/.config/xfce4/terminal/accels.scm` eenmalig neer). Overzicht: `docs/SNELTOETSEN.md`. Test: `docs/tests/sneltoetsen.py`.
 
 ## 24 oktober: versie 0.2.29 (NVIDIA-pc; ISO gebouwd; gepubliceerd 24 okt 22:20 als onderdeel van 0.2.32)
-Gepubliceerd (apt test + stable): 0.2.24 t/m 0.2.28 (0.2.28 op 24 okt) en 0.2.32 (24 okt 22:20; bevat 0.2.29 t/m 0.2.31, die geen los pakket kregen).
+Gepubliceerd (apt test + stable): 0.2.24 t/m 0.2.28 (0.2.28 op 24 okt) en 0.2.32 (24 okt 22:20; bevat 0.2.29 t/m 0.2.31, die geen los pakket kregen) en 0.2.33 (24 okt 23:29).
 - Met het eigen NVIDIA-stuurprogramma geen grafische proef meer en nooit processor-tekenen door een proefuitslag; normaal tekenen met gedeeld geheugen (`shell/grafisch.py`). Oorzaak van de 2D-terugval: proef zei 'safe' -> llvmpipe -> wereld te traag -> world-lite.
 - Proefpagina neutraal donker (#050815 / #151828) met "Beeld wordt getest…" in plaats van blauw/paars (`shell/grafisch_proef.py`). Dat was het blauw/paarse beeld na inloggen.
 - `ui/world.js`: frame-/planeetcontrole 25 s in plaats van 12/14 s bij `gfx=soft`.
