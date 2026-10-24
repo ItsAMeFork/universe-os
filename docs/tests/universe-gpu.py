@@ -63,8 +63,8 @@ assert 'Live system' not in grub and 'Live system' not in syslinux
 for label in (
     'Universe OS',
     'Universe OS - NVIDIA-stuurprogramma (nieuwere GeForce/RTX)',
-    'Universe OS - oude/zwakke videokaart (lichte modus)',
     'Universe OS - veilige grafische modus',
+    'Universe OS - noodoptie lichte modus (oude videokaart)',
     'Universe OS - nomodeset (noodgeval)',
 ):
     assert f'menuentry "{label}" {{' in grub, label

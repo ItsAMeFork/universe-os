@@ -2,6 +2,13 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
+## 24 oktober: versie 0.2.32 (lichte modus volledig automatisch, geen keuzescherm; ISO gebouwd, update nog NIET gepubliceerd)
+Jesse testte 0.2.31 op de GT 710: werkt. Wens: de gebruiker kiest niets.
+- Installer: zichtbare stap 'Beeld' weg. Stille `shellprocess@beeld` (dontChroot) draait `universe-beeld-keuze ${ROOT}`: zelfde detectie als de live-sessie (plus de live-noodoptie `universe.gfx=licht`) en zet `grafisch-licht` of `grafisch-normaal` op de doelschijf. Handmatig wijzigen alleen in Controlecentrum > Vormgeving.
+- Detectie robuuster (`grafisch.py`): bleef afhangen van de drm-driver op dat moment. Was nouveau nog niet gebonden (universe-gpu laadt hem laat, firmware), dan zag de shell alleen simpledrm en bleef normaal. Nu: wachten (max 10 s) tot elke PCI-videokaart een driver heeft, drivers ook via de PCI-apparaten, PCI-id-tabel (NVIDIA voor Maxwell <0x1340 zoals GT 710 10de:128b, NVIDIA zonder nvidia-driver, oude AMD/radeon, oude Intel), en als laatste de renderer-string (eglinfo/glxinfo: NVxx, GK/GF, Ivybridge/Haswell, radeon-families).
+- Opstartmenu: lichte modus is nu 'noodoptie lichte modus (oude videokaart)', onder 'veilige grafische modus'.
+- Test: `docs/tests/lichte-hardware.py` (GT 710 uit de diagnose, ook met alleen simpledrm of zonder driver).
+
 ## 24 oktober: versie 0.2.31 (lichte hardware-modus voor oude/zwakke videokaarten; ISO gebouwd, update nog NIET gepubliceerd)
 Oorzaak crash GT 710 (nouveau): WebKitGTK 2.54 tekent met Skia op de GPU in werkthreads; nouveau is niet thread-safe
 (`free(): invalid pointer`). Lichte modus = Skia tekent tegels met de processor (`WEBKIT_SKIA_ENABLE_CPU_RENDERING=1`,

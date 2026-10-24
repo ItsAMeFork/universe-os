@@ -22,8 +22,10 @@ import fcntl
 import glob
 import json
 import os
+import re
 import subprocess
 import sys
+import time
 
 SAFE_FILE = '/etc/universe-os/grafisch-veilig'
 SAFE_VARS = {'WEBKIT_DMABUF_RENDERER_FORCE_SHM': '1', 'LIBGL_ALWAYS_SOFTWARE': '1', 'GALLIUM_DRIVER': 'llvmpipe'}
@@ -53,6 +55,19 @@ OLD_INTEL = ((0x0040, 0x0200), (0x0400, 0x0E00), (0x0F00, 0x0F40), (0x2500, 0x2F
 # Drivers die altijd licht gaan: nouveau (alle NVIDIA zonder eigen driver), radeon (r600/r300/SI/CIK in Debian),
 # en eenvoudige servervideo zonder 3D.
 LIGHT_DRIVERS = ('nouveau', 'radeon', 'ast', 'mgag200', 'gma500', 'cirrus-qemu', 'bochs-drm')
+# 0.2.32: ook op PCI-id, zodat de keuze niet afhangt van welk stuurprogramma op dat moment al geladen is (nouveau laadt
+# pas via universe-gpu.service; tot dan is er alleen simpledrm). NVIDIA voor Maxwell (Kepler en ouder, o.a. GT 710 =
+# GK208B 0x128b) krijgt altijd nouveau, en is dus altijd licht. Een NVIDIA-kaart zonder het eigen nvidia-stuurprogramma
+# draait ook op nouveau of simpledrm: ook licht.
+FIRST_MAXWELL_ID = 0x1340
+# AMD-kaarten van voor GCN 1.2 (r100 t/m Southern/Sea Islands, ook Kaveri/Kabini-APU's): Debian gebruikt daar radeon.
+OLD_AMD = ((0x1304, 0x131E), (0x4100, 0x5FFF), (0x6600, 0x6680), (0x6700, 0x67C0), (0x6800, 0x6860), (0x6880, 0x6900),
+           (0x7100, 0x7300), (0x9400, 0x9A00), (0x9830, 0x9860))
+# Renderer-strings (eglinfo/glxinfo) van oude kaarten, als laatste controle.
+OLD_RENDERER = re.compile(r'\bNV[0-9A-F]{2,3}\b|\bG[KF]1[0-9]{2}|\bG[KF]2[0-9]{2}|\bGT2[0-9]{2}\b|Sandybridge|Ivybridge|Haswell|'
+                          r'Ironlake|Bay ?Trail|\bi915\b|\bi965\b|\(radeon\)|\b(RV|R)[1-9][0-9]{2}\b|CEDAR|REDWOOD|JUNIPER|'
+                          r'CYPRESS|BARTS|TURKS|CAICOS|CAYMAN|ARUBA|PALM|SUMO|TAHITI|PITCAIRN|VERDE|OLAND|HAINAN|'
+                          r'BONAIRE|KAVERI|KABINI|MULLINS|HAWAII', re.I)
 
 
 def pci_cards(root='/sys/bus/pci/devices'):
@@ -67,6 +82,61 @@ def pci_cards(root='/sys/bus/pci/devices'):
         except (OSError, ValueError):
             continue
     return cards
+
+
+def old_card(vendor, device, drivers=()):
+    """Reason when this PCI display card is old by its id alone, else None."""
+    if vendor == 0x10de and (device < FIRST_MAXWELL_ID or 'nvidia' not in drivers):
+        return 'oude/zwakke videokaart (NVIDIA 0x%04x, nouveau)' % device
+    if vendor == 0x1002 and 'amdgpu' not in drivers and any(lo <= device < hi for lo, hi in OLD_AMD):
+        return 'oude/zwakke videokaart (AMD 0x%04x, radeon)' % device
+    if vendor == 0x8086 and old_intel(device):
+        return 'oude Intel-graphics (0x%04x)' % device
+    return None
+
+
+def renderer_string(timeout=6):
+    """OpenGL renderer string of this session (eglinfo/glxinfo), '' when unknown."""
+    if os.environ.get('UNIVERSE_GFX_NO_RENDERER'):
+        return ''
+    for cmd in (['eglinfo', '-B'], ['glxinfo', '-B']):
+        try:
+            out = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout).stdout
+        except (OSError, subprocess.SubprocessError):
+            continue
+        for line in out.splitlines():
+            if 'renderer' in line.lower() and ':' in line:
+                return line.split(':', 1)[1].strip()
+    return ''
+
+
+def bound_drivers(root='/sys'):
+    """Kernel drivers of the display cards: drm cards plus the PCI display controllers themselves."""
+    names = {os.path.basename(os.path.realpath(l)) for l in glob.glob(os.path.join(root, 'class/drm/card[0-9]*/device/driver'))}
+    for dev in glob.glob(os.path.join(root, 'bus/pci/devices/*')):
+        try:
+            if open(os.path.join(dev, 'class')).read().startswith('0x03') and os.path.exists(os.path.join(dev, 'driver')):
+                names.add(os.path.basename(os.path.realpath(os.path.join(dev, 'driver'))))
+        except OSError:
+            continue
+    return sorted(names)
+
+
+def wait_for_driver(seconds=10, root='/sys'):
+    """Wait (max seconds) until every PCI display card has its own driver (not only simpledrm/efifb): nouveau is loaded
+    late by universe-gpu.service and needs firmware. Returns the drivers."""
+    deadline = time.monotonic() + seconds
+    while True:
+        pending = []
+        for dev in glob.glob(os.path.join(root, 'bus/pci/devices/*')):
+            try:
+                if open(os.path.join(dev, 'class')).read().startswith('0x03') and not os.path.exists(os.path.join(dev, 'driver')):
+                    pending.append(dev)
+            except OSError:
+                continue
+        if not pending or time.monotonic() >= deadline:
+            return bound_drivers(root)
+        time.sleep(0.5)
 
 
 def old_intel(device):
@@ -87,7 +157,7 @@ def light_setting(path=None):
 
 
 def choose_light(cmdline, drivers, cards=(), setting='auto', light_file=False, crashed=False, cores=4, mem_gb=0,
-                 normal_file=False):
+                 normal_file=False, renderer=''):
     """Reason (str) for the light hardware mode, or None. Modern and game cards (nvidia, amdgpu, new Intel) stay as
     they are unless asked for by hand or the world crashed there before."""
     options = cmdline.split()
@@ -106,10 +176,12 @@ def choose_light(cmdline, drivers, cards=(), setting='auto', light_file=False, c
     for name in drivers:
         if name in LIGHT_DRIVERS:
             return 'oude/zwakke videokaart (%s)' % name
-    if 'nvidia' not in drivers and 'amdgpu' not in drivers:
-        for vendor, device in cards:
-            if vendor == 0x8086 and old_intel(device):
-                return 'oude Intel-graphics (0x%04x)' % device
+    for vendor, device in cards:
+        reason = old_card(vendor, device, drivers)
+        if reason and not (vendor == 0x8086 and ('nvidia' in drivers or 'amdgpu' in drivers)):
+            return reason
+    if renderer and OLD_RENDERER.search(renderer):
+        return 'oude/zwakke videokaart (renderer %s)' % renderer
     if crashed:
         return 'wereld crashte eerder op deze pc'
     if cores <= 2 and 0 < mem_gb <= 4:
@@ -273,7 +345,7 @@ def probed(drivers):
 def apply():
     """Sets the WebKit variables for this process (the Universe pages only; backend.program_env removes them again for
     programs started from the desktop). Returns (drivers, render node, mode, reason) for shell.log."""
-    drivers = sorted({os.path.basename(os.path.realpath(link)) for link in glob.glob('/sys/class/drm/card[0-9]*/device/driver')})
+    drivers = wait_for_driver()
     has_render_node = bool(glob.glob('/dev/dri/renderD*'))
     try:
         with open('/proc/cmdline') as f:
@@ -299,6 +371,8 @@ def apply():
         light = choose_light(cmdline, drivers, pci_cards(), light_setting(), os.path.exists(LIGHT_FILE),
                              crashed_before(drivers), os.cpu_count() or 4, mem_gb,
                              os.path.exists(NORMAL_FILE))
+        if not light and light_setting() == 'auto' and not os.path.exists(NORMAL_FILE) and 'universe.gfx=normal' not in cmdline.split():
+            light = choose_light('', [], (), renderer=renderer_string())
     if light:
         set_light()
         reason += '; lichte hardware-modus: %s' % light
@@ -361,9 +435,9 @@ def to_processor(drivers):
 
 def detect_light():
     """Reason for the light mode on this pc from the hardware alone (installer, Calamares step 'Beeld'), or None."""
-    drivers = sorted({os.path.basename(os.path.realpath(link)) for link in glob.glob('/sys/class/drm/card[0-9]*/device/driver')})
+    drivers = wait_for_driver()
     try:
         mem_gb = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES') // (1 << 30)
     except (OSError, ValueError):
         mem_gb = 0
-    return choose_light('', drivers, pci_cards(), cores=os.cpu_count() or 4, mem_gb=mem_gb)
+    return choose_light('', drivers, pci_cards(), cores=os.cpu_count() or 4, mem_gb=mem_gb, renderer=renderer_string())
