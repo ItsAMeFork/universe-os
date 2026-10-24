@@ -2,7 +2,7 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
-## 24 oktober: versie 0.2.32 (lichte modus volledig automatisch, geen keuzescherm; ISO gebouwd, update nog NIET gepubliceerd)
+## 24 oktober: versie 0.2.32 (lichte modus volledig automatisch, geen keuzescherm; ISO gebouwd; GEPUBLICEERD 24 okt 22:20, apt test + stable)
 Jesse testte 0.2.31 op de GT 710: werkt. Wens: de gebruiker kiest niets.
 - Installer: zichtbare stap 'Beeld' weg. Stille `shellprocess@beeld` (dontChroot) draait `universe-beeld-keuze ${ROOT}`: zelfde detectie als de live-sessie (plus de live-noodoptie `universe.gfx=licht`) en zet `grafisch-licht` of `grafisch-normaal` op de doelschijf. Handmatig wijzigen alleen in Controlecentrum > Vormgeving.
 - Detectie robuuster (`grafisch.py`): bleef afhangen van de drm-driver op dat moment. Was nouveau nog niet gebonden (universe-gpu laadt hem laat, firmware), dan zag de shell alleen simpledrm en bleef normaal. Nu: wachten (max 10 s) tot elke PCI-videokaart een driver heeft, drivers ook via de PCI-apparaten, PCI-id-tabel (NVIDIA voor Maxwell <0x1340 zoals GT 710 10de:128b, NVIDIA zonder nvidia-driver, oude AMD/radeon, oude Intel), en als laatste de renderer-string (eglinfo/glxinfo: NVxx, GK/GF, Ivybridge/Haswell, radeon-families).
@@ -10,7 +10,7 @@ Jesse testte 0.2.31 op de GT 710: werkt. Wens: de gebruiker kiest niets.
 - Wat de demo zelf leerde gaat mee bij installeren: `universe-beeld-keuze` kopieert `grafisch.json` (kleurproef) en `grafisch-crash.json` (crash-terugval) naar `/etc/skel` en de nieuwe home; een crash-terugval of 'aan' in de demo geeft `grafisch-licht`.
 - Test: `docs/tests/lichte-hardware.py` (GT 710 uit de diagnose, ook met alleen simpledrm of zonder driver).
 
-## 24 oktober: versie 0.2.31 (lichte hardware-modus voor oude/zwakke videokaarten; ISO gebouwd, update nog NIET gepubliceerd)
+## 24 oktober: versie 0.2.31 (lichte hardware-modus voor oude/zwakke videokaarten; ISO gebouwd; gepubliceerd 24 okt 22:20 als onderdeel van 0.2.32)
 Oorzaak crash GT 710 (nouveau): WebKitGTK 2.54 tekent met Skia op de GPU in werkthreads; nouveau is niet thread-safe
 (`free(): invalid pointer`). Lichte modus = Skia tekent tegels met de processor (`WEBKIT_SKIA_ENABLE_CPU_RENDERING=1`,
 `WEBKIT_SKIA_GPU_PAINTING_THREADS=0`), de videokaart voegt alleen samen; plus gedeeld geheugen en `mesa_glthread=false`.
@@ -24,7 +24,7 @@ Oorzaak crash GT 710 (nouveau): WebKitGTK 2.54 tekent met Skia op de GPU in werk
 - Samengevoegd (Haiku): test-ai-preview, test-ai-switch, gitignore-live, sneltoetsen-help (Win+F1, overzicht in Controlecentrum).
 - Test: `docs/tests/lichte-hardware.py`.
 
-## 24 oktober: versie 0.2.30 (pc beneden: GT 710; Windows-sneltoetsen; ISO gebouwd, update nog NIET gepubliceerd)
+## 24 oktober: versie 0.2.30 (pc beneden: GT 710; Windows-sneltoetsen; ISO gebouwd; gepubliceerd 24 okt 22:20 als onderdeel van 0.2.32)
 Diagnose pc beneden: GeForce GT 710 (GK208B, Kepler, id 128B). nvidia 550 kent Kepler niet, maar Debian's module heeft een
 joker-alias, dus `universe-gpu` koos nvidia -> modprobe 'No such device' -> nouveau. Op nouveau crashte het WebKit-proces van
 world.html steeds (`free(): invalid pointer`), na 3 keer world-lite (2D).
@@ -32,8 +32,8 @@ world.html steeds (`free(): invalid pointer`), na 3 keer world-lite (2D).
 - `shell/grafisch.py`: op nouveau gedeeld geheugen en `mesa_glthread=false`; na de eerste world-crash op nouveau tekent de processor (gfx=soft) vóór de 2D-terugval (`webview.py`). Test: `docs/tests/pagina-herstart.py`.
 - Windows-sneltoetsen (Win+R/S/V/./M, Win+Shift+S, Ctrl+Alt+Del-menu) in `shortcuts.json`; `universe-klembord` (klembordgeschiedenis, emoji, Ctrl+Alt+Del); Ctrl+V plakt in de terminal (sessie zet `~/.config/xfce4/terminal/accels.scm` eenmalig neer). Overzicht: `docs/SNELTOETSEN.md`. Test: `docs/tests/sneltoetsen.py`.
 
-## 24 oktober: versie 0.2.29 (NVIDIA-pc; ISO gebouwd, update nog NIET gepubliceerd)
-Gepubliceerd (apt test + stable): 0.2.24 t/m 0.2.28 (0.2.28 op 24 okt).
+## 24 oktober: versie 0.2.29 (NVIDIA-pc; ISO gebouwd; gepubliceerd 24 okt 22:20 als onderdeel van 0.2.32)
+Gepubliceerd (apt test + stable): 0.2.24 t/m 0.2.28 (0.2.28 op 24 okt) en 0.2.32 (24 okt 22:20; bevat 0.2.29 t/m 0.2.31, die geen los pakket kregen).
 - Met het eigen NVIDIA-stuurprogramma geen grafische proef meer en nooit processor-tekenen door een proefuitslag; normaal tekenen met gedeeld geheugen (`shell/grafisch.py`). Oorzaak van de 2D-terugval: proef zei 'safe' -> llvmpipe -> wereld te traag -> world-lite.
 - Proefpagina neutraal donker (#050815 / #151828) met "Beeld wordt getest…" in plaats van blauw/paars (`shell/grafisch_proef.py`). Dat was het blauw/paarse beeld na inloggen.
 - `ui/world.js`: frame-/planeetcontrole 25 s in plaats van 12/14 s bij `gfx=soft`.
