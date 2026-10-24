@@ -11,6 +11,9 @@ Oorzaak crash GT 710 (nouveau): WebKitGTK 2.54 tekent met Skia op de GPU in werk
 - Na een world-crash: eerst lichte modus, dan processor-tekenen (nouveau), dan 2D (`webview.py`).
 - Wereld (`gfx=licht`): canvas max 1280x720 en dpr 1, 300 i.p.v. 900 sterren, max 30 fps, planeetplaatjes max 512 px, geen filter/schaduw/backdrop (`world.css`), lichte animaties (`motion.js`, `explode.js`).
 - NVIDIA 470 legacy niet in de ISO: zit niet in trixie (alleen sid), DKMS-build breekt bij trixie-kernelupdates, EOL. Zie `docs/stuurprogrammas.md`.
+- Installer (Calamares): nieuwe stap 'Beeld' (`packagechooser@beeld`) met 'Lichte modus voor oudere videokaarten' / 'Normale weergave'; `universe-install` laat `universe-beeld-keuze` vooraf de videokaart detecteren (zelfde `choose_light`) en vult de keuze in. `contextualprocess@beeld` schrijft `/etc/universe-os/grafisch-licht` of `grafisch-normaal` op de doelschijf. Controlecentrum wint per gebruiker.
+- Elke world-crash (ook op een onbekende kaart) gaat eerst naar de lichte modus en onthoudt dat (`~/.local/state/universe-os/grafisch-crash.json`).
+- Samengevoegd (Haiku): test-ai-preview, test-ai-switch, gitignore-live, sneltoetsen-help (Win+F1, overzicht in Controlecentrum).
 - Test: `docs/tests/lichte-hardware.py`.
 
 ## 24 oktober: versie 0.2.30 (pc beneden: GT 710; Windows-sneltoetsen; ISO gebouwd, update nog NIET gepubliceerd)

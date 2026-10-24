@@ -1,6 +1,7 @@
 """0.2.31 lichte hardware-modus: oude/zwakke videokaarten (GT 710 op nouveau, oude Intel/Radeon) krijgen automatisch
 CPU-tegels + GPU-compositing en een lichtere wereld; moderne kaarten en game-pc's blijven ongemoeid."""
 import importlib.util
+import importlib.machinery
 import json
 import os
 import tempfile
@@ -75,3 +76,28 @@ for f in ('live/config/bootloaders/grub-pc/grub.cfg', 'live/config/bootloaders/s
     assert 'universe.gfx=licht' in (root / f).read_text(), f
 print('PASS: lichte-hardware')
 assert 'lichte modus met de hand gekozen: geen proef' in (shell / 'grafisch.py').read_text()
+# Installer (Calamares): stap 'Beeld' met automatisch vooringevulde keuze, en de exec-stap die hem vastlegt.
+import subprocess, sys as _sys
+cal = root / 'live/config/includes.chroot_after_packages/etc/calamares'
+st = (cal / 'settings.conf').read_text()
+assert '- packagechooser@beeld' in st and '- contextualprocess@beeld' in st
+assert st.index('packagechooser@beeld') < st.index('- summary')
+assert st.index('contextualprocess@beeld') < st.index('shellprocess@afronden')
+cp = (cal / 'modules/contextualprocess-beeld.conf').read_text()
+assert 'packagechooser_beeld:' in cp and 'touch /etc/universe-os/grafisch-licht' in cp and '$' not in cp
+assert 'universe-beeld-keuze' in (root / 'pakket/universe-os/usr/bin/universe-install').read_text()
+spec2 = importlib.util.spec_from_file_location('keuze', root / 'pakket/universe-os/usr/lib/universe-os/universe-beeld-keuze',
+                                              loader=importlib.machinery.SourceFileLoader('keuze', str(root / 'pakket/universe-os/usr/lib/universe-os/universe-beeld-keuze')))
+k = importlib.util.module_from_spec(spec2); spec2.loader.exec_module(k)
+assert 'default: licht' in k.render('oude/zwakke videokaart (nouveau)') and 'default: normaal' in k.render(None)
+try:
+    import yaml
+    for reason in ('oude/zwakke videokaart (nouveau)', None):
+        d = yaml.safe_load(k.render(reason)); assert d['default'] in [i['id'] for i in d['items']]
+    yaml.safe_load(st); yaml.safe_load(cp)
+except ImportError:
+    pass
+# Systeembreed 'normaal' (installer) schakelt de automaat uit, maar niet na een crash.
+assert c(boot, ['nouveau'], normal_file=True) is None
+assert c(boot, ['nouveau'], normal_file=True, crashed=True)
+print('PASS: lichte-hardware installer')

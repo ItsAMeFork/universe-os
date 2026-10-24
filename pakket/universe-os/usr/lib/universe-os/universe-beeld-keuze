@@ -1,0 +1,54 @@
+#!/usr/bin/python3
+"""0.2.31: zet vóór de installer de stap 'Beeld' klaar (Calamares packagechooser@beeld) met de lichte modus
+vooringevuld volgens de hardware van deze pc (zelfde detectie als de live-sessie, grafisch.detect_light).
+Gebruik: universe-beeld-keuze [doelbestand]   (standaard /etc/calamares/modules/packagechooser-beeld.conf)"""
+import os
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'shell'))
+import grafisch  # noqa: E402
+
+TEMPLATE = '''# Gemaakt door universe-beeld-keuze (%(reden)s)
+mode: required
+method: legacy
+labels:
+    step: "Beeld"
+    step[nl]: "Beeld"
+default: %(default)s
+items:
+    - id: licht
+      name: "Lichte modus voor oudere videokaarten"
+      name[nl]: "Lichte modus voor oudere videokaarten"
+      description: "%(licht)s"
+      description[nl]: "%(licht)s"
+      screenshot: "welcome.png"
+    - id: normaal
+      name: "Normale weergave"
+      name[nl]: "Normale weergave"
+      description: "Volledige 3D-wereld met alle effecten. Voor moderne videokaarten en game-pc's. Crasht de wereld toch, dan schakelt Universe OS zelf over op de lichte modus."
+      description[nl]: "Volledige 3D-wereld met alle effecten. Voor moderne videokaarten en game-pc's. Crasht de wereld toch, dan schakelt Universe OS zelf over op de lichte modus."
+      screenshot: "welcome.png"
+'''
+
+
+def render(reason):
+    found = ('Aanbevolen voor deze pc: %s.' % reason) if reason else 'Deze pc heeft geen oude videokaart herkend.'
+    licht = ('Minder effecten, 30 beelden per seconde en de processor tekent de vlakken, zodat oude of zwakke '
+             'videokaarten (zoals GeForce GT 710, oude Intel HD of Radeon) soepel en stabiel draaien. ' + found +
+             ' Later te wijzigen in Controlecentrum > Vormgeving.')
+    return TEMPLATE % {'reden': reason or 'geen oude videokaart', 'default': 'licht' if reason else 'normaal',
+                       'licht': licht.replace('"', "'")}
+
+
+def main():
+    target = sys.argv[1] if len(sys.argv) > 1 else '/etc/calamares/modules/packagechooser-beeld.conf'
+    text = render(grafisch.detect_light())
+    os.makedirs(os.path.dirname(target), exist_ok=True)
+    with open(target + '.tmp', 'w', encoding='utf-8') as f:
+        f.write(text)
+    os.replace(target + '.tmp', target)
+    print(text.splitlines()[0])
+
+
+if __name__ == '__main__':
+    main()

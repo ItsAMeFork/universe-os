@@ -44,6 +44,8 @@ NOUVEAU_VARS = {'WEBKIT_DMABUF_RENDERER_FORCE_SHM': '1', 'mesa_glthread': 'false
 LIGHT_VARS = {'WEBKIT_SKIA_ENABLE_CPU_RENDERING': '1', 'WEBKIT_SKIA_CPU_PAINTING_THREADS': '2',
               'WEBKIT_SKIA_GPU_PAINTING_THREADS': '0', 'WEBKIT_DMABUF_RENDERER_FORCE_SHM': '1', 'mesa_glthread': 'false'}
 LIGHT_FILE = '/etc/universe-os/grafisch-licht'
+# Gezet door de installer als de gebruiker de lichte modus uitvinkte: systeembreed geen automatische lichte modus.
+NORMAL_FILE = '/etc/universe-os/grafisch-normaal'
 # Oude Intel-graphics (Gen3 t/m Gen7.5: GMA 3xxx/4500, HD 2000-4600, Bay Trail): i915/crocus, weinig rekenkracht.
 # Broadwell (0x16xx) en nieuwer niet. Ranges van PCI device-id's.
 OLD_INTEL = ((0x0040, 0x0200), (0x0400, 0x0E00), (0x0F00, 0x0F40), (0x2500, 0x2F00), (0x2770, 0x27B0),
@@ -84,7 +86,8 @@ def light_setting(path=None):
     return value if value in ('auto', 'on', 'off') else 'auto'
 
 
-def choose_light(cmdline, drivers, cards=(), setting='auto', light_file=False, crashed=False, cores=4, mem_gb=0):
+def choose_light(cmdline, drivers, cards=(), setting='auto', light_file=False, crashed=False, cores=4, mem_gb=0,
+                 normal_file=False):
     """Reason (str) for the light hardware mode, or None. Modern and game cards (nvidia, amdgpu, new Intel) stay as
     they are unless asked for by hand or the world crashed there before."""
     options = cmdline.split()
@@ -98,6 +101,8 @@ def choose_light(cmdline, drivers, cards=(), setting='auto', light_file=False, c
         return None
     if light_file:
         return LIGHT_FILE
+    if normal_file and not crashed:
+        return None
     for name in drivers:
         if name in LIGHT_DRIVERS:
             return 'oude/zwakke videokaart (%s)' % name
@@ -292,7 +297,8 @@ def apply():
         except (OSError, ValueError):
             mem_gb = 0
         light = choose_light(cmdline, drivers, pci_cards(), light_setting(), os.path.exists(LIGHT_FILE),
-                             crashed_before(drivers), os.cpu_count() or 4, mem_gb)
+                             crashed_before(drivers), os.cpu_count() or 4, mem_gb,
+                             os.path.exists(NORMAL_FILE))
     if light:
         set_light()
         reason += '; lichte hardware-modus: %s' % light
@@ -351,3 +357,13 @@ def to_processor(drivers):
     for name, value in SAFE_VARS.items():
         os.environ[name] = value
     return True
+
+
+def detect_light():
+    """Reason for the light mode on this pc from the hardware alone (installer, Calamares step 'Beeld'), or None."""
+    drivers = sorted({os.path.basename(os.path.realpath(link)) for link in glob.glob('/sys/class/drm/card[0-9]*/device/driver')})
+    try:
+        mem_gb = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES') // (1 << 30)
+    except (OSError, ValueError):
+        mem_gb = 0
+    return choose_light('', drivers, pci_cards(), cores=os.cpu_count() or 4, mem_gb=mem_gb)
