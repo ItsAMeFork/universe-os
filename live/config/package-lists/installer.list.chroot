@@ -8,6 +8,8 @@ grub-efi-amd64-bin
 grub-efi-amd64-signed
 shim-signed
 grub2-common
+# Bevat de Nederlandse GRUB-vertaling (grub.mo) die de binary-hook naar het live-medium kopieert.
+grub-common
 efibootmgr
 dosfstools
 e2fsprogs
