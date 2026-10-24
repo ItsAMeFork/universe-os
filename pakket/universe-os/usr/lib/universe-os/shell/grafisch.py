@@ -31,6 +31,10 @@ SAFE_VARS = {'WEBKIT_DMABUF_RENDERER_FORCE_SHM': '1', 'LIBGL_ALWAYS_SOFTWARE': '
 # first picture (Earth in the warp streaks, the planets never came) and turned pale grey-blue when the start menu opened.
 # WebKit's DMA-BUF buffers do not survive that on the proprietary driver; shared memory does (the GPU still draws).
 NVIDIA_VARS = {'WEBKIT_DMABUF_RENDERER_FORCE_SHM': '1'}
+# 24 Oct (0.2.30, pc beneden: GT 710 on nouveau): the world page's process died again and again with 'free(): invalid
+# pointer' / 'realloc(): invalid pointer' (nouveau's GL is not safe with several GL threads). Shared memory buffers and
+# no Mesa GL thread take two of those threads away; if the page still stops, webview.py lets the processor draw it.
+NOUVEAU_VARS = {'WEBKIT_DMABUF_RENDERER_FORCE_SHM': '1', 'mesa_glthread': 'false'}
 PROBE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'grafisch_proef.py')
 PROBE_TIMEOUT = 30
 
@@ -157,6 +161,10 @@ def apply():
         for name, value in NVIDIA_VARS.items():
             os.environ.setdefault(name, value)
         reason += '; nvidia: gedeeld geheugen'
+    elif 'nouveau' in drivers and 'universe.gfx=normal' not in cmdline.split():
+        for name, value in NOUVEAU_VARS.items():
+            os.environ.setdefault(name, value)
+        reason += '; nouveau: gedeeld geheugen, geen GL-thread'
     return drivers, has_render_node, mode, reason
 
 
@@ -184,3 +192,20 @@ def lite_reason(graphics):
     except OSError:
         cmdline = ''
     return world_lite(cmdline, graphics[2], graphics[0])
+
+
+def to_processor(drivers):
+    """After the world page crashed on nouveau with normal drawing: let the processor draw the pages from now on (new
+    page processes inherit it). True when it switched, False when it already was (or the user chose normal by hand)."""
+    try:
+        with open('/proc/cmdline') as f:
+            cmdline = f.read()
+    except OSError:
+        cmdline = ''
+    if 'nouveau' not in drivers or 'universe.gfx=normal' in cmdline.split():
+        return False
+    if os.environ.get('LIBGL_ALWAYS_SOFTWARE') == '1':
+        return False
+    for name, value in SAFE_VARS.items():
+        os.environ[name] = value
+    return True

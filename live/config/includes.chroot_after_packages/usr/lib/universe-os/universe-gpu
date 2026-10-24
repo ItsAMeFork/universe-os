@@ -51,8 +51,24 @@ def option(cmdline):
     return None
 
 
+# 24 Oct (0.2.30, pc beneden: GeForce GT 710, GK208B, id 128B): Debian's nvidia 550 module lists a wildcard alias for
+# every NVIDIA display device, so 'supported' was true for a Kepler card; modprobe then failed with 'No such device' and
+# nouveau took over. nvidia 550 drives Maxwell and newer only; the first Maxwell chips (GM107/GM108) start at 0x1340.
+FIRST_MAXWELL_ID = 0x1340
+
+
+def device_id(modalias):
+    try:
+        return int(modalias.split('d', 2)[1][:8], 16) if modalias.startswith('pci:v') else None
+    except (IndexError, ValueError):
+        return None
+
+
 def supported(modalias, aliases):
-    """True when the NVIDIA module lists this card (its PCI id) as one it drives."""
+    """True when the NVIDIA module lists this card (its PCI id) as one it drives, and it is not older than Maxwell."""
+    dev = device_id(modalias)
+    if dev is not None and dev < FIRST_MAXWELL_ID:
+        return False
     return any(fnmatch.fnmatchcase(modalias, pattern) for pattern in aliases)
 
 
@@ -67,7 +83,7 @@ def choose(cmdline, gpus, aliases):
         return 'nouveau', 'NVIDIA-module ontbreekt'
     if all(supported(gpu, aliases) for gpu in gpus):
         return 'nvidia', 'kaart ondersteund door nvidia 550'
-    return 'nouveau', 'kaart te oud voor nvidia 550 (of onbekend)'
+    return 'nouveau', 'kaart te oud voor nvidia 550 (Kepler of ouder, of onbekend)'
 
 
 def module_aliases():

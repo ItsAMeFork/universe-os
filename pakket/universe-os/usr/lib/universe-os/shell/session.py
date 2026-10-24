@@ -19,6 +19,8 @@ xdg-user-dirs-update >/dev/null 2>&1 &
 /usr/libexec/polkit-mate-authentication-agent-1 >/dev/null 2>&1 &
 mako --config /usr/share/universe-os/mako.conf >/dev/null 2>&1 &
 /usr/lib/universe-os/universe-idle &
+# Windows+V: tekst die je kopieert komt in de klembordgeschiedenis (alleen tekst, max. 25).
+universe-klembord bewaak >/dev/null 2>&1 &
 /usr/lib/universe-os/universe-displays apply >/dev/null 2>&1
 '''
 

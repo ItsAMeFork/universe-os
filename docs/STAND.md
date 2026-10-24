@@ -2,6 +2,14 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
+## 24 oktober: versie 0.2.30 (pc beneden: GT 710; Windows-sneltoetsen; ISO gebouwd, update nog NIET gepubliceerd)
+Diagnose pc beneden: GeForce GT 710 (GK208B, Kepler, id 128B). nvidia 550 kent Kepler niet, maar Debian's module heeft een
+joker-alias, dus `universe-gpu` koos nvidia -> modprobe 'No such device' -> nouveau. Op nouveau crashte het WebKit-proces van
+world.html steeds (`free(): invalid pointer`), na 3 keer world-lite (2D).
+- `universe-gpu`: kaarten ouder dan Maxwell (PCI-id < 0x1340) krijgen meteen nouveau. Test: `docs/tests/nouveau-crash.py`.
+- `shell/grafisch.py`: op nouveau gedeeld geheugen en `mesa_glthread=false`; na de eerste world-crash op nouveau tekent de processor (gfx=soft) vóór de 2D-terugval (`webview.py`). Test: `docs/tests/pagina-herstart.py`.
+- Windows-sneltoetsen (Win+R/S/V/./M, Win+Shift+S, Ctrl+Alt+Del-menu) in `shortcuts.json`; `universe-klembord` (klembordgeschiedenis, emoji, Ctrl+Alt+Del); Ctrl+V plakt in de terminal. Overzicht: `docs/SNELTOETSEN.md`. Test: `docs/tests/sneltoetsen.py`.
+
 ## 24 oktober: versie 0.2.29 (NVIDIA-pc; ISO gebouwd, update nog NIET gepubliceerd)
 Gepubliceerd (apt test + stable): 0.2.24 t/m 0.2.28 (0.2.28 op 24 okt).
 - Met het eigen NVIDIA-stuurprogramma geen grafische proef meer en nooit processor-tekenen door een proefuitslag; normaal tekenen met gedeeld geheugen (`shell/grafisch.py`). Oorzaak van de 2D-terugval: proef zei 'safe' -> llvmpipe -> wereld te traag -> world-lite.

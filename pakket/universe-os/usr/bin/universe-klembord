@@ -1,0 +1,111 @@
+#!/usr/bin/python3
+"""Universe OS 0.2.30: klembordgeschiedenis (Windows+V), emoji (Windows+.) en het Ctrl+Alt+Del-menu.
+
+  universe-klembord bewaak     draait in de sessie: wl-paste --watch geeft elke gekopieerde tekst door
+  universe-klembord bewaar     (intern) leest tekst van stdin en zet hem bovenaan de geschiedenis
+  universe-klembord kies       Windows+V: kies een eerdere tekst; die gaat op het klembord (plakken met Ctrl+V)
+  universe-klembord emoji      Windows+.: kies een emoji; die gaat op het klembord
+  universe-klembord beveiliging  Ctrl+Alt+Del: vergrendelen, afmelden of taakbeheer
+Alleen tekst wordt bewaard (max. 25 items, elk max. 10 000 tekens), alleen in je eigen map.
+"""
+import json
+import os
+import subprocess
+import sys
+
+MAX_ITEMS = 25
+MAX_CHARS = 10000
+EMOJI = ['😀', '😂', '😊', '😍', '😎', '🤔', '😢', '😡', '👍', '👎', '👏', '🙏', '💪', '❤️', '🔥', '⭐', '🎉', '✅',
+         '❌', '🚀', '🌍', '🪐', '☀️', '🌙', '⚡', '🎵', '📷', '💻', '📁', '✉️']
+
+
+def history_file():
+    base = os.environ.get('XDG_STATE_HOME') or os.path.join(os.path.expanduser('~'), '.local', 'state')
+    return os.path.join(base, 'universe-os', 'klembord.json')
+
+
+def load(path=None):
+    try:
+        with open(path or history_file(), encoding='utf-8') as f:
+            data = json.load(f)
+        return [x for x in data if isinstance(x, str)] if isinstance(data, list) else []
+    except (OSError, ValueError):
+        return []
+
+
+def add(items, text):
+    """New text on top, no doubles, at most MAX_ITEMS. Empty or whitespace-only text is ignored."""
+    if not text or not text.strip() or len(text) > MAX_CHARS:
+        return items
+    return ([text] + [x for x in items if x != text])[:MAX_ITEMS]
+
+
+def save(items, path=None):
+    path = path or history_file()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + '.tmp'
+    with open(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), 'w', encoding='utf-8') as f:
+        json.dump(items, f, ensure_ascii=False)
+    os.replace(tmp, path)
+
+
+def label(text):
+    one = ' '.join(text.split())
+    return one[:80] + ('…' if len(one) > 80 else '')
+
+
+def pick(title, column, rows):
+    cmd = ['zenity', '--list', '--title', title, '--column', '#', '--column', column, '--hide-column', '1',
+           '--print-column', '1', '--width', '560', '--height', '460']
+    for i, row in enumerate(rows):
+        cmd += [str(i), row]
+    out = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        return int(out.stdout.strip().split('|')[0])
+    except ValueError:
+        return None
+
+
+def copy(text):
+    subprocess.run(['wl-copy', '--', text])
+    subprocess.run(['notify-send', '-t', '2500', 'Op het klembord', 'Plakken met Ctrl+V.'])
+
+
+def main(argv):
+    cmd = argv[1] if len(argv) > 1 else ''
+    if cmd == 'bewaak':
+        os.execvp('wl-paste', ['wl-paste', '--type', 'text', '--watch', sys.argv[0], 'bewaar'])
+    if cmd == 'bewaar':
+        text = sys.stdin.buffer.read(MAX_CHARS * 4 + 1).decode('utf-8', 'replace')
+        items = load()
+        new = add(items, text)
+        if new != items:
+            save(new)
+        return 0
+    if cmd == 'kies':
+        items = load()
+        if not items:
+            subprocess.run(['notify-send', 'Klembordgeschiedenis', 'Nog niets gekopieerd. Kopieer tekst met Ctrl+C.'])
+            return 0
+        i = pick('Klembordgeschiedenis', 'Gekopieerd', [label(x) for x in items])
+        if i is not None and 0 <= i < len(items):
+            copy(items[i])
+        return 0
+    if cmd == 'emoji':
+        i = pick('Emoji', 'Emoji', EMOJI)
+        if i is not None and 0 <= i < len(EMOJI):
+            copy(EMOJI[i])
+        return 0
+    if cmd == 'beveiliging':
+        actions = [('Vergrendelen', ['universe-lock']), ('Afmelden', ['universe-ctl', 'logout']),
+                   ('Taakbeheer (systeemmonitor)', ['universe-ctl', 'run', 'monitor'])]
+        i = pick('Universe OS', 'Wat wil je doen?', [a[0] for a in actions])
+        if i is not None and 0 <= i < len(actions):
+            subprocess.Popen(actions[i][1], start_new_session=True)
+        return 0
+    print(__doc__.strip())
+    return 1
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv))

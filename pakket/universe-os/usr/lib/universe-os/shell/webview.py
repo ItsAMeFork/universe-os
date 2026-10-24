@@ -192,6 +192,10 @@ if cpu_lacks_jit_features():
     no_jit('processor zonder SSE4.2')
 
 
+def surface_of(view):
+    return getattr(view, 'surface', None)
+
+
 def _restart_page(view, reason, page, uri):
     """23 Oct: on the H310M and in the VM the world page's process stopped (the desktop froze in the intro or turned
     into the plain GTK grey when the start menu opened) and nothing brought it back. Log it and load the page again;
@@ -204,6 +208,14 @@ def _restart_page(view, reason, page, uri):
     _restarts[page] = recent
     print('[universe-shell] paginaproces %s gestopt (%s); opnieuw laden (%d keer deze minuut)' % (page, name, len(recent)),
           file=sys.stderr, flush=True)
+    if page in FALLBACK and not getattr(surface_of(view), 'uri', None) and grafisch.to_processor(WEBKIT_GRAPHICS[0]):
+        # 0.2.30 (GT 710 on nouveau): GPU drawing crashes the world; the processor draws it instead (gfx=soft), before
+        # the 2D fallback. The count starts again for the processor-drawn page.
+        print('[universe-shell] %s gecrasht op nouveau: verder met processor-tekenen' % page, file=sys.stderr, flush=True)
+        _restarts[page] = []
+        soft_uri = page_uri(page)
+        GLib.timeout_add(500, lambda: view.load_uri(soft_uri) and False)
+        return
     if len(recent) >= 2:
         no_jit('%s stopte %d keer binnen een minuut' % (page, len(recent)))  # the next process starts without JIT
     surface = getattr(view, 'surface', None)
