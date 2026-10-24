@@ -4,21 +4,3 @@ label live-@FLAVOUR@
 	linux @LINUX@
 	initrd @INITRD@
 	append @APPEND_LIVE@
-
-label live-@FLAVOUR@-nvidia
-	menu label Universe OS - NVIDIA-stuurprogramma (nieuwere GeForce/RTX)
-	linux @LINUX@
-	initrd @INITRD@
-	append @APPEND_LIVE@ universe.gpu=nvidia
-
-label live-@FLAVOUR@-veilig
-	menu label Universe OS - veilige grafische modus
-	linux @LINUX@
-	initrd @INITRD@
-	append @APPEND_LIVE@ universe.gpu=veilig universe.gfx=safe vga=791
-
-label live-@FLAVOUR@-nomodeset
-	menu label Universe OS - nomodeset (noodgeval)
-	linux @LINUX@
-	initrd @INITRD@
-	append @APPEND_LIVE@ nomodeset universe.gpu=veilig universe.gfx=safe

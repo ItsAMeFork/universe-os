@@ -52,6 +52,7 @@ SETTING_KEYS = {
     'heBuddy': (True, False),  # Hé Buddy: de buddy spreekt meldingen uit. Uit tot de gebruiker het aanzet.
     'zen': (True, False),  # rustig bureaublad: geen taakbalk, geen planeten
     'god': (True, False),  # assistent doet gewone stappen zelf; versturen, betalen, wissen en wachtwoorden blijven een vraag
+    'lightGraphics': ('auto', 'on', 'off'),  # 0.2.31 lichte hardware-modus (oude videokaarten); na opnieuw inloggen
 }
 
 
@@ -59,7 +60,7 @@ def settings():
     base = branding().get('defaults', {})
     merged = {'animations': 'full', 'travel': True, 'uiScale': 100, 'textScale': 100, 'lockMinutes': 10,
               'screenOffMinutes': 15, 'naturalScroll': False, 'tapToClick': True, 'pointerSpeed': 0.0, 'displayScales': {}, 'displayResolution': '1920x1080', 'buddy': True, 'sounds': True,
-              'heBuddy': False, 'zen': False, 'god': False}
+              'heBuddy': False, 'zen': False, 'god': False, 'lightGraphics': 'auto'}
     merged.update(base)
     merged.update(read_json(os.path.join(user_dir(), 'settings.json'), {}))
     return merged

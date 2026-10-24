@@ -2,7 +2,45 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
-## 23 oktober: versies 0.2.24 en 0.2.25 (in deze branch, nog NIET gepubliceerd)
+## 24 oktober: versie 0.2.32 (lichte modus volledig automatisch, geen keuzescherm; ISO gebouwd, update nog NIET gepubliceerd)
+Jesse testte 0.2.31 op de GT 710: werkt. Wens: de gebruiker kiest niets.
+- Installer: zichtbare stap 'Beeld' weg. Stille `shellprocess@beeld` (dontChroot) draait `universe-beeld-keuze ${ROOT}`: zelfde detectie als de live-sessie (plus de live-noodoptie `universe.gfx=licht`) en zet `grafisch-licht` of `grafisch-normaal` op de doelschijf. Handmatig wijzigen alleen in Controlecentrum > Vormgeving.
+- Detectie robuuster (`grafisch.py`): bleef afhangen van de drm-driver op dat moment. Was nouveau nog niet gebonden (universe-gpu laadt hem laat, firmware), dan zag de shell alleen simpledrm en bleef normaal. Nu: wachten (max 10 s) tot elke PCI-videokaart een driver heeft, drivers ook via de PCI-apparaten, PCI-id-tabel (NVIDIA voor Maxwell <0x1340 zoals GT 710 10de:128b, NVIDIA zonder nvidia-driver, oude AMD/radeon, oude Intel), en als laatste de renderer-string (eglinfo/glxinfo: NVxx, GK/GF, Ivybridge/Haswell, radeon-families).
+- Opstartmenu (aanvulling Jesse): nog maar één optie 'Universe OS' (grub en syslinux, eigen `menu.cfg` zonder Utilities/installer-submenu), start na 3 s vanzelf. Geen NVIDIA-, veilig-, nomodeset- of lichte-noodoptie meer; met 'e'/Tab blijven `universe.gfx=licht`, `universe.world=lite`, `universe.gpu=...` en `nomodeset` werken.
+- Wat de demo zelf leerde gaat mee bij installeren: `universe-beeld-keuze` kopieert `grafisch.json` (kleurproef) en `grafisch-crash.json` (crash-terugval) naar `/etc/skel` en de nieuwe home; een crash-terugval of 'aan' in de demo geeft `grafisch-licht`.
+- Test: `docs/tests/lichte-hardware.py` (GT 710 uit de diagnose, ook met alleen simpledrm of zonder driver).
+
+## 24 oktober: versie 0.2.31 (lichte hardware-modus voor oude/zwakke videokaarten; ISO gebouwd, update nog NIET gepubliceerd)
+Oorzaak crash GT 710 (nouveau): WebKitGTK 2.54 tekent met Skia op de GPU in werkthreads; nouveau is niet thread-safe
+(`free(): invalid pointer`). Lichte modus = Skia tekent tegels met de processor (`WEBKIT_SKIA_ENABLE_CPU_RENDERING=1`,
+`WEBKIT_SKIA_GPU_PAINTING_THREADS=0`), de videokaart voegt alleen samen; plus gedeeld geheugen en `mesa_glthread=false`.
+- Automatisch aan (`shell/grafisch.py`, `choose_light`): nouveau, radeon (r600/GCN1-2), ast/mgag200/gma500, oude Intel Gen3-7.5 (PCI-id), zwakke pc (<=2 kernen en <=4 GB), en na een eerdere world-crash (onthouden per driver+kernel). Niet bij nvidia/amdgpu/nieuwe Intel.
+- Handmatig: opstartoptie `universe.gfx=licht` (nieuw item in GRUB/syslinux: "oude/zwakke videokaart (lichte modus)"), Controlecentrum > Vormgeving > Lichte grafische modus (auto/aan/uit), of `/etc/universe-os/grafisch-licht`. `universe.gfx=normal` of "uit" zet de automaat uit.
+- Na een world-crash: eerst lichte modus, dan processor-tekenen (nouveau), dan 2D (`webview.py`).
+- Wereld (`gfx=licht`): canvas max 1280x720 en dpr 1, 300 i.p.v. 900 sterren, max 30 fps, planeetplaatjes max 512 px, geen filter/schaduw/backdrop (`world.css`), lichte animaties (`motion.js`, `explode.js`).
+- NVIDIA 470 legacy niet in de ISO: zit niet in trixie (alleen sid), DKMS-build breekt bij trixie-kernelupdates, EOL. Zie `docs/stuurprogrammas.md`.
+- Installer (Calamares): nieuwe stap 'Beeld' (`packagechooser@beeld`) met 'Lichte modus voor oudere videokaarten' / 'Normale weergave'; `universe-install` laat `universe-beeld-keuze` vooraf de videokaart detecteren (zelfde `choose_light`) en vult de keuze in. `contextualprocess@beeld` schrijft `/etc/universe-os/grafisch-licht` of `grafisch-normaal` op de doelschijf. Controlecentrum wint per gebruiker.
+- Elke world-crash (ook op een onbekende kaart) gaat eerst naar de lichte modus en onthoudt dat (`~/.local/state/universe-os/grafisch-crash.json`).
+- Samengevoegd (Haiku): test-ai-preview, test-ai-switch, gitignore-live, sneltoetsen-help (Win+F1, overzicht in Controlecentrum).
+- Test: `docs/tests/lichte-hardware.py`.
+
+## 24 oktober: versie 0.2.30 (pc beneden: GT 710; Windows-sneltoetsen; ISO gebouwd, update nog NIET gepubliceerd)
+Diagnose pc beneden: GeForce GT 710 (GK208B, Kepler, id 128B). nvidia 550 kent Kepler niet, maar Debian's module heeft een
+joker-alias, dus `universe-gpu` koos nvidia -> modprobe 'No such device' -> nouveau. Op nouveau crashte het WebKit-proces van
+world.html steeds (`free(): invalid pointer`), na 3 keer world-lite (2D).
+- `universe-gpu`: kaarten ouder dan Maxwell (PCI-id < 0x1340) krijgen meteen nouveau. Test: `docs/tests/nouveau-crash.py`.
+- `shell/grafisch.py`: op nouveau gedeeld geheugen en `mesa_glthread=false`; na de eerste world-crash op nouveau tekent de processor (gfx=soft) vóór de 2D-terugval (`webview.py`). Test: `docs/tests/pagina-herstart.py`.
+- Windows-sneltoetsen (Win+R/S/V/./M, Win+Shift+S, Ctrl+Alt+Del-menu) in `shortcuts.json`; `universe-klembord` (klembordgeschiedenis, emoji, Ctrl+Alt+Del); Ctrl+V plakt in de terminal (sessie zet `~/.config/xfce4/terminal/accels.scm` eenmalig neer). Overzicht: `docs/SNELTOETSEN.md`. Test: `docs/tests/sneltoetsen.py`.
+
+## 24 oktober: versie 0.2.29 (NVIDIA-pc; ISO gebouwd, update nog NIET gepubliceerd)
+Gepubliceerd (apt test + stable): 0.2.24 t/m 0.2.28 (0.2.28 op 24 okt).
+- Met het eigen NVIDIA-stuurprogramma geen grafische proef meer en nooit processor-tekenen door een proefuitslag; normaal tekenen met gedeeld geheugen (`shell/grafisch.py`). Oorzaak van de 2D-terugval: proef zei 'safe' -> llvmpipe -> wereld te traag -> world-lite.
+- Proefpagina neutraal donker (#050815 / #151828) met "Beeld wordt getest…" in plaats van blauw/paars (`shell/grafisch_proef.py`). Dat was het blauw/paarse beeld na inloggen.
+- `ui/world.js`: frame-/planeetcontrole 25 s in plaats van 12/14 s bij `gfx=soft`.
+- Test: `docs/tests/nvidia-proef.py`.
+- Samengevoegd (Haiku-agents): playwright als devDependency in `docs/tests/package.json` (animation-layout.cjs meldt SKIP zonder), Nederlandse GRUB-teksten (`hooks/live/0400-grub-nl.hook.binary`, grub-common), Universe-splash i.p.v. Debian-logo (grub-pc/isolinux `splash.png`), Calamares bootloader-timeout 8 s en branding 0.2.29.
+
+## 23 oktober: versies 0.2.24 en 0.2.25 (inmiddels gepubliceerd)
 **0.2.24** (H310M en andere grote beeldschermen):
 - Donkere, bijna ondoorzichtige taakbalk: de lichte glazen balk werd op de H310M een witte balk, met onzichtbare iconen (`ui/dock.html`).
 - Eigen iconen voor de vaste knoppen (`ui/dock.js`).

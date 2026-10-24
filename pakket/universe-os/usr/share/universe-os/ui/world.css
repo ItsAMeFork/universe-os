@@ -306,3 +306,6 @@ html.reduce-motion .launch-number.beat,html.no-motion .launch-number.beat{animat
 .claude-route .primary:hover{background:#baf7e8;color:#06221c}
 html.reduce-motion .room.room-nebula,html.no-motion .room.room-nebula{animation:none}
 @media(prefers-reduced-motion:reduce){.room.room-nebula{animation:none}}
+
+/* 0.2.31 lichte hardware-modus (oude/zwakke videokaart): geen vervaging en schaduwen, die kosten de kaart het meest. */
+html.licht *,html.licht *::before,html.licht *::after{filter:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;box-shadow:none!important;text-shadow:none!important}

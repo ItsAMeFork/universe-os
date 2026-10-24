@@ -91,7 +91,7 @@ async function start(){
  // 0.2.28 (photo H310M 23 Oct: only the glowing core, no Earth and no planets, while dock and top bar were there):
  // the intro had left mix=0 with the core on top. 14 s after the start the end state is forced; when still nothing
  // shows, the shell gets world.failed and switches to the simple world with plain icons.
- setTimeout(()=>checkVisible(saved),14000);
+ setTimeout(()=>checkVisible(saved),(SOFT_GFX||LIGHT_GFX)?25000:14000); // 0.2.29: the processor draws (gfx=soft): more time
  setTimeout(paintEarths,1500);
 }
 const visibleCount=()=>objects.filter(o=>o.el&&o.el.isConnected&&o.el._d!=='none').length;
@@ -103,7 +103,7 @@ function checkVisible(saved){
    mix=1;earthScale=1;glow=0;boom=0;setFlash(0);setCore(0,1);if(saved)cam={...saved};render();
   }
   const n=visibleCount();
-  if(!n)failed('geen planeten zichtbaar na 14 s');else call('world.ok',{visible:n}).catch(()=>{});
+  if(!n)failed('geen planeten zichtbaar na '+((SOFT_GFX||LIGHT_GFX)?25:14)+' s');else call('world.ok',{visible:n}).catch(()=>{});
  }catch(e){failed('controle mislukt: '+(e?.message||e));}
 }
 // Planets of the rooms (Applicaties, Softwarewinkel, ...): the quick picture at once, the sharp one right after.
@@ -147,16 +147,21 @@ function worldAt(sx,sy){
 }
 
 // ----- stars and orbits on one canvas (redrawn only when the view changes) -----
+// 0.2.31 lichte hardware-modus (gfx=licht, grafisch.py: oude/zwakke videokaart): kleiner canvas, 1/3 van de sterren,
+// geen schaduw/vervaging, hooguit 30 beelden per seconde en kleinere planeetplaatjes.
+const LIGHT_GFX=new URLSearchParams(location.search).get('gfx')==='licht';
+if(LIGHT_GFX)document.documentElement.classList.add('licht');
+let lastFrameAt=0;
 const STARS=Array.from({length:900},(_,i)=>{let s=(i*9301+49297)%233280;const r=()=>(s=(s*9301+49297)%233280)/233280;
  const u=r()*2-1,t=r()*Math.PI*2,q=Math.sqrt(1-u*u);return [q*Math.cos(t),u,q*Math.sin(t),.25+r()*.75,r()<.06];});
 // Stars grouped by brightness: one path and one fill per group instead of a fill (and a colour string) per star.
 // 24 steps between .25 and 1: the difference with the exact brightness is invisible.
 const STAR_GROUPS=Array.from({length:24},(_,i)=>({style:`rgba(208,224,255,${alpha(.25+.75*(i+.5)/24)})`,stars:[]}));
-for(const s of STARS)STAR_GROUPS[Math.min(23,Math.floor((s[3]-.25)/.75*24))].stars.push(s);
+for(const s of (LIGHT_GFX?STARS.slice(0,300):STARS))STAR_GROUPS[Math.min(23,Math.floor((s[3]-.25)/.75*24))].stars.push(s);
 let skyShown=false;
 const SOFT_GFX=new URLSearchParams(location.search).get('gfx')==='soft';
 function drawSky(){
- const w=innerWidth,hgt=innerHeight,dpr=canvasScale(w,hgt,devicePixelRatio,SOFT_GFX);
+ const w=innerWidth,hgt=innerHeight,dpr=canvasScale(w,hgt,LIGHT_GFX?1:devicePixelRatio,SOFT_GFX,LIGHT_GFX);
  if(sky.width!==Math.round(w*dpr)||sky.height!==Math.round(hgt*dpr)){sky.width=Math.round(w*dpr);sky.height=Math.round(hgt*dpr);}
  const c=sky.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,hgt);
  if(!skyShown){skyShown=true;document.body.style.backgroundImage='none';} // the login picture of world.html, until the first real sky
@@ -285,6 +290,7 @@ function render(){
  // Animation loops also render directly. Cancel a queued input render to avoid
  // drawing twice in the same frame and losing the queued callback's handle.
  if(frame)cancelAnimationFrame(frame);frame=0;
+ if(LIGHT_GFX){const now=performance.now();if(now-lastFrameAt<32){frame=requestAnimationFrame(render);return;}lastFrameAt=now;}
  const t0=performance.now();drawSky();const t1=performance.now();perfMark('sky',t1-t0);
  for(const o of objects){
   const el=o.el;if(!el)continue;
@@ -313,7 +319,7 @@ function render(){
 }
 // ----- sharp planets: once the view rests, every visible planet is painted at the size it is shown (planets-hq.js) -----
 // Weak: few cores, the processor draws (gfx=soft) or 4 GB memory or less: planet pictures up to 512 px instead of 1024.
-const WEAK=(navigator.hardwareConcurrency||2)<=2||new URLSearchParams(location.search).get('gfx')==='soft'||(MEMORY_GB>0&&MEMORY_GB<=4),MAX_TIER=WEAK?512:1024;
+const WEAK=(navigator.hardwareConcurrency||2)<=2||new URLSearchParams(location.search).get('gfx')==='soft'||LIGHT_GFX||(MEMORY_GB>0&&MEMORY_GB<=4),MAX_TIER=WEAK?512:1024;
 let sharpenTimer=0;
 function sharpenSoon(){clearTimeout(sharpenTimer);sharpenTimer=setTimeout(sharpen,220);}
 function sharpen(){
@@ -830,5 +836,5 @@ on('config',c=>{if(current)leave();config=c;settings=c.settings;user=c.user||use
 let framed=false,reported=false;
 const failed=reason=>{if(reported)return;reported=true;call('world.failed',{reason:String(reason)}).catch(()=>{});};
 requestAnimationFrame(()=>{framed=true;});
-setTimeout(()=>{if(!framed)failed('geen beeld getekend binnen 12 s');},12000);
+setTimeout(()=>{if(!framed)failed('geen beeld getekend binnen '+((SOFT_GFX||LIGHT_GFX)?25:12)+' s');},(SOFT_GFX||LIGHT_GFX)?25000:12000);
 start().catch(e=>failed('start mislukt: '+(e?.message||e)));

@@ -3,7 +3,10 @@ import os, sys, tempfile, types
 root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'pakket', 'universe-os', 'usr/lib/universe-os/shell')
 src = open(os.path.join(root, 'webview.py')).read()
 assert "connect('web-process-terminated', _restart_page, page, uri)" in src
-ns = {'os': os, 'GLib': types.SimpleNamespace(timeout_add=lambda ms, fn: calls.append(ms))}
+switch = []
+ns = {'os': os, 'GLib': types.SimpleNamespace(timeout_add=lambda ms, fn: calls.append(ms)),
+      'grafisch': types.SimpleNamespace(to_light=lambda d: False, to_processor=lambda d: bool(switch) and switch.pop()), 'WEBKIT_GRAPHICS': (['i915'],),
+      'page_uri': lambda p: 'file:///' + p + '?gfx=soft'}
 calls = []
 start = src.index('_restarts = {}'); end = src.index('\ndef _policy')
 code = src[start:end].replace("if cpu_lacks_jit_features():\n    no_jit('processor zonder SSE4.2')\n", '')
@@ -26,6 +29,11 @@ w = types.SimpleNamespace(load_uri=lambda u: None, surface=types.SimpleNamespace
 ns['GLib'].timeout_add = lambda ms, fn: (calls.append(ms), fn())
 for _ in range(3): ns['_restart_page'](w, 'crashed', 'world.html', 'file:///x')
 assert len(seen) == 1 and 'world.html' in seen[0], seen
+# 0.2.30: on nouveau the first world crash switches to processor drawing and reloads, before any fallback
+ns['_restarts'].clear(); seen.clear(); loaded = []; switch.append(True)
+n = types.SimpleNamespace(load_uri=loaded.append, surface=types.SimpleNamespace(fallback=lambda r: seen.append(r)))
+ns['_restart_page'](n, 'crashed', 'world.html', 'file:///x')
+assert loaded == ['file:///world.html?gfx=soft'] and not seen and ns['_restarts']['world.html'] == []
 b = open(os.path.join(root, 'backend.py')).read()
 assert "'JSC_useJIT')" in b
 print('ok')
