@@ -35,6 +35,132 @@ NVIDIA_VARS = {'WEBKIT_DMABUF_RENDERER_FORCE_SHM': '1'}
 # pointer' / 'realloc(): invalid pointer' (nouveau's GL is not safe with several GL threads). Shared memory buffers and
 # no Mesa GL thread take two of those threads away; if the page still stops, webview.py lets the processor draw it.
 NOUVEAU_VARS = {'WEBKIT_DMABUF_RENDERER_FORCE_SHM': '1', 'mesa_glthread': 'false'}
+# 0.2.31 'lichte hardware'-modus (pc beneden: GT 710 op nouveau, en oude kantoor-pc's in het algemeen).
+# WebKitGTK 2.54 tekent pagina's met Skia op de GPU in aparte werkthreads (standaard 1-2 GPU-threads). nouveau is niet
+# veilig met meerdere GL-threads in één proces (Mesa nouveau multi-context, Ubuntu LP #2099654, Mesa #1110): dat is de
+# 'free(): invalid pointer'. In de lichte modus tekent Skia de tegels met de processor (2 threads, geen GL) en doet de
+# videokaart alleen het samenvoegen (compositing, één thread). Dat is ook op oude Intel/AMD sneller dan GPU-tegels.
+# Bron: WebKitGTK environment-variables (WEBKIT_SKIA_*), WebKit PR #34502.
+LIGHT_VARS = {'WEBKIT_SKIA_ENABLE_CPU_RENDERING': '1', 'WEBKIT_SKIA_CPU_PAINTING_THREADS': '2',
+              'WEBKIT_SKIA_GPU_PAINTING_THREADS': '0', 'WEBKIT_DMABUF_RENDERER_FORCE_SHM': '1', 'mesa_glthread': 'false'}
+LIGHT_FILE = '/etc/universe-os/grafisch-licht'
+# Oude Intel-graphics (Gen3 t/m Gen7.5: GMA 3xxx/4500, HD 2000-4600, Bay Trail): i915/crocus, weinig rekenkracht.
+# Broadwell (0x16xx) en nieuwer niet. Ranges van PCI device-id's.
+OLD_INTEL = ((0x0040, 0x0200), (0x0400, 0x0E00), (0x0F00, 0x0F40), (0x2500, 0x2F00), (0x2770, 0x27B0),
+             (0x8100, 0x8110), (0xA000, 0xA020))
+# Drivers die altijd licht gaan: nouveau (alle NVIDIA zonder eigen driver), radeon (r600/r300/SI/CIK in Debian),
+# en eenvoudige servervideo zonder 3D.
+LIGHT_DRIVERS = ('nouveau', 'radeon', 'ast', 'mgag200', 'gma500', 'cirrus-qemu', 'bochs-drm')
+
+
+def pci_cards(root='/sys/bus/pci/devices'):
+    """[(vendor, device)] of every display controller."""
+    cards = []
+    for dev in sorted(glob.glob(os.path.join(root, '*'))):
+        try:
+            klass = open(os.path.join(dev, 'class')).read().strip()
+            if not klass.startswith('0x03'):
+                continue
+            cards.append((int(open(os.path.join(dev, 'vendor')).read(), 16), int(open(os.path.join(dev, 'device')).read(), 16)))
+        except (OSError, ValueError):
+            continue
+    return cards
+
+
+def old_intel(device):
+    return any(lo <= device < hi for lo, hi in OLD_INTEL)
+
+
+def light_setting(path=None):
+    """'auto' | 'on' | 'off' from the user's settings (Controlecentrum > Vormgeving > Lichte grafische modus)."""
+    if path is None:
+        base = os.environ.get('XDG_CONFIG_HOME') or os.path.join(os.path.expanduser('~'), '.config')
+        path = os.path.join(base, 'universe-os', 'settings.json')
+    try:
+        with open(path) as f:
+            value = json.load(f).get('lightGraphics', 'auto')
+    except (OSError, ValueError, AttributeError):
+        return 'auto'
+    return value if value in ('auto', 'on', 'off') else 'auto'
+
+
+def choose_light(cmdline, drivers, cards=(), setting='auto', light_file=False, crashed=False, cores=4, mem_gb=0):
+    """Reason (str) for the light hardware mode, or None. Modern and game cards (nvidia, amdgpu, new Intel) stay as
+    they are unless asked for by hand or the world crashed there before."""
+    options = cmdline.split()
+    if 'universe.gfx=licht' in options:
+        return 'opstartoptie universe.gfx=licht'
+    if 'universe.gfx=normal' in options or 'universe.gfx=vol' in options:
+        return None
+    if setting == 'on':
+        return 'instelling: lichte grafische modus aan'
+    if setting == 'off':
+        return None
+    if light_file:
+        return LIGHT_FILE
+    for name in drivers:
+        if name in LIGHT_DRIVERS:
+            return 'oude/zwakke videokaart (%s)' % name
+    if 'nvidia' not in drivers and 'amdgpu' not in drivers:
+        for vendor, device in cards:
+            if vendor == 0x8086 and old_intel(device):
+                return 'oude Intel-graphics (0x%04x)' % device
+    if crashed:
+        return 'wereld crashte eerder op deze pc'
+    if cores <= 2 and 0 < mem_gb <= 4:
+        return 'zwakke pc (%d kernen, %d GB)' % (cores, mem_gb)
+    return None
+
+
+def crash_file():
+    return os.path.join(os.path.dirname(state_file()), 'grafisch-crash.json')
+
+
+def crashed_before(drivers):
+    try:
+        with open(crash_file()) as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return False
+    return isinstance(data, dict) and all(data.get(k) == v for k, v in fingerprint(drivers).items())
+
+
+def remember_crash(drivers):
+    try:
+        os.makedirs(os.path.dirname(crash_file()), exist_ok=True)
+        with open(crash_file(), 'w') as f:
+            json.dump(fingerprint(drivers), f)
+    except OSError:
+        pass
+
+
+def light_active():
+    return os.environ.get('UNIVERSE_GFX_LIGHT') == '1'
+
+
+def set_light():
+    for name, value in LIGHT_VARS.items():
+        os.environ[name] = value
+    os.environ['UNIVERSE_GFX_LIGHT'] = '1'
+
+
+def to_light(drivers):
+    """After a world crash with normal drawing: light mode from now on (new page processes inherit it) and remembered
+    for the next login. True when it switched. Not when the user chose normal/off by hand, or already light/soft."""
+    try:
+        with open('/proc/cmdline') as f:
+            cmdline = f.read()
+    except OSError:
+        cmdline = ''
+    if light_active() or os.environ.get('LIBGL_ALWAYS_SOFTWARE') == '1':
+        return False
+    if 'universe.gfx=normal' in cmdline.split() or light_setting() == 'off':
+        return False
+    remember_crash(drivers)
+    set_light()
+    return True
+
+
 PROBE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'grafisch_proef.py')
 PROBE_TIMEOUT = 30
 
@@ -154,7 +280,18 @@ def apply():
     mode, reason = choose(cmdline, safe_file, has_render_node, nvidia=nvidia)
     if needs_probe(reason) and not any(name in os.environ for name in SAFE_VARS):
         mode, reason = choose(cmdline, safe_file, has_render_node, probed(drivers), nvidia)
-    if mode == 'safe':
+    light = None
+    if mode != 'safe':
+        try:
+            mem_gb = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES') // (1 << 30)
+        except (OSError, ValueError):
+            mem_gb = 0
+        light = choose_light(cmdline, drivers, pci_cards(), light_setting(), os.path.exists(LIGHT_FILE),
+                             crashed_before(drivers), os.cpu_count() or 4, mem_gb)
+    if light:
+        set_light()
+        reason += '; lichte hardware-modus: %s' % light
+    elif mode == 'safe':
         for name, value in SAFE_VARS.items():
             os.environ.setdefault(name, value)
     elif 'nvidia' in drivers and 'universe.gfx=normal' not in cmdline.split():
@@ -179,7 +316,7 @@ def world_lite(cmdline, mode, drivers):
         return 'opstartoptie universe.world=lite'
     if 'universe.gfx=safe' in options or 'universe.gpu=veilig' in options:
         return 'veilige grafische modus'
-    if mode == 'safe' and 'nouveau' in drivers:
+    if mode == 'safe' and 'nouveau' in drivers and 'universe.gfx=safe' not in options:
         return 'nouveau met processor-tekenen'
     return None
 

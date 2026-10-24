@@ -2,6 +2,17 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
+## 24 oktober: versie 0.2.31 (lichte hardware-modus voor oude/zwakke videokaarten; ISO gebouwd, update nog NIET gepubliceerd)
+Oorzaak crash GT 710 (nouveau): WebKitGTK 2.54 tekent met Skia op de GPU in werkthreads; nouveau is niet thread-safe
+(`free(): invalid pointer`). Lichte modus = Skia tekent tegels met de processor (`WEBKIT_SKIA_ENABLE_CPU_RENDERING=1`,
+`WEBKIT_SKIA_GPU_PAINTING_THREADS=0`), de videokaart voegt alleen samen; plus gedeeld geheugen en `mesa_glthread=false`.
+- Automatisch aan (`shell/grafisch.py`, `choose_light`): nouveau, radeon (r600/GCN1-2), ast/mgag200/gma500, oude Intel Gen3-7.5 (PCI-id), zwakke pc (<=2 kernen en <=4 GB), en na een eerdere world-crash (onthouden per driver+kernel). Niet bij nvidia/amdgpu/nieuwe Intel.
+- Handmatig: opstartoptie `universe.gfx=licht` (nieuw item in GRUB/syslinux: "oude/zwakke videokaart (lichte modus)"), Controlecentrum > Vormgeving > Lichte grafische modus (auto/aan/uit), of `/etc/universe-os/grafisch-licht`. `universe.gfx=normal` of "uit" zet de automaat uit.
+- Na een world-crash: eerst lichte modus, dan processor-tekenen (nouveau), dan 2D (`webview.py`).
+- Wereld (`gfx=licht`): canvas max 1280x720 en dpr 1, 300 i.p.v. 900 sterren, max 30 fps, planeetplaatjes max 512 px, geen filter/schaduw/backdrop (`world.css`), lichte animaties (`motion.js`, `explode.js`).
+- NVIDIA 470 legacy niet in de ISO: zit niet in trixie (alleen sid), DKMS-build breekt bij trixie-kernelupdates, EOL. Zie `docs/stuurprogrammas.md`.
+- Test: `docs/tests/lichte-hardware.py`.
+
 ## 24 oktober: versie 0.2.30 (pc beneden: GT 710; Windows-sneltoetsen; ISO gebouwd, update nog NIET gepubliceerd)
 Diagnose pc beneden: GeForce GT 710 (GK208B, Kepler, id 128B). nvidia 550 kent Kepler niet, maar Debian's module heeft een
 joker-alias, dus `universe-gpu` koos nvidia -> modprobe 'No such device' -> nouveau. Op nouveau crashte het WebKit-proces van

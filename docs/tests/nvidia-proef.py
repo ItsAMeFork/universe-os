@@ -28,5 +28,5 @@ assert all(c < 0x30 for c in p.LEFT + p.RIGHT)
 assert not p.matches(p.LEFT, p.RIGHT) and not p.matches(p.RIGHT, p.LEFT)
 assert 'Beeld wordt getest' in p.PAGE
 w = open(os.path.join(root, 'usr/share/universe-os/ui/world.js')).read()
-assert 'SOFT_GFX?25000:12000' in w and 'SOFT_GFX?25000:14000' in w
+assert '(SOFT_GFX||LIGHT_GFX)?25000:12000' in w and '(SOFT_GFX||LIGHT_GFX)?25000:14000' in w
 print('ok')

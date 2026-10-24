@@ -6,7 +6,7 @@
 //  - only when even that is hopeless (one frame over 0.8 s) it jumps to the last picture.
 // Before 14 Oct two frames over 250 ms skipped every later animation, so a VM or an old pc never saw them.
 const params=new URLSearchParams(location.search);
-let light=params.get('gfx')==='soft'||(navigator.hardwareConcurrency||2)<=2;
+let light=params.get('gfx')==='soft'||params.get('gfx')==='licht'||(navigator.hardwareConcurrency||2)<=2;
 /** True on weak hardware or after slow frames: callers draw fewer particles and use fewer pixels. */
 export const isLight=()=>light;
 /** Runs frame(t) with t from 0 to 1 over `duration` ms; resolves after frame(1), at the latest shortly after `duration`. */

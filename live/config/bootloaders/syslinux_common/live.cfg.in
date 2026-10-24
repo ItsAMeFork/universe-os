@@ -11,6 +11,12 @@ label live-@FLAVOUR@-nvidia
 	initrd @INITRD@
 	append @APPEND_LIVE@ universe.gpu=nvidia
 
+label live-@FLAVOUR@-licht
+	menu label Universe OS - oude/zwakke videokaart (lichte modus)
+	linux @LINUX@
+	initrd @INITRD@
+	append @APPEND_LIVE@ universe.gfx=licht
+
 label live-@FLAVOUR@-veilig
 	menu label Universe OS - veilige grafische modus
 	linux @LINUX@

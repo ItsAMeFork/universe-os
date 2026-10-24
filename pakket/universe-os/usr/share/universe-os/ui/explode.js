@@ -10,7 +10,7 @@ import {animate,isLight} from './motion.js';
 
 function overlay(){
  // The light version draws at 60 % resolution: the effects are soft glows and trails, so it hardly shows.
- const W=innerWidth,H=innerHeight,dpr=canvasScale(W,H,devicePixelRatio,new URLSearchParams(location.search).get('gfx')==='soft')*(isLight()?.6:1);
+ const W=innerWidth,H=innerHeight,dpr=canvasScale(W,H,devicePixelRatio,new URLSearchParams(location.search).get('gfx')==='soft',new URLSearchParams(location.search).get('gfx')==='licht')*(isLight()?.6:1);
  const canvas=document.createElement('canvas');canvas.width=Math.round(W*dpr);canvas.height=Math.round(H*dpr);
  canvas.setAttribute('aria-hidden','true');
  canvas.style.cssText='position:fixed;inset:0;width:100%;height:100%;z-index:50;pointer-events:none';

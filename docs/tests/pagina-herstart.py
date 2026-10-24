@@ -5,7 +5,7 @@ src = open(os.path.join(root, 'webview.py')).read()
 assert "connect('web-process-terminated', _restart_page, page, uri)" in src
 switch = []
 ns = {'os': os, 'GLib': types.SimpleNamespace(timeout_add=lambda ms, fn: calls.append(ms)),
-      'grafisch': types.SimpleNamespace(to_processor=lambda d: bool(switch) and switch.pop()), 'WEBKIT_GRAPHICS': (['i915'],),
+      'grafisch': types.SimpleNamespace(to_light=lambda d: False, to_processor=lambda d: bool(switch) and switch.pop()), 'WEBKIT_GRAPHICS': (['i915'],),
       'page_uri': lambda p: 'file:///' + p + '?gfx=soft'}
 calls = []
 start = src.index('_restarts = {}'); end = src.index('\ndef _policy')
