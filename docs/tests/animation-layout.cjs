@@ -1,5 +1,10 @@
-// Draaien: NODE_PATH=<map met de playwright-module> CHROME_BIN=<pad naar chrome> node docs/tests/animation-layout.cjs
-const {chromium}=require('playwright'),fs=require('node:fs'),assert=require('node:assert/strict');
+// Eenmalig: cd docs/tests && npm install   (installeert playwright uit docs/tests/package.json)
+// Draaien vanaf de repo-root: node docs/tests/animation-layout.cjs
+// Optioneel: CHROME_BIN=<pad naar chrome> om een bestaande Chrome te gebruiken i.p.v. de Playwright-Chromium.
+// Ontbreekt playwright, dan meldt de test 'SKIP' en eindigt hij met exit 0.
+const fs=require('node:fs'),assert=require('node:assert/strict');
+let chromium;
+try{({chromium}=require('playwright'));}catch{console.log('SKIP animation-layout: playwright ontbreekt (cd docs/tests && npm install)');process.exit(0);}
 (async()=>{
  // CHROME_BIN wint altijd; zonder die variabele: Windows-Chrome op Windows, anders de door Playwright beheerde Chromium.
  const executablePath=process.env.CHROME_BIN||(process.platform==='win32'?'C:/Program Files/Google/Chrome/Application/chrome.exe':undefined);
