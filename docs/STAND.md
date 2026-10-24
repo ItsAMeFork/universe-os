@@ -8,7 +8,7 @@ joker-alias, dus `universe-gpu` koos nvidia -> modprobe 'No such device' -> nouv
 world.html steeds (`free(): invalid pointer`), na 3 keer world-lite (2D).
 - `universe-gpu`: kaarten ouder dan Maxwell (PCI-id < 0x1340) krijgen meteen nouveau. Test: `docs/tests/nouveau-crash.py`.
 - `shell/grafisch.py`: op nouveau gedeeld geheugen en `mesa_glthread=false`; na de eerste world-crash op nouveau tekent de processor (gfx=soft) vóór de 2D-terugval (`webview.py`). Test: `docs/tests/pagina-herstart.py`.
-- Windows-sneltoetsen (Win+R/S/V/./M, Win+Shift+S, Ctrl+Alt+Del-menu) in `shortcuts.json`; `universe-klembord` (klembordgeschiedenis, emoji, Ctrl+Alt+Del); Ctrl+V plakt in de terminal. Overzicht: `docs/SNELTOETSEN.md`. Test: `docs/tests/sneltoetsen.py`.
+- Windows-sneltoetsen (Win+R/S/V/./M, Win+Shift+S, Ctrl+Alt+Del-menu) in `shortcuts.json`; `universe-klembord` (klembordgeschiedenis, emoji, Ctrl+Alt+Del); Ctrl+V plakt in de terminal (sessie zet `~/.config/xfce4/terminal/accels.scm` eenmalig neer). Overzicht: `docs/SNELTOETSEN.md`. Test: `docs/tests/sneltoetsen.py`.
 
 ## 24 oktober: versie 0.2.29 (NVIDIA-pc; ISO gebouwd, update nog NIET gepubliceerd)
 Gepubliceerd (apt test + stable): 0.2.24 t/m 0.2.28 (0.2.28 op 24 okt).

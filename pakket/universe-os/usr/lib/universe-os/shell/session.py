@@ -220,7 +220,27 @@ def write(recovery=False):
     if not recovery:
         chrome_system_title_bar()
         window_buttons()
+        terminal_paste()
     return target
+
+
+TERMINAL_ACCELS = '/etc/xdg/xfce4/terminal/accels.scm'
+
+
+def terminal_paste(home=None):
+    """0.2.30: Ctrl+V pastes in the terminal like in Windows. xfce4-terminal only reads its own accels.scm (the copy in
+    /etc/xdg was ignored in the VM), so it is put there once; a file the user already has stays."""
+    base = os.environ.get('XDG_CONFIG_HOME') or os.path.join(home or os.path.expanduser('~'), '.config')
+    path = os.path.join(base, 'xfce4', 'terminal', 'accels.scm')
+    try:
+        if os.path.exists(path) or not os.path.exists(TERMINAL_ACCELS):
+            return False
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(TERMINAL_ACCELS, encoding='utf-8') as src, open(path, 'w', encoding='utf-8') as dst:
+            dst.write(src.read())
+        return True
+    except OSError:
+        return False
 
 
 def window_buttons():

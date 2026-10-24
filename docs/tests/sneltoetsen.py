@@ -56,3 +56,12 @@ for js in (PKG / 'usr/share/universe-os/ui').glob('*.js'):
     text = js.read_text(encoding='utf-8', errors='replace')
     assert "ctrlKey&&e.preventDefault" not in text.replace(' ', ''), js
 print('PASS: sneltoetsen')
+
+# The terminal's Ctrl+V: copied once into the user's own accels.scm (VM 24 Oct: /etc/xdg alone was ignored).
+with tempfile.TemporaryDirectory() as d:
+    session.TERMINAL_ACCELS = str(PKG / 'etc/xdg/xfce4/terminal/accels.scm')
+    os.environ['XDG_CONFIG_HOME'] = d
+    assert session.terminal_paste() is True
+    assert '<Primary>v' in open(os.path.join(d, 'xfce4/terminal/accels.scm')).read()
+    assert session.terminal_paste() is False  # an existing file stays
+print('PASS: terminal Ctrl+V')
