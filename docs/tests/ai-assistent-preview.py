@@ -91,7 +91,11 @@ def main():
             for name, page in PREVIEWS.items():
                 dest = shots / ('%s.png' % name)
                 url = 'http://127.0.0.1:8765/%s' % page.relative_to(ROOT).as_posix()
-                _shot(BROWSER, url, dest, Path(profile) / name)
+                # Eerst naar een tijdelijk bestand: een mislukte run laat zo de
+                # bestaande, in git vastgelegde schermafbeelding intact.
+                tmp = Path(profile) / dest.name
+                _shot(BROWSER, url, tmp, Path(profile) / name)
+                shutil.copy2(tmp, dest)
                 if mirror:
                     shutil.copy2(dest, ARTIFACTS / dest.name)
                 print(dest)
