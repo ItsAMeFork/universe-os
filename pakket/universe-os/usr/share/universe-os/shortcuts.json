@@ -10,6 +10,7 @@
   {"id": "screenshot-area", "name": "Schermafbeelding van een gebied", "key": "S-Print", "command": "universe-screenshot --gebied"},
   {"id": "terminal", "name": "Terminal", "key": "C-A-t", "command": "universe-ctl run terminal"},
   {"id": "settings", "name": "Controlecentrum", "key": "W-i", "command": "universe-ctl run control"},
+  {"id": "help", "name": "Sneltoetsen-overzicht", "key": "W-F1", "command": "universe-ctl run control shortcuts"},
   {"id": "run", "name": "Uitvoeren / zoeken (zoals Windows+R)", "key": "W-r", "command": "universe-ctl overview"},
   {"id": "search", "name": "Zoeken", "key": "W-s", "command": "universe-ctl overview"},
   {"id": "screenshot-area-win", "name": "Schermafbeelding van een gebied (zoals Windows+Shift+S)", "key": "W-S-s", "command": "universe-screenshot --gebied"},
