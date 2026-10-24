@@ -35,3 +35,6 @@ __pycache__/
 
 # Screenshots en logboeken van de Playwright-plugin
 .playwright-mcp/
+
+# Lokale npm-installatie voor docs/tests (playwright)
+docs/tests/node_modules/
