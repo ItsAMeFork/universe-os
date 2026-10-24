@@ -1,0 +1,13 @@
+#!/bin/sh
+# Nederlandse GRUB-teksten: de aftelmelding en de toetshulp komen uit de vertaling grub.mo van grub-common
+# (in de chroot). GRUB leest die als $prefix/locale/nl.mo, dus op de image als boot/grub/locale/nl.mo.
+# Draait in binary/ (de chroot staat ernaast). Ontbreekt de vertaling, dan blijft het menu Engels maar bouwt de image door.
+SRC=../chroot/usr/share/locale/nl/LC_MESSAGES/grub.mo
+
+if [ -f "$SRC" ]; then
+    mkdir -p boot/grub/locale
+    cp "$SRC" boot/grub/locale/nl.mo
+    echo "GRUB-vertaling geplaatst: boot/grub/locale/nl.mo"
+else
+    echo "W: $SRC ontbreekt; GRUB-menu blijft Engels" >&2
+fi
