@@ -278,6 +278,11 @@ def apply():
     safe_file = os.path.exists(SAFE_FILE)
     nvidia = 'nvidia' in drivers
     mode, reason = choose(cmdline, safe_file, has_render_node, nvidia=nvidia)
+    # 0.2.31: light mode asked for by hand (boot option, setting 'on', file): no colour test, the GPU composites.
+    forced_light = has_render_node and not safe_file and 'universe.gfx=safe' not in cmdline.split() and (
+        'universe.gfx=licht' in cmdline.split() or light_setting() == 'on' or os.path.exists(LIGHT_FILE))
+    if forced_light and reason == 'standaard':
+        reason = 'lichte modus met de hand gekozen: geen proef'
     if needs_probe(reason) and not any(name in os.environ for name in SAFE_VARS):
         mode, reason = choose(cmdline, safe_file, has_render_node, probed(drivers), nvidia)
     light = None

@@ -74,3 +74,4 @@ assert "'lightGraphics': ('auto', 'on', 'off')" in (shell / 'config.py').read_te
 for f in ('live/config/bootloaders/grub-pc/grub.cfg', 'live/config/bootloaders/syslinux_common/live.cfg.in'):
     assert 'universe.gfx=licht' in (root / f).read_text(), f
 print('PASS: lichte-hardware')
+assert 'lichte modus met de hand gekozen: geen proef' in (shell / 'grafisch.py').read_text()
