@@ -8,6 +8,7 @@ Gepubliceerd (apt test + stable): 0.2.24 t/m 0.2.28 (0.2.28 op 24 okt).
 - Proefpagina neutraal donker (#050815 / #151828) met "Beeld wordt getest…" in plaats van blauw/paars (`shell/grafisch_proef.py`). Dat was het blauw/paarse beeld na inloggen.
 - `ui/world.js`: frame-/planeetcontrole 25 s in plaats van 12/14 s bij `gfx=soft`.
 - Test: `docs/tests/nvidia-proef.py`.
+- Samengevoegd (Haiku-agents): playwright als devDependency in `docs/tests/package.json` (animation-layout.cjs meldt SKIP zonder), Nederlandse GRUB-teksten (`hooks/live/0400-grub-nl.hook.binary`, grub-common), Universe-splash i.p.v. Debian-logo (grub-pc/isolinux `splash.png`), Calamares bootloader-timeout 8 s en branding 0.2.29.
 
 ## 23 oktober: versies 0.2.24 en 0.2.25 (inmiddels gepubliceerd)
 **0.2.24** (H310M en andere grote beeldschermen):
