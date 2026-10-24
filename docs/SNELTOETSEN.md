@@ -12,7 +12,10 @@ Zoals in Windows. Systeemtoetsen staan in `pakket/universe-os/usr/share/universe
 | Win+D, Win+M | Bureaublad tonen (nogmaals: vensters terug) |
 | Win+E | Bestandsbeheer |
 | Win+I | Controlecentrum (instellingen) |
+| Win+F1 | Dit sneltoetsenoverzicht (op de pagina Sneltoetsen in het Controlecentrum) |
 | Win+A | Bedieningspaneel |
+| Win+C | AI (paneel) |
+| Win+Escape | AI stoppen (scherm en automatisch toestaan) |
 | Win+L | Vergrendelen |
 | Win+V | Klembordgeschiedenis (laatste 25 teksten) |
 | Win+. | Emoji kiezen (gaat op het klembord, plakken met Ctrl+V) |
