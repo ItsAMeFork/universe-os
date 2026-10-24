@@ -3,16 +3,66 @@
 de live-sessie, grafisch.detect_light) en zet in het doelsysteem /etc/universe-os/grafisch-licht of grafisch-normaal.
 Geen keuzescherm; handmatig wijzigen alleen in Controlecentrum > Vormgeving.
 Gebruik: universe-beeld-keuze DOELMAP   (bijv. /tmp/calamares-root-xxxx)"""
+import glob
+import json
 import os
+import shutil
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'shell'))
 import grafisch  # noqa: E402
 
 
-def decide(reason, cmdline):
-    """'licht' or 'normaal'. The live boot option (noodoptie) counts too."""
-    if reason or 'universe.gfx=licht' in cmdline.split():
+LEARNED = ('grafisch.json', 'grafisch-crash.json')
+
+
+def live_state(home_glob='/home/*/.local/state/universe-os'):
+    """State the live session learned itself (colour probe, crash fallback): {name: path} of the newest files."""
+    found = {}
+    for d in glob.glob(home_glob):
+        for name in LEARNED:
+            path = os.path.join(d, name)
+            if os.path.isfile(path) and (name not in found or os.path.getmtime(path) > os.path.getmtime(found[name])):
+                found[name] = path
+    return found
+
+
+def live_light(state, home_glob='/home/*/.config/universe-os/settings.json'):
+    """True when the live session went light by itself (crash fallback) or the user set it on in the demo."""
+    if 'grafisch-crash.json' in state:
+        return True
+    for path in glob.glob(home_glob):
+        try:
+            if json.load(open(path)).get('lightGraphics') == 'on':
+                return True
+        except (OSError, ValueError, AttributeError):
+            continue
+    return False
+
+
+def carry(root, state):
+    """Copy the learned files to the target: /etc/skel and every home already made by the users step."""
+    homes = [os.path.join(root, 'etc/skel')] + glob.glob(os.path.join(root, 'home/*'))
+    for home in homes:
+        if not os.path.isdir(home):
+            continue
+        dest = os.path.join(home, '.local/state/universe-os')
+        os.makedirs(dest, exist_ok=True)
+        st = os.stat(home)
+        for name, path in state.items():
+            shutil.copy2(path, os.path.join(dest, name))
+        if not home.endswith('skel'):
+            for dirpath, _dirs, files in os.walk(os.path.join(home, '.local')):
+                for item in [dirpath] + [os.path.join(dirpath, f) for f in files]:
+                    try:
+                        os.chown(item, st.st_uid, st.st_gid)
+                    except OSError:
+                        pass
+
+
+def decide(reason, cmdline, learned_light=False):
+    """'licht' or 'normaal'. The live kernel option and what the demo learned count too."""
+    if reason or learned_light or 'universe.gfx=licht' in cmdline.split():
         return 'licht'
     return 'normaal'
 
@@ -38,9 +88,15 @@ def main():
     except OSError:
         cmdline = ''
     reason = grafisch.detect_light()
-    choice = decide(reason, cmdline)
+    state = live_state()
+    choice = decide(reason, cmdline, live_light(state))
     path = write(sys.argv[1], choice)
-    print('universe-beeld-keuze: %s (%s) -> %s' % (choice, reason or 'geen oude videokaart', path))
+    try:
+        carry(sys.argv[1], state)
+    except OSError as e:
+        print('universe-beeld-keuze: geleerde staat niet meegenomen: %s' % e, file=sys.stderr)
+    print('universe-beeld-keuze: %s (%s; live geleerd: %s) -> %s' % (choice, reason or 'geen oude videokaart',
+                                                                    ', '.join(sorted(state)) or 'niets', path))
     return 0
 
 

@@ -73,8 +73,7 @@ assert 'html.licht' in (ui / 'world.css').read_text()
 assert "'lightGraphics'" in (ui / 'control.js').read_text()
 assert "'lightGraphics': ('auto', 'on', 'off')" in (shell / 'config.py').read_text()
 for f in ('live/config/bootloaders/grub-pc/grub.cfg', 'live/config/bootloaders/syslinux_common/live.cfg.in'):
-    assert 'universe.gfx=licht' in (root / f).read_text(), f
-    t_ = (root / f).read_text(); assert t_.index('noodoptie lichte modus') > t_.index('veilige grafische modus'), f
+    assert 'universe.gfx=licht' not in ''.join(l for l in (root / f).read_text().splitlines() if not l.lstrip().startswith('#')), f   # 0.2.32: geen noodoptie meer, alleen kernelparameter
 print('PASS: lichte-hardware')
 assert 'lichte modus met de hand gekozen: geen proef' in (shell / 'grafisch.py').read_text()
 # 0.2.32 Installer: geen zichtbare stap 'Beeld', wel een stille shellprocess-stap met dezelfde detectie.
@@ -95,6 +94,18 @@ assert k.decide(None, 'boot=live universe.gfx=licht') == 'licht'
 with tempfile.TemporaryDirectory() as t:
     k.write(t, 'normaal'); k.write(t, 'licht')
     assert sorted(_os.listdir(t + '/etc/universe-os')) == ['grafisch-licht']
+# Wat de demo zelf leerde (crash-terugval, kleurproef) gaat mee.
+with tempfile.TemporaryDirectory() as t:
+    sd = t + '/live/home/universe/.local/state/universe-os'; _os.makedirs(sd)
+    open(sd + '/grafisch-crash.json', 'w').write('{}'); open(sd + '/grafisch.json', 'w').write('{}')
+    state = k.live_state(t + '/live/home/*/.local/state/universe-os')
+    assert sorted(state) == ['grafisch-crash.json', 'grafisch.json']
+    assert k.live_light(state, t + '/none/*') and k.decide(None, '', k.live_light(state, t + '/none/*')) == 'licht'
+    assert not k.live_light({}, t + '/none/*')
+    _os.makedirs(t + '/doel/etc/skel'); _os.makedirs(t + '/doel/home/jesse')
+    k.carry(t + '/doel', state)
+    for h in ('etc/skel', 'home/jesse'):
+        assert sorted(_os.listdir(t + '/doel/' + h + '/.local/state/universe-os')) == ['grafisch-crash.json', 'grafisch.json']
 try:
     import yaml
     yaml.safe_load(st); yaml.safe_load(sp)
