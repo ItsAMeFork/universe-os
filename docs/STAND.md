@@ -2,7 +2,7 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
-## 25 oktober: versie 0.2.36 (bloem-animatie op echte venstergrootte, lichtflits + gat, zwart gat bij prullenbak legen; NIET gepubliceerd, geen ISO)
+## 25 oktober: versie 0.2.36 (bloem-animatie op echte venstergrootte, lichtflits + gat, zwart gat bij prullenbak legen; GEPUBLICEERD 25 okt 16:58, apt test + stable; geen ISO)
 Jesse vond de 0.2.35-animatie een 'vierkante lichtflits'.
 - Vensters (ook Wine/.exe via Xwayland): openen = bloem die vanuit het midden uitvouwt tot precies de rechthoek van het venster, met de echte inhoud; sluiten = dezelfde bloem andersom; minimaliseren vouwt dicht richting het dock. Open ~350 ms, sluiten ~250 ms.
 - Geometrie: labwc 0.8.3 heeft geen IPC en geeft via wlr-foreign-toplevel geen positie; ext-image-copy-capture per venster pas in labwc 0.9. Daarom `shell/venstermeting.py`: één grim-opname (wlr-screencopy) en de actieve vensterrand (#85ffe3, 2 px, titelbalk #162335) terugzoeken = exacte rechthoek + inhoud. Gemaximaliseerd zonder rand: scherm min dock. Geen rand gevonden (splash, launcher, volledig scherm) = geen animatie.
@@ -50,7 +50,7 @@ world.html steeds (`free(): invalid pointer`), na 3 keer world-lite (2D).
 - Windows-sneltoetsen (Win+R/S/V/./M, Win+Shift+S, Ctrl+Alt+Del-menu) in `shortcuts.json`; `universe-klembord` (klembordgeschiedenis, emoji, Ctrl+Alt+Del); Ctrl+V plakt in de terminal (sessie zet `~/.config/xfce4/terminal/accels.scm` eenmalig neer). Overzicht: `docs/SNELTOETSEN.md`. Test: `docs/tests/sneltoetsen.py`.
 
 ## 24 oktober: versie 0.2.29 (NVIDIA-pc; ISO gebouwd; gepubliceerd 24 okt 22:20 als onderdeel van 0.2.32)
-Gepubliceerd (apt test + stable): 0.2.24 t/m 0.2.28 (0.2.28 op 24 okt) en 0.2.32 (24 okt 22:20; bevat 0.2.29 t/m 0.2.31, die geen los pakket kregen), 0.2.33 (24 okt 23:29), 0.2.34 (25 okt 14:11) en 0.2.35 (25 okt 15:51).
+Gepubliceerd (apt test + stable): 0.2.24 t/m 0.2.28 (0.2.28 op 24 okt) en 0.2.32 (24 okt 22:20; bevat 0.2.29 t/m 0.2.31, die geen los pakket kregen), 0.2.33 (24 okt 23:29), 0.2.34 (25 okt 14:11), 0.2.35 (25 okt 15:51) en 0.2.36 (25 okt 16:58).
 - Met het eigen NVIDIA-stuurprogramma geen grafische proef meer en nooit processor-tekenen door een proefuitslag; normaal tekenen met gedeeld geheugen (`shell/grafisch.py`). Oorzaak van de 2D-terugval: proef zei 'safe' -> llvmpipe -> wereld te traag -> world-lite.
 - Proefpagina neutraal donker (#050815 / #151828) met "Beeld wordt getest…" in plaats van blauw/paars (`shell/grafisch_proef.py`). Dat was het blauw/paarse beeld na inloggen.
 - `ui/world.js`: frame-/planeetcontrole 25 s in plaats van 12/14 s bij `gfx=soft`.
