@@ -205,3 +205,7 @@ het concept (eventueel als achtergrond of onderdelen van het startmenu).
 ## 0.2.34 (GEPUBLICEERD 25 okt 14:11, apt test + stable; geen ISO)
 - Bovenbalk (pil) op de BOTTOM-laag: gemaximaliseerde/fullscreen vensters en vensters die erover staan bedekken hem; vervaagt zacht; komt terug bij herstellen/sluiten. Open paneel (klik/Win+A) gaat naar TOP.
 - Tests: bovenbalk-bedekt.py, bovenbalk-gedrag.py, alle-tests.sh; tests werken vanuit elke map; sneltoetsen-docs compleet.
+
+## 0.2.35 (lokaal, niet gepubliceerd, geen ISO)
+- Venster-animatie als ruimtebericht: overlay (flits.html/js, OVERLAY-laag, geen invoer) met mint-hologram vanuit het dock; sluiten/minimaliseren terug. Lichte modus, eenvoudige wereld, Animaties 'Verminderd': alleen vervagen; 'Uit': niets.
+- Nog niet visueel bevestigd: in de QEMU-demo (TCG) was het hologram niet te zien; moet op echte hardware gecontroleerd worden.

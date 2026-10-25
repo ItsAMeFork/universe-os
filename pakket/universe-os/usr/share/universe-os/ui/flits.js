@@ -1,4 +1,4 @@
-import {on} from './api.js';
+import {on,call} from './api.js';
 // Venster-animatie (0.2.35). Event 'venster-flits': {soort:'open'|'sluit'|'min', van:'dock'|'midden', max:bool, snel:bool}
 // open: groeit vanuit het dock-icoon (of het midden) met schaal + vervagen, mint-gloed en een scanline, ~300 ms ease-out.
 // sluit/min: andersom en sneller (~180 ms) terug naar het dock. Meerdere tegelijk mogen: elk bericht is een eigen element.
@@ -29,3 +29,4 @@ if(typeof document!=='undefined')on('venster-flits',d=>{
  document.body.append(el);
  el.animate(p.frames,{duration:p.duur,easing:p.easing,fill:'forwards'}).finished.finally(()=>el.remove());
 });
+if(typeof document!=='undefined')call('flits.ready').catch(()=>{});

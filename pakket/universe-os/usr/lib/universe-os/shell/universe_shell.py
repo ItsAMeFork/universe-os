@@ -789,7 +789,11 @@ class Shell:
                 self.flits.window.connect('realize', self.flits_no_input)
                 self.flits.window.show_all()
                 self.flits_no_input(self.flits.window)
-                GLib.timeout_add(400, lambda: self.play_flits(events) and False)  # the page loads once
+                self.flits_ready = False
+            if not getattr(self, 'flits_ready', False):
+                # The page is still loading (seconds on a slow PC): keep only the latest few, play them when it reports.
+                self.flits_queue = (getattr(self, 'flits_queue', []) + list(events))[-4:]
+                self.flits_queued_at = time.monotonic()
                 return True
             if not self.flits.window.get_visible():
                 self.flits.window.show_all()
@@ -801,6 +805,15 @@ class Shell:
             self.flits_timer = GLib.timeout_add(700, self.flits_hide)  # nothing left on screen to composite
         except Exception as error:  # noqa: BLE001 - an animation never breaks the shell
             log('venster-animatie overgeslagen: %s' % error)
+        return True
+
+    def flits_page_ready(self):
+        self.flits_ready = True
+        queued, self.flits_queue = getattr(self, 'flits_queue', []), []
+        if queued and time.monotonic() - getattr(self, 'flits_queued_at', 0) < 1.0:
+            self.play_flits(queued)
+        else:  # too late: the window is already there; an animation now would look like a glitch
+            GLib.idle_add(self.flits_hide)
         return True
 
     def flits_no_input(self, window):
@@ -937,6 +950,7 @@ class Shell:
             'surface.hide': surface_hide,
             'surface.show': surface_show,
             'surface.size': lambda a: self.resize_panel(bool(a.get('open'))),
+            'flits.ready': lambda a: self.flits_page_ready(),
             'dock.size': lambda a: self.resize_dock(float(a.get('width') or 0), float(a.get('height') or 0) or None),
             'layout.get': lambda a: config.layout(),
             'layout.set': layout_set,
