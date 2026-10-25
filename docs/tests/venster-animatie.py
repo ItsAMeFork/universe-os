@@ -145,8 +145,9 @@ check('opname mislukt -> overslaan', not over.play.called)
 # the flower itself
 import flits
 A = lambda soort, snel=False: {'soort': soort, 'snel': snel, 'rect': (100, 100, 800, 500), 'start': 0.0, 'traag': 1.0}
-check('open ~350 ms', abs(flits.DUUR['open'] - 0.35) < 0.01)
-check('sluiten ~250 ms', abs(flits.DUUR['sluit'] - 0.25) < 0.01)
+check('openen goed zichtbaar (0.8-1.2 s)', 0.8 <= flits.DUUR['open'] <= 1.2)
+check('sluiten/minimaliseren goed zichtbaar (0.8-1.2 s)', all(0.8 <= flits.DUUR[k] <= 1.2 for k in ('sluit', 'min')))
+check('easing in-out (traag begin en eind)', flits.ease_in_out(0.1) < 0.1 and flits.ease_in_out(0.9) > 0.9 and abs(flits.ease_in_out(0.5) - 0.5) < 1e-9)
 check('snel-modus kort (<=160 ms)', flits.SNEL <= 0.16)
 f0, f1 = flits.bloem_frame(A('open'), 0.0, None), flits.bloem_frame(A('open'), 0.999, None)
 check('open begint als punt in het midden van het venster', f0['p'] == 0 and (f0['cx'], f0['cy']) == (500, 350))
@@ -156,7 +157,7 @@ same = all(abs(flits.bloem_frame(A('open'), t, None)['p'] - flits.bloem_frame(A(
 check('sluiten = open precies andersom', same)
 fm = flits.bloem_frame(dict(A('min'), soort='min'), 0.9, (960, 1040))
 check('minimaliseren vouwt dicht richting het dock', fm['cy'] > 700 and fm['p'] < 0.3)
-check('voortgang klaar na de duur', flits.voortgang(A('open'), 0.36) is None and flits.voortgang(A('sluit'), 0.26) is None)
+check('voortgang klaar na de duur', flits.voortgang(A('open'), 1.01) is None and flits.voortgang(A('open'), 0.5) is not None and flits.voortgang(A('sluit'), 0.91) is None)
 check('traag-factor alleen via testbestand', flits.TRAAG_BESTAND == '/tmp/universe-flits-traag')
 fsrc = (SH / 'flits.py').read_text()
 check('overlay: OVERLAY, geen toetsenbord, lege invoerregio, geen WebKit',

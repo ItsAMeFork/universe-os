@@ -1,4 +1,4 @@
-"""Animaties van vensters en bestanden (0.2.36): de bloem, het kleine gat en het zwarte gat.
+"""Animaties van vensters en bestanden (0.2.37: trager en beter zichtbaar, realistisch zwart gat): de bloem, het kleine gat en het zwarte gat.
 
 Alles wordt getekend met GTK/cairo op een eigen layer-shell-oppervlak (OVERLAY, geen toetsenbord, lege invoerregio).
 Het echte venster is daardoor meteen klikbaar en houdt de focus. Het oppervlak staat alleen tijdens een animatie op
@@ -8,9 +8,12 @@ het scherm. Zonder RGBA-visual tekenen we niets, want dan zou het een zwart sche
             dezelfde bloem andersom. Minimaliseren vouwt dicht richting het dock. De rechthoek en de inhoud komen uit
             venstermeting.py.
  * gat      Een bestand gaat naar de prullenbak: een korte lichtflits, waarna het in een klein zwart gat verdwijnt.
- * zwartgat Bij het legen van de prullenbak verschijnt een groot zwart gat met een accretieschijf. Het slokt de bestanden
-            één voor één op, met lichtsporen. Het duurt hooguit ongeveer 3 seconden: bij veel bestanden worden ze
-            gegroepeerd.
+ * zwartgat Bij het legen van de prullenbak verschijnt een zwart gat zoals bij een ster die wordt opgeslokt (tidal
+            disruption): zwarte kern, gloeiende draaiende accretieschijf (helderder aan de naderende kant), fotonring
+            met lensgloed. Elk bestand wordt uitgerekt (spaghettificatie), spiraalt als lichtstroom naar binnen en dooft
+            roodverschoven bij de horizon: licht dat niet meer ontsnapt. Per bestand ~1.8 s, achter elkaar; samen
+            hooguit ~8 s (bij veel bestanden gegroepeerd en dichter op elkaar). Aan het eind zakt het gat langzaam in.
+Jesse (25 okt): 'de animaties gaan te snel en zie er niks van' -> 0.8-1.2 s per venster-/bestandsanimatie, met easing.
 Snel ('snel': lichte modus, eenvoudige wereld, Animaties verminderd): alleen korte vervaging en schaal, geen effecten.
 """
 import math
@@ -19,10 +22,14 @@ import time
 
 MINT = (0x85 / 255, 0xff / 255, 0xe3 / 255)
 RUIMTE = (0x05 / 255, 0x08 / 255, 0x15 / 255)
-DUUR = {'open': 0.35, 'sluit': 0.25, 'min': 0.28, 'gat': 0.55}
+DUUR = {'open': 1.0, 'sluit': 0.9, 'min': 1.0, 'gat': 1.1}
 SNEL = 0.15
 BLADEREN = 8
-ZWARTGAT_MAX = 3.0
+ZWARTGAT_MAX = 8.0
+ZG_GROEI = 0.8      # s: het gat verschijnt
+ZG_SLOK = 1.8       # s: één bestand wordt opgeslokt
+ZG_TUSSEN = 0.6     # s: tussen twee bestanden (kleiner bij veel bestanden)
+ZG_INZAK = 1.2      # s: het gat zakt in
 ZWARTGAT_GROEPEN = 18  # meer bestanden worden gegroepeerd ("+12")
 TRAAG_BESTAND = '/tmp/universe-flits-traag'  # alleen voor tests: een factor (bv. 20) maakt de animaties trager
 
@@ -41,6 +48,10 @@ def ease_out(t):
 
 def ease_in(t):
     return t ** 3
+
+
+def ease_in_out(t):
+    return 4 * t ** 3 if t < 0.5 else 1 - (-2 * t + 2) ** 3 / 2
 
 
 def clamp(v, lo=0.0, hi=1.0):
@@ -75,10 +86,10 @@ def bloem_frame(anim, t, dock):
     soort = anim['soort']
     cx, cy = x + w / 2, y + h / 2
     if soort == 'open':
-        p = ease_out(t)
-        dek = 1.0 if t < 0.8 else 1 - (t - 0.8) / 0.2
+        p = ease_in_out(t)
+        dek = 1.0 if t < 0.85 else 1 - (t - 0.85) / 0.15
     else:  # sluit/min: exactly the opening animation in reverse
-        p = ease_out(1 - t)
+        p = 1 - ease_in_out(t)
         dek = 0.0
         if soort == 'min' and dock:
             k = ease_in(t)
@@ -110,16 +121,24 @@ def bloem_pad(cr, cx, cy, straal, draai, bladeren=BLADEREN):
 def gat_frame(t):
     """Flash first (0-0.3), then the file shrinks and spirals into a small hole (0.25-1)."""
     flits = math.sin(math.pi * clamp(t / 0.3)) if t < 0.3 else 0.0
-    k = ease_in(clamp((t - 0.25) / 0.65))
+    k = ease_in_out(clamp((t - 0.25) / 0.65))
     gat = math.sin(math.pi * clamp((t - 0.1) / 0.9)) * 22
     return {'flits': flits, 'kaart': 1 - k, 'hoek': k * 4.0, 'gat': gat}
 
 
 # ---------- het zwarte gat ----------
+def zwartgat_tussen(n):
+    """Seconds between two files: ZG_TUSSEN, smaller when needed so that everything fits in ZWARTGAT_MAX."""
+    if n <= 1:
+        return 0.0
+    return min(ZG_TUSSEN, (ZWARTGAT_MAX - ZG_GROEI - ZG_SLOK - ZG_INZAK) / (n - 1))
+
+
 def zwartgat_duur(n, snel=False):
     if snel:
         return 0.6
-    return min(ZWARTGAT_MAX, 1.1 + 0.11 * min(n, ZWARTGAT_GROEPEN))
+    n = max(1, min(n, ZWARTGAT_GROEPEN))
+    return ZG_GROEI + (n - 1) * zwartgat_tussen(n) + ZG_SLOK + ZG_INZAK
 
 
 def zwartgat_groepen(namen):
@@ -131,38 +150,54 @@ def zwartgat_groepen(namen):
 
 
 def zwartgat_plan(namen, seed=7):
-    """Start angle, distance and departure time (0..1 of the middle part) per (group of) file(s): one by one."""
+    """Per (group of) file(s): start angle, distance and departure in seconds after the start: one by one."""
     groepen = zwartgat_groepen(namen)
     rnd = random.Random(seed)
-    n = len(groepen)
-    return [{'naam': g, 'hoek': rnd.uniform(0, 2 * math.pi), 'afstand': rnd.uniform(240, 420),
-             'vertrek': (i / max(1, n)) * 0.75} for i, g in enumerate(groepen)]
+    gap = zwartgat_tussen(len(groepen))
+    return [{'naam': g, 'hoek': rnd.uniform(0, 2 * math.pi), 'afstand': rnd.uniform(260, 420),
+             'vertrek': ZG_GROEI + i * gap} for i, g in enumerate(groepen)]
 
 
-def zwartgat_frame(t):
-    """Hole grows (0-0.15), swallows (0.15-0.85), collapses with a last flash (0.85-1)."""
-    if t < 0.15:
-        groot = ease_out(t / 0.15)
-    elif t < 0.85:
-        groot = 1.0
+def zwartgat_frame(t, totaal=None):
+    """Hole grows (first ZG_GROEI s), swallows, then slowly sinks in (last ZG_INZAK s). t is 0..1 of totaal seconds."""
+    totaal = totaal or zwartgat_duur(1)
+    s = t * totaal
+    if s < ZG_GROEI:
+        groot = ease_out(s / ZG_GROEI)
+    elif s > totaal - ZG_INZAK:
+        groot = 1 - ease_in_out(clamp((s - (totaal - ZG_INZAK)) / ZG_INZAK))
     else:
-        groot = 1 - ease_in((t - 0.85) / 0.15)
-    flits = math.sin(math.pi * clamp((t - 0.85) / 0.15)) if t > 0.85 else 0.0
-    return {'groot': groot, 'midden': clamp((t - 0.15) / 0.7), 'flits': flits}
+        groot = 1.0
+    return {'groot': groot, 's': s, 'draai': s * 1.6}
 
 
-def zwartgat_item(item, midden):
-    """Position of one file at 'midden' (0..1): None before it leaves or after it was swallowed. Speeds up while
-    spiralling in (ease_in), which makes the light trails."""
-    local = (midden - item['vertrek']) / 0.25
+def zwartgat_item(item, s):
+    """State of one file at s seconds: 'wacht' before it leaves, None once swallowed, else dict:
+    r/a position (spiral, faster inside: ~Kepler), k = how much is still 'file' (1 -> 0), rek = stretch along the
+    direction of fall (spaghettification), rood = redshift 0..1 near the horizon, licht = brightness of the stream."""
+    local = (s - item['vertrek']) / ZG_SLOK
     if local < 0:
         return 'wacht'
     if local >= 1:
         return None
-    k = ease_in(local)
-    r = item['afstand'] * (1 - k)
-    a = item['hoek'] + k * 3.2
-    return r, a, 1 - k
+    q = ease_in(local) * 0.55 + ease_in_out(local) * 0.45
+    r = item['afstand'] * (1 - q) + 64 * q  # ends just at the photon ring/horizon
+    rel = r / item['afstand']
+    a = item['hoek'] + 1.2 * (rel ** -1.5 - 1) * 0.35
+    k = clamp(1 - local / 0.55)  # the card is torn into a stream in the first half
+    rek = 1 + 6 * clamp(local / 0.7) ** 2
+    rood = clamp((local - 0.6) / 0.4)
+    licht = clamp(local / 0.25) * (1 - rood ** 2)
+    return {'r': r, 'a': a, 'k': k, 'rek': rek, 'rood': rood, 'licht': licht}
+
+
+def roodverschuiving(rood):
+    """White-blue light -> orange -> deep red as it reaches the horizon."""
+    if rood < 0.5:
+        u = rood / 0.5
+        return (0.85 + 0.15 * u, 0.95 - 0.35 * u, 1.0 - 0.75 * u)
+    u = (rood - 0.5) / 0.5
+    return (1.0 - 0.45 * u, 0.6 - 0.55 * u, 0.25 - 0.2 * u)
 
 
 class Flits:
@@ -380,77 +415,137 @@ class Flits:
             cr.set_line_width(2)
             cr.stroke()
             return
-        f = zwartgat_frame(t)
-        g = 70 * f['groot']
+        totaal = duur(anim) / anim.get('traag', 1.0)
+        f = zwartgat_frame(t, totaal)
+        s, G = f['s'], f['groot']
+        g = 60 * G
+        # feeding: the disk flares up while a file reaches the horizon
+        voeding = 0.0
+        staten = []
+        for item in anim['plan']:
+            st = zwartgat_item(item, s)
+            staten.append((item, st))
+            if isinstance(st, dict):
+                voeding = max(voeding, st['rood'])
         if g > 1:
-            # lens glow
-            glow = cairo.RadialGradient(x, y, g, x, y, g * 3.2)
-            glow.add_color_stop_rgba(0, 1, 0.85, 0.6, 0.35 * f['groot'])
-            glow.add_color_stop_rgba(0.3, *MINT, 0.18 * f['groot'])
-            glow.add_color_stop_rgba(1, *MINT, 0)
-            cr.set_source(glow)
-            cr.arc(x, y, g * 3.2, 0, 2 * math.pi)
-            cr.fill()
-            # accretion disk: flattened rings, slowly turning
-            cr.save()
-            cr.translate(x, y)
-            cr.rotate(-0.35 + t * 0.6)
-            cr.scale(1.0, 0.32)
-            for i, (rr, col, a) in enumerate(((2.6, (1, 0.72, 0.4), 0.35), (2.1, (1, 0.9, 0.7), 0.55), (1.6, MINT, 0.6))):
-                cr.set_line_width(g * (0.35 - i * 0.08))
-                cr.set_source_rgba(*col, a * f['groot'])
-                cr.arc(0, 0, g * rr, 0, 2 * math.pi)
-                cr.stroke()
-            cr.restore()
-            # event horizon
+            self.zwartgat_schijf(cr, x, y, g, G, f['draai'], voeding, achter=True)
+        # the files and their light streams (before the horizon, so the horizon covers what falls in)
+        for item, st in staten:
+            if st is None:
+                continue
+            self.zwartgat_bestand(cr, anim, item, st, s, x, y, G)
+        if g > 1:
+            # event horizon: pure black, nothing comes out
             cr.arc(x, y, g, 0, 2 * math.pi)
             cr.set_source_rgba(0, 0, 0, 1)
-            cr.fill_preserve()
-            cr.set_source_rgba(1, 0.95, 0.85, 0.8 * f['groot'])
-            cr.set_line_width(2)
-            cr.stroke()
-        # the files, one by one, with light trails from their speed
-        for item in anim['plan']:
-            pos = zwartgat_item(item, f['midden'])
-            if pos is None:
-                continue
-            if pos == 'wacht':
-                r, a, k = item['afstand'], item['hoek'], 1.0
-            else:
-                r, a, k = pos
-            px, py = x + r * math.cos(a), y + r * math.sin(a)
-            if pos != 'wacht' and k < 0.98:
-                spoor = zwartgat_item(item, max(item['vertrek'], f['midden'] - 0.06))
-                if spoor and spoor != 'wacht':
-                    sx, sy = x + spoor[0] * math.cos(spoor[1]), y + spoor[0] * math.sin(spoor[1])
-                    lin = cairo.LinearGradient(sx, sy, px, py)
-                    lin.add_color_stop_rgba(0, *MINT, 0)
-                    lin.add_color_stop_rgba(1, 1, 1, 1, 0.9)
-                    cr.set_source(lin)
-                    cr.set_line_width(3 * k + 1)
-                    cr.move_to(sx, sy)
-                    cr.line_to(px, py)
+            cr.fill()
+            # photon ring: thin, very bright, with a lensing glow around it
+            for width, a in ((g * 0.5, 0.08), (g * 0.22, 0.18), (g * 0.08, 0.5), (1.6, 0.95)):
+                cr.set_line_width(width)
+                cr.set_source_rgba(1, 0.9, 0.72, a * G * (1 + 0.5 * voeding))
+                cr.arc(x, y, g * 1.06, 0, 2 * math.pi)
+                cr.stroke()
+            self.zwartgat_schijf(cr, x, y, g, G, f['draai'], voeding, achter=False)
+
+    def zwartgat_schijf(self, cr, x, y, g, G, draai, voeding, achter):
+        """Accretion disk, tilted. achter=True: the far half plus the lensed image of the disk arching over the hole
+        (gravitational lensing); achter=False: the near half in front of the hole. Doppler beaming: the side that moves
+        towards us (left) is brighter and whiter, the other side dimmer and redder."""
+        import cairo
+        if achter:
+            glow = cairo.RadialGradient(x, y, g, x, y, g * 4.5)
+            glow.add_color_stop_rgba(0, 1, 0.75, 0.45, 0.28 * G * (1 + voeding))
+            glow.add_color_stop_rgba(0.35, 0.9, 0.45, 0.25, 0.1 * G)
+            glow.add_color_stop_rgba(1, 0.5, 0.2, 0.3, 0)
+            cr.set_source(glow)
+            cr.arc(x, y, g * 4.5, 0, 2 * math.pi)
+            cr.fill()
+            # lensed disk: the back of the disk seen bent over and under the horizon
+            for rr, a in ((1.35, 0.55), (1.6, 0.3), (1.9, 0.14)):
+                cr.save()
+                cr.translate(x, y)
+                cr.scale(1.0, 0.92)
+                cr.set_line_width(g * 0.22)
+                cr.set_source_rgba(1, 0.82, 0.55, a * G * (1 + 0.4 * voeding))
+                cr.arc(0, 0, g * rr, math.pi * 1.05, math.pi * 1.95)
+                cr.stroke()
+                cr.set_source_rgba(1, 0.7, 0.45, a * 0.45 * G)
+                cr.arc(0, 0, g * rr * 0.92, math.pi * 0.1, math.pi * 0.9)
+                cr.stroke()
+                cr.restore()
+        cr.save()
+        cr.translate(x, y)
+        cr.rotate(-0.18)
+        cr.scale(1.0, 0.24)
+        segmenten = 48
+        a0, a1 = (math.pi, 2 * math.pi) if achter else (0, math.pi)
+        for ring, (rr, breed, helder) in enumerate(((1.5, 0.35, 1.0), (2.0, 0.45, 0.8), (2.7, 0.6, 0.5), (3.5, 0.7, 0.25))):
+            snelheid = 1.0 / rr ** 1.5  # inner rings turn faster
+            for i in range(segmenten // 2):
+                b0 = a0 + (a1 - a0) * i / (segmenten // 2)
+                b1 = a0 + (a1 - a0) * (i + 1.05) / (segmenten // 2)
+                mid = (b0 + b1) / 2
+                doppler = 0.55 + 0.45 * -math.cos(mid)  # left side (cos<0) approaches: brighter
+                streep = 0.75 + 0.25 * math.sin(mid * 6 - draai * snelheid * 4 + ring)  # turning clumps of gas
+                a = helder * doppler * streep * G * (0.7 + 0.5 * voeding)
+                col = (1.0, 0.55 + 0.4 * doppler, 0.25 + 0.55 * doppler * (1 - ring * 0.2))
+                cr.set_line_width(g * breed)
+                cr.set_source_rgba(*col, clamp(a))
+                cr.arc(0, 0, g * rr, b0, b1)
+                cr.stroke()
+        cr.restore()
+
+    def zwartgat_bestand(self, cr, anim, item, st, s, x, y, G):
+        import cairo
+        if st == 'wacht':
+            r, a = item['afstand'], item['hoek'] + 0.04 * math.sin(s * 2 + item['hoek'])
+            k, rek, rood, licht = 1.0, 1.0, 0.0, 0.0
+        else:
+            r, a, k, rek, rood, licht = st['r'], st['a'], st['k'], st['rek'], st['rood'], st['licht']
+        px, py = x + r * math.cos(a), y + r * math.sin(a)
+        zicht = min(1.0, G * 2)
+        # light stream: the path of the last ~0.35 s, colour shifting to red near the horizon
+        if st != 'wacht' and licht > 0.01:
+            punten = []
+            for j in range(14):
+                sp = zwartgat_item(item, max(item['vertrek'], s - j * 0.025))
+                if isinstance(sp, dict):
+                    punten.append((x + sp['r'] * math.cos(sp['a']), y + sp['r'] * math.sin(sp['a']), sp['rood']))
+            for j in range(len(punten) - 1):
+                (x0, y0, r0), (x1, y1, _) = punten[j], punten[j + 1]
+                col = roodverschuiving(r0)
+                fade = (1 - j / len(punten)) * licht * zicht
+                for width, al in ((9, 0.12), (4, 0.35), (1.6, 0.95)):
+                    cr.set_line_width(width * (1 - 0.5 * rood))
+                    cr.set_source_rgba(*col, al * fade)
+                    cr.move_to(x0, y0)
+                    cr.line_to(x1, y1)
                     cr.stroke()
+            col = roodverschuiving(rood)
+            kop = cairo.RadialGradient(px, py, 0, px, py, 14)
+            kop.add_color_stop_rgba(0, *col, 0.9 * licht * zicht)
+            kop.add_color_stop_rgba(1, *col, 0)
+            cr.set_source(kop)
+            cr.arc(px, py, 14, 0, 2 * math.pi)
+            cr.fill()
+        # the file itself: stretched along the direction of fall and squeezed sideways (spaghettification)
+        if k > 0.02:
             cr.save()
             cr.translate(px, py)
-            cr.scale(max(0.05, k), max(0.05, k))
-            cr.rectangle(-16, -20, 32, 40)
-            cr.set_source_rgba(0.89, 0.9, 0.98, 0.9 * (1.0 if pos == 'wacht' else k) * min(1.0, f['groot'] * 2))
-            cr.fill()
-            if k > 0.5:
-                cr.set_source_rgba(0.89, 0.9, 0.98, 0.9 * k * min(1.0, f['groot'] * 2))
+            cr.rotate(math.atan2(py - y, px - x))
+            cr.scale(rek, 1.0 / (1 + 0.5 * (rek - 1)))
+            cr.rectangle(-20, -16, 40, 32)
+            cr.set_source_rgba(0.89, 0.9, 0.98, 0.9 * k * zicht)
+            cr.fill_preserve()
+            cr.set_source_rgba(*MINT, 0.8 * k * zicht)
+            cr.set_line_width(1.5)
+            cr.stroke()
+            cr.restore()
+            if k > 0.6:
+                cr.set_source_rgba(0.89, 0.9, 0.98, 0.9 * (k - 0.6) / 0.4 * zicht)
                 cr.select_font_face('Noto Sans')
                 cr.set_font_size(11)
                 naam = item['naam'] if len(item['naam']) <= 18 else item['naam'][:17] + '…'
                 ext = cr.text_extents(naam)
-                cr.move_to(-ext.width / 2, 34)
+                cr.move_to(px - ext.width / 2, py + 34)
                 cr.show_text(naam)
-            cr.restore()
-        if f['flits'] > 0.02:
-            r = 160 * f['flits']
-            grad = cairo.RadialGradient(x, y, 0, x, y, r)
-            grad.add_color_stop_rgba(0, 1, 1, 1, 0.9 * f['flits'])
-            grad.add_color_stop_rgba(1, *MINT, 0)
-            cr.set_source(grad)
-            cr.arc(x, y, r, 0, 2 * math.pi)
-            cr.fill()

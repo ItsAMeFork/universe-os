@@ -2,6 +2,13 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
+## 25 oktober: versie 0.2.37 (animaties trager en zichtbaar, realistisch zwart gat; lokaal, NIET gepubliceerd, geen ISO)
+Jesse (t126u): animaties te snel, zwart gat moet echt lijken op een ster die wordt opgeslokt.
+- `flits.py`: bloem openen 1.0 s, sluiten 0.9 s, minimaliseren 1.0 s, lichtflits + gat 1.1 s, met ease-in-out (geldt ook voor Wine/.exe-vensters: zelfde pad).
+- Zwart gat (tidal disruption): zwarte horizon, gekantelde draaiende accretieschijf met Doppler-helderheid, gelensde achterkant van de schijf boven/onder het gat, fotonring met gloed; per bestand 1.8 s: uitrekken (spaghettificatie), spiraal als lichtstroom, roodverschoven uitdoven bij de horizon; schijf licht op bij elke 'maaltijd'; gat zakt in 1.2 s in. Totaal max 8 s (18 groepen, dichter op elkaar).
+- Lichte modus/verminderd ongewijzigd (korte vervaging). Geen WebKit.
+- Tests: venster-animatie.py, bestand-verwijderen.py, prullenbak-zwartgat.py bijgewerkt; lichte-hardware.py groen. Frames (offscreen cairo-render): uitvoer/vm-test/0.2.37-*.png.
+
 ## 25 oktober: versie 0.2.36 (bloem-animatie op echte venstergrootte, lichtflits + gat, zwart gat bij prullenbak legen; GEPUBLICEERD 25 okt 16:58, apt test + stable; geen ISO)
 Jesse vond de 0.2.35-animatie een 'vierkante lichtflits'.
 - Vensters (ook Wine/.exe via Xwayland): openen = bloem die vanuit het midden uitvouwt tot precies de rechthoek van het venster, met de echte inhoud; sluiten = dezelfde bloem andersom; minimaliseren vouwt dicht richting het dock. Open ~350 ms, sluiten ~250 ms.
