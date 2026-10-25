@@ -19,7 +19,7 @@ Gebaseerd op de nieuwste main (f160975, merge van PR #48). Vier Claude-agents we
 De codebase was al goed op prestaties ingericht: veel dingen werden al uitgesteld, animaties stonden al stil in rust en er waren al caches. De winst is daarom vooral te merken in het startmenu-zoeken en bij de shell-start, niet als "dramatisch" sneller overal.
 
 ## Tests en risico
-- De repo heeft geen geautomatiseerde testsuite (docs/tests bevat handmatige rapporten). Gedraaid zijn `py_compile` en `node --check` op alle gewijzigde bestanden: alles slaagt.
+- docs/tests bevat naast handmatige rapporten losse testscripts (`*.py`, `*.cjs`, `*.mjs`; alles draaien met `sh docs/tests/alle-tests.sh`, zonder headless browser met `--snel`); die zijn voor deze ronde niet gedraaid. Gedraaid zijn `py_compile` en `node --check` op alle gewijzigde bestanden: alles slaagt.
 - GTK en WebKit zijn niet op de box geïnstalleerd, dus de echte shell is niet live gestart. Een rooktest in een VM wordt aangeraden.
 - Risico bij `pgrep -x 'gtklock|swaylock'`: dit is een regex en moet hetzelfde werken (handmatig gecontroleerd).
 - Risico bij `status_tick`: als het paneel opnieuw wordt gebouwd, haalt de pagina zelf status op, dus dat is ok.

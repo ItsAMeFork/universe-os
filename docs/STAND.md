@@ -97,7 +97,7 @@ Gepubliceerd (apt test + stable): 0.2.24 t/m 0.2.28 (0.2.28 op 24 okt) en 0.2.32
 
 **Nog niet gecontroleerd:**
 - Startmenu op 1920x1080: horizontaal gecentreerd door layer-shell (geen links/rechts-anker), onderaan verankerd boven de taakbalk, schaalt via `ui_zoom`. Geen CSS-wijziging gedaan: de layout kon hier niet op een echt scherm bekeken worden.
-- `docs/tests/animation-layout.cjs` vraagt het pakket `playwright`, dat hier niet staat.
+- `docs/tests/animation-layout.cjs` vraagt het pakket `playwright` (sinds 0.2.29 devDependency in `docs/tests/package.json`: `cd docs/tests && npm install`; zonder meldt de test SKIP).
 
 ## 14 oktober: alles in main, ISO 0.2.15 klaar (update NIET gepubliceerd; online 0.2.12)
 - PR #39-#44 (GitHub-assistent Henk: tests, Claude-harness, brein-nevel, AI-assistent, AI wisselen, Claude in Chrome) nagekeken
