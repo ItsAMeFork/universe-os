@@ -116,6 +116,7 @@ async function toggle(value){
 async function refresh(){if(refreshPromise)return refreshPromise;refreshPromise=(async()=>{try{status=await call('status');}catch(e){toast('Status ophalen mislukt: '+e.message);}renderPill();if(open)renderPanel();})();try{await refreshPromise;}finally{refreshPromise=null;}}
 addEventListener('keydown',e=>{if(open)keepTab(e,panel);if(e.key==='Escape'&&open){e.preventDefault();toggle(false);}});
 on('status',s=>{status=s;renderPill();});
+on('bar-covered',c=>document.body.classList.toggle('bedekt',!!c));
 on('panel-toggle',()=>toggle(!open));
 on('panel-close',()=>{if(open)toggle(false);});
 on('config',c=>{config=c;modes={zen:!!c.settings?.zen,god:!!c.settings?.god};applySettings({...c.settings,colors:c.world.colors});paintBanner();renderPill();if(open)renderPanel();});

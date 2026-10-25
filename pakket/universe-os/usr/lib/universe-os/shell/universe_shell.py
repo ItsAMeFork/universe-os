@@ -394,7 +394,10 @@ class Shell:
         if self.panel:
             return False
         L, E, K = GtkLayerShell.Layer, GtkLayerShell.Edge, GtkLayerShell.KeyboardMode
-        self.panel = Surface(self, 'panel', 'panel.html', L.TOP, [E.TOP], K.ON_DEMAND, size=PANEL_CLOSED, transparent=True)
+        # 0.2.34 (Jesse): closed, the pill lives on the BOTTOM layer, below the program windows. A maximised window, or
+        # one dragged over the top edge, covers it (the window gets the full height); with nothing there it is visible.
+        # Opened (click, Windows+A) it goes to the TOP layer so the panel is always above the windows.
+        self.panel = Surface(self, 'panel', 'panel.html', L.BOTTOM, [E.TOP], K.ON_DEMAND, size=PANEL_CLOSED, transparent=True)
         self.resize_panel(False)
         self.panel.window.show_all()
         self.dock = Surface(self, 'dock', 'dock.html', L.TOP, [E.BOTTOM], K.ON_DEMAND, size=(420, DOCK_HEIGHT), transparent=True)
@@ -519,9 +522,11 @@ class Shell:
             w, h = int(PANEL_OPEN[0] * zoom), int(PANEL_OPEN[1] * zoom)
             if win.get_screen():
                 h = min(h, win.get_screen().get_height() - 20)
+            GtkLayerShell.set_layer(win, GtkLayerShell.Layer.TOP)
             GtkLayerShell.set_keyboard_mode(win, GtkLayerShell.KeyboardMode.EXCLUSIVE)
         else:
             w, h = int(PANEL_CLOSED[0] * zoom), int(PANEL_CLOSED[1] * zoom)
+            GtkLayerShell.set_layer(win, GtkLayerShell.Layer.BOTTOM)
             GtkLayerShell.set_keyboard_mode(win, GtkLayerShell.KeyboardMode.ON_DEMAND)
         win.set_size_request(w, h)
         win.resize(w, h)
@@ -710,6 +715,10 @@ class Shell:
             self.last_busy = busy
             for world in self.worlds:
                 world.emit('background-busy', busy)
+        covered = any(not w.get('minimized') and (w.get('maximized') or w.get('fullscreen')) for w in windows)
+        if self.panel and covered != getattr(self, 'last_covered', None):
+            self.last_covered = covered
+            self.panel.emit('bar-covered', covered)  # the pill fades away smoothly (it is below the window anyway)
         if self.claude and self.claude.buddy:
             self.claude.buddy.set_busy(busy)
             # A maximised or full-screen window that is not minimised: the slime steps aside until it is smaller again.
