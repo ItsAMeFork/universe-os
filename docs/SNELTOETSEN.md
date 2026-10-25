@@ -1,4 +1,4 @@
-# Sneltoetsen in Universe OS (0.2.30)
+# Sneltoetsen in Universe OS (0.2.34)
 
 Zoals in Windows. Systeemtoetsen staan in `pakket/universe-os/usr/share/universe-os/shortcuts.json`
 (labwc `rc.xml` wordt daaruit gemaakt; aanpassen kan in het Controlecentrum). Win = de Windows-toets.
@@ -27,6 +27,11 @@ Zoals in Windows. Systeemtoetsen staan in `pakket/universe-os/usr/share/universe
 | Ctrl+Shift+Esc | Taakbeheer (systeemmonitor) |
 | Ctrl+Alt+Del | Menu: vergrendelen, afmelden, taakbeheer |
 | Ctrl+Alt+T | Terminal |
+| Volumetoets omhoog | Volume hoger |
+| Volumetoets omlaag | Volume lager |
+| Dempentoets | Geluid dempen |
+| Helderheidstoets omhoog | Helderheid hoger |
+| Helderheidstoets omlaag | Helderheid lager |
 
 ## In programma's en in de Universe-pagina's
 Ctrl+C kopiëren, Ctrl+X knippen, Ctrl+V plakken, Ctrl+A alles selecteren, Ctrl+Z ongedaan maken: werken in alle

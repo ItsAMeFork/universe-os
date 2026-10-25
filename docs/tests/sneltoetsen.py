@@ -57,6 +57,29 @@ for js in (PKG / 'usr/share/universe-os/ui').glob('*.js'):
     assert "ctrlKey&&e.preventDefault" not in text.replace(' ', ''), js
 print('PASS: sneltoetsen')
 
+# Every key in shortcuts.json must appear in docs/SNELTOETSEN.md, written the way the documentation writes it.
+DOC_NAMES = {'Super_L': 'Win', 'Print': 'PrtSc', 'Delete': 'Del', 'period': '.',
+             'XF86AudioRaiseVolume': 'Volumetoets omhoog', 'XF86AudioLowerVolume': 'Volumetoets omlaag',
+             'XF86AudioMute': 'Dempentoets', 'XF86MonBrightnessUp': 'Helderheidstoets omhoog',
+             'XF86MonBrightnessDown': 'Helderheidstoets omlaag'}
+DOC_COMBOS = {'S-Print': 'Shift+PrtSc', 'C-S-Escape': 'Ctrl+Shift+Esc', 'C-A-Delete': 'Ctrl+Alt+Del',
+              'W-Up': 'Win+pijltjes', 'W-Down': 'Win+pijltjes', 'W-Left': 'Win+pijltjes', 'W-Right': 'Win+pijltjes'}
+MODIFIERS = {'W': 'Win', 'C': 'Ctrl', 'A': 'Alt', 'S': 'Shift'}
+
+
+def doc_label(key):
+    if key in DOC_COMBOS:
+        return DOC_COMBOS[key]
+    *mods, last = key.split('-')
+    name = DOC_NAMES.get(last, last.upper() if len(last) == 1 else last)
+    return '+'.join([MODIFIERS[m] for m in mods] + [name])
+
+
+doc = (ROOT / 'docs/SNELTOETSEN.md').read_text(encoding='utf-8')
+missing = [s['key'] + ' (' + doc_label(s['key']) + ')' for s in shortcuts if doc_label(s['key']) not in doc]
+assert not missing, 'niet in docs/SNELTOETSEN.md: %s' % ', '.join(missing)
+print('PASS: docs/SNELTOETSEN.md dekt alle %d toetsen uit shortcuts.json' % len(shortcuts))
+
 # The terminal's Ctrl+V: copied once into the user's own accels.scm (VM 24 Oct: /etc/xdg alone was ignored).
 with tempfile.TemporaryDirectory() as d:
     session.TERMINAL_ACCELS = str(PKG / 'etc/xdg/xfce4/terminal/accels.scm')
