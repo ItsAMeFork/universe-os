@@ -33,6 +33,8 @@ KWALITEIT = {
 def kwaliteit(anim):
     return KWALITEIT['licht' if anim.get('kwaliteit') == 'licht' else 'vol']
 SNEL = 0.15
+ONTHUL_BIJ = 0.75  # 0.2.39: portal progress at which the hidden window is restored under the (still opaque) card
+ONTHUL_FADE = 0.9  # the card fades only after this: the restored window has had time to draw itself
 ZACHT = 28  # px: soft edge of the cover when there is no picture of the background
 ZWARTGAT_MAX = 8.0
 ZG_GROEI = 0.8      # s: het gat verschijnt
@@ -367,6 +369,10 @@ class Flits:
         for anim in self.anims:
             t = voortgang(anim, now)
             if t is None:
+                if anim.get('onthul') and not anim.get('onthuld'):  # slow frames skipped the reveal point
+                    anim['onthuld'] = True
+                    from gi.repository import GLib
+                    GLib.idle_add(lambda a=anim: a['onthul']() and False)
                 continue
             alive.append(anim)
             try:
@@ -395,11 +401,17 @@ class Flits:
         q = kwaliteit(anim)
         anim.setdefault('scherm', (w, h))
         f = portaal_frame(anim, t)
+        if anim.get('verborgen') and t > ONTHUL_FADE:  # the real window is there and drawn: the card fades away
+            f['alpha'] *= clamp((1 - t) / (1 - ONTHUL_FADE))
         rx, ry, rw, rh = f['rect']
         bx, by = f['bron']
         # 1. while opening: the real window stays hidden behind a dark cover until the portal arrives
-        if f['dek'] > 0.01:
+        if f['dek'] > 0.01 and not anim.get('verborgen'):  # 0.2.39: a window hidden at map needs no cover
             self.teken_dek(cr, anim, x, y, bw, bh, f['dek'])
+        if anim.get('onthul') and t >= ONTHUL_BIJ and not anim.get('onthuld'):
+            anim['onthuld'] = True  # the window is restored under the arriving card, which then fades out
+            from gi.repository import GLib
+            GLib.idle_add(lambda: anim['onthul']() and False)
         # 2. light trail from the source along the arc to the window (tapered, fading towards the source)
         spoor = portaal_spoor(anim, t, q['spoor'])
         zicht = math.sin(math.pi * clamp(f['p'] * 0.98 + 0.02)) if anim['soort'] == 'open' else math.sin(math.pi * f['p'])

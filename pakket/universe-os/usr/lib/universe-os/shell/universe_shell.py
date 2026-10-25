@@ -33,6 +33,8 @@ SOCKET = os.path.join(os.environ.get('XDG_RUNTIME_DIR', '/tmp'), 'universe-shell
 # 0.2.38 live test: on a slow pc a program can take well over 10 s before its window appears; it still comes out of
 # the planet/shortcut that was clicked (the next new window takes the source, so it is never used twice).
 BRON_GELDIG = 30
+VENSTERS_BESTAND = os.path.expanduser('~/.cache/universe-os/vensters.json')  # last rectangle per program
+ONTHUL_UITERLIJK = 1.5  # s after the portal: a hidden new window always appears (also if a frame never comes)
 # Page handlers that Claude Code may use through `universe-ctl call` (the universe-mcp tools): what a user does in the
 # desktop (Axel, 13 Oct: "Claude can do everything in the software, except security and the code itself"). Power goes
 # through claude.power, so locking and shutting down always play the same animations as the buttons. Missing on purpose:
@@ -791,6 +793,7 @@ class Shell:
         actief = [str(w.get('id')) for w in windows if w.get('activated')]
         if actief and not getattr(self, 'lock_watch', 0):
             self.laatst_actief = actief[-1]  # given back its focus after unlocking (Super+L unfocuses at once)
+        self.onthul_check(windows)
         self.window_flits(windows)
         covered = any(not w.get('minimized') and (w.get('maximized') or w.get('fullscreen')) for w in windows)
         if getattr(self, 'panel', None) and covered != getattr(self, 'last_covered', None):
@@ -836,6 +839,11 @@ class Shell:
                 self.flits_seen = {str(w.get('id')): dict(w) for w in self.toplevels.list()}
             except Exception as error:  # noqa: BLE001
                 log('vensterlijst nog niet klaar: %s' % error)
+        if getattr(self, 'onthul_vorige', None) is None and self.toplevels:
+            try:
+                self.onthul_check(self.toplevels.list())  # 0.2.39: baseline at connect, so the first new window still gets its portal
+            except Exception as error:  # noqa: BLE001
+                log('vensterlijst nog niet klaar: %s' % error)
         return False
 
     def window_flits(self, windows):
@@ -875,7 +883,11 @@ class Shell:
             elif w.get('minimized') and not old.get('minimized'):
                 events.append({'soort': 'min', 'wid': wid})
             elif old.get('minimized') and not w.get('minimized'):
-                events.append({'soort': 'open', 'wid': wid})
+                if wid in self.__dict__.setdefault('flits_eigen', set()):
+                    self.flits_eigen.discard(wid)  # restored by us after its portal: only measure it for closing
+                    events.append({'soort': 'meet', 'wid': wid})
+                else:
+                    events.append({'soort': 'open', 'wid': wid})
             elif w.get('activated') and (not old.get('activated') or w.get('maximized') != old.get('maximized')
                                          or w.get('fullscreen') != old.get('fullscreen')):
                 events.append({'soort': 'meet', 'wid': wid})  # refresh rectangle and content for closing later
@@ -891,6 +903,191 @@ class Shell:
         if events:
             self.play_flits(events)
         return events
+
+    # ----- 0.2.39: first the animation, then the window -----
+    def onthul_check(self, windows):
+        """New windows arrive minimized (labwc window rule Iconify, session.VERBORGEN_OPENEN): play the portal to where
+        the window will be and restore it at the end. Windows the user minimised are remembered, so they are never
+        restored by us. At shell start, windows that are minimised without the user having done it (opened while the
+        shell was not running) are restored at once."""
+        now = {str(w.get('id')): w for w in windows}
+        vorige = getattr(self, 'onthul_vorige', None)
+        self.onthul_vorige = {k: bool(w.get('minimized')) for k, w in now.items()}
+        gebruiker = self.onthul_gebruiker()
+        if vorige is None:
+            for wid, w in now.items():
+                if w.get('minimized') and self.onthul_sleutel(w) not in gebruiker:
+                    self.onthul(wid)
+            return
+        nieuw = self.__dict__.setdefault('onthul_nieuw', {})
+        t = time.monotonic()
+        for wid in [k for k in nieuw if k not in now or t - nieuw[k] > 3]:
+            del nieuw[wid]
+        for wid, w in now.items():
+            if wid not in vorige:
+                if w.get('minimized'):
+                    self.onthul_start(wid, w)
+                else:
+                    nieuw[wid] = t  # labwc may report the Iconify of the window rule in a later state event
+            elif w.get('minimized') and not vorige[wid] and wid in nieuw:
+                del nieuw[wid]
+                self.onthul_start(wid, w)  # hidden at map (window rule), reported after the first frame
+            elif w.get('minimized') and not vorige[wid] and wid not in getattr(self, 'onthul_bezig', {}):
+                gebruiker.add(self.onthul_sleutel(w))  # minimised by the user (dock, title bar)
+                self.onthul_gebruiker(gebruiker)
+            elif not w.get('minimized') and vorige[wid]:
+                if self.onthul_sleutel(w) in gebruiker:
+                    gebruiker.discard(self.onthul_sleutel(w))
+                    self.onthul_gebruiker(gebruiker)
+
+    @staticmethod
+    def onthul_sleutel(w):
+        return '%s\t%s' % (w.get('appId') or '', w.get('title') or '')
+
+    def onthul_gebruiker(self, nieuw=None):
+        path = os.path.join(os.environ.get('XDG_RUNTIME_DIR', '/tmp'), 'universe-geminimaliseerd.json')
+        import json
+        if nieuw is not None:
+            self.onthul_gebr = set(nieuw)
+            try:
+                with open(path + '.tmp', 'w') as f:
+                    json.dump(sorted(self.onthul_gebr), f)
+                os.replace(path + '.tmp', path)
+            except OSError:
+                pass
+            return self.onthul_gebr
+        if getattr(self, 'onthul_gebr', None) is None:
+            try:
+                with open(path) as f:
+                    self.onthul_gebr = set(json.load(f))
+            except (OSError, ValueError):
+                self.onthul_gebr = set()
+        return self.onthul_gebr
+
+    def onthul_rect(self, w):
+        """Where the window will appear: the rectangle measured last time for this program (placement is 'center', so
+        the same size gives the same place), else a centred estimate."""
+        known = self.onthul_apps().get(w.get('appId') or '')
+        if known:
+            return tuple(known['rect']), known.get('pix')
+        sw, sh = self.flits_scherm()
+        bw, bh = int(sw * 0.6), int(sh * 0.62)
+        return ((sw - bw) // 2, (sh - bh) // 2, bw, bh), None
+
+    def onthul_onthoud(self, w, rect, pix):
+        app = w.get('appId') or ''
+        if app and not w.get('maximized') and not w.get('fullscreen'):
+            apps = self.onthul_apps()
+            nieuw = list(rect) != list(apps.get(app, {}).get('rect', []))
+            apps[app] = {'rect': list(rect), 'pix': pix}
+            if nieuw:  # rectangles survive a restart (the content only lives in memory)
+                import json
+                try:
+                    os.makedirs(os.path.dirname(VENSTERS_BESTAND), exist_ok=True)
+                    with open(VENSTERS_BESTAND + '.tmp', 'w') as f:
+                        json.dump({k: {'rect': v['rect']} for k, v in apps.items()}, f)
+                    os.replace(VENSTERS_BESTAND + '.tmp', VENSTERS_BESTAND)
+                except OSError:
+                    pass
+
+    def onthul_apps(self):
+        if getattr(self, 'flits_app', None) is None:
+            import json
+            try:
+                with open(VENSTERS_BESTAND) as f:
+                    self.flits_app = {k: {'rect': v['rect']} for k, v in json.load(f).items() if len(v.get('rect', [])) == 4}
+            except (OSError, ValueError, AttributeError):
+                self.flits_app = {}
+        return self.flits_app
+
+    def onthul_start(self, wid, w):
+        import flits
+        mode = self.flits_mode()
+        t = time.monotonic()
+        recent = self.__dict__.setdefault('flits_recent', {})
+        key = (w.get('appId') or '', w.get('title') or '')
+        dubbel = t - recent.get(key, -99) < 1.0 or t - recent.get(('open',) + key, -99) < 1.0
+        if not mode or mode == 'snel' or w.get('fullscreen') or dubbel:
+            return self.onthul(wid)  # no animation wanted / Wine remap: show at once
+        recent[('open',) + key] = t
+        rect, pix = self.onthul_rect(w)
+        log('nieuw venster verborgen tot na het portaal: %s (%s)' % (w.get('appId') or '?', 'bekend' if pix or w.get('appId') in self.onthul_apps() else 'schatting'))
+        bron = getattr(self, 'flits_bron', None)
+        if bron and t - bron[2] < BRON_GELDIG:
+            bron, self.flits_bron = (bron[0], bron[1]), None
+        else:
+            bron = self.flits_dock() if self.dock and self.dock.window.get_visible() else None
+        if bron:
+            self.__dict__.setdefault('flits_bronnen', {})[wid] = bron
+        self.__dict__.setdefault('onthul_bezig', {})[wid] = t
+        e = {'soort': 'open', 'wid': wid, 'rect': rect, 'pix': pix if mode == 'vol' else None, 'bron': bron,
+             'kwaliteit': 'licht' if mode == 'licht' else 'vol', 'snel': False, 'verborgen': True,
+             'onthul': lambda: self.onthul(wid)}
+        try:
+            if not self.flits_overlay().play([e]):
+                return self.onthul(wid)
+        except Exception as error:  # noqa: BLE001 - never leave a window hidden
+            log('portaal overgeslagen: %s' % error)
+            return self.onthul(wid)
+        # safety: the window always appears, also when a frame never comes (1.5 s after the animation)
+        GLib.timeout_add(int((flits.DUUR['open'] * flits.traag() + ONTHUL_UITERLIJK) * 1000), lambda: self.onthul(wid) and False)
+        return True
+
+    @staticmethod
+    def hartslag():
+        import session
+        try:
+            with open(session.hartslag_pad(), 'a'):
+                pass
+            os.utime(session.hartslag_pad())
+        except OSError:
+            pass
+        return True
+
+    def onthul(self, wid):
+        """Restore a window hidden at map (after its portal, or at once)."""
+        bezig = self.__dict__.setdefault('onthul_bezig', {})
+        if wid in bezig or not getattr(self, 'onthul_klaar', set()).__contains__(wid):
+            bezig.pop(wid, None)
+            self.__dict__.setdefault('onthul_klaar', set()).add(wid)
+            self.__dict__.setdefault('flits_eigen', set()).add(wid)
+            try:
+                if self.toplevels:
+                    self.toplevels.activate(wid)
+            except Exception as error:  # noqa: BLE001
+                log('venster tonen mislukt: %s' % error)
+            # measure rectangle + content for closing once the card has faded (under the card grim sees only the card)
+            try:
+                import flits
+                na = (1 - flits.ONTHUL_BIJ) * flits.DUUR['open'] * flits.traag() + 0.3
+                mode = self.flits_mode()
+                GLib.timeout_add(int(na * 1000), lambda: self.flits_meet({'soort': 'meet', 'wid': wid, 'snel': mode == 'snel',
+                                 'kwaliteit': 'licht' if mode == 'licht' else 'vol', 'na_onthul': True}) and False)
+            except Exception as error:  # noqa: BLE001
+                log('meten na tonen overgeslagen: %s' % error)
+        return False
+
+    def venster_activeer(self, wid):
+        """Dock/overview: bring a window forward. A minimised window first comes out of the dock as a portal."""
+        try:
+            w = {str(x.get('id')): x for x in self.toplevels.list()}.get(wid)
+            known = getattr(self, 'flits_cache', {}).get(wid)
+            mode = self.flits_mode()
+            if w and w.get('minimized') and known and mode in ('vol', 'licht'):
+                bezig = self.__dict__.setdefault('onthul_bezig', {})
+                bezig[wid] = time.monotonic()
+                self.__dict__.setdefault('onthul_klaar', set()).discard(wid)
+                e = {'soort': 'open', 'wid': wid, 'rect': known['rect'], 'pix': known.get('pix') if mode == 'vol' else None,
+                     'bron': self.flits_dock(), 'kwaliteit': mode, 'snel': False, 'verborgen': True,
+                     'onthul': lambda: self.onthul(wid)}
+                if self.flits_overlay().play([e]):
+                    import flits
+                    GLib.timeout_add(int((flits.DUUR['open'] * flits.traag() + ONTHUL_UITERLIJK) * 1000), lambda: self.onthul(wid) and False)
+                    return True
+        except Exception as error:  # noqa: BLE001
+            log('portaal bij herstellen overgeslagen: %s' % error)
+        self.toplevels.activate(wid)
+        return True
 
     def flits_overlay(self):
         if getattr(self, 'flits', None) is None:
@@ -989,7 +1186,7 @@ class Shell:
                 self.flits_ontdooi()
                 import flits
                 for wid, e in pending.items():  # not active yet in its first frame: look again shortly
-                    if shot and wid in windows and e['soort'] == 'open' and time.monotonic() - e['gevraagd'] < 0.4 * flits.traag():
+                    if shot and wid in windows and (e['soort'] == 'open' or e.get('na_onthul')) and time.monotonic() - e['gevraagd'] < 0.4 * flits.traag() + (1.5 if e.get('na_onthul') else 0):
                         self.flits_wacht.setdefault(wid, e)
                 return False  # gone already (splash/launcher) or not in front: nothing, never a guess
             wid = active[-1]
@@ -1004,12 +1201,13 @@ class Shell:
             if rect is None:
                 self.flits_ontdooi()
                 import flits
-                if e['soort'] == 'open' and time.monotonic() - e['gevraagd'] < 0.4 * flits.traag():
+                if (e['soort'] == 'open' or e.get('na_onthul')) and time.monotonic() - e['gevraagd'] < 0.4 * flits.traag() + (1.5 if e.get('na_onthul') else 0):
                     # measured at once now: the window may not be active (mint border) in its very first frame yet
                     self.flits_wacht.setdefault(wid, e)
                 return False
             pix = None if e['snel'] or e.get('kwaliteit') == 'licht' else venstermeting.inhoud(width, height, data, rect)
             self.flits_cache[wid] = {'rect': rect, 'pix': pix}
+            self.onthul_onthoud(w, rect, pix)
             import flits
             self.flits_ontdooid = False
             if e['soort'] == 'open' and time.monotonic() - e['gevraagd'] < 0.6 * flits.traag():  # later: no portal
@@ -1310,7 +1508,7 @@ class Shell:
             'updates.install': lambda a: backend.updates.install(),
             'run': lambda a: backend.run_tool(a.get('tool'), a),
             'windows.list': lambda a: self.window_list(),
-            'windows.activate': lambda a: self.toplevels.activate(str(a.get('id'))),
+            'windows.activate': lambda a: self.venster_activeer(str(a.get('id'))),
             'windows.close': lambda a: self.toplevels.close(str(a.get('id'))),
             'windows.minimize': lambda a: self.toplevels.minimize(str(a.get('id'))),
             'desktop.show': lambda a: self.toplevels.show_desktop(),
@@ -1908,6 +2106,8 @@ class Shell:
             log('Zonder vensteroverzicht verder.')
         else:
             self.flits_basis()  # the roundtrips in start() have reported the windows that were already open
+            self.hartslag()
+            GLib.timeout_add(1000, self.hartslag)  # 0.2.39: vensterwacht.py releases hidden windows when this stops
         self.prullenbak_start()
         GLib.timeout_add_seconds(10, self.status_tick)
         GLib.timeout_add_seconds(45, self.doelen_tick)

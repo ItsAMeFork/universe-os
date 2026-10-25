@@ -24,6 +24,7 @@ def make_shell(windows, panel=True):
     obj.claude = None
     obj.release_initial_focus = Mock()
     obj.window_flits = Mock()
+    obj.onthul_check = Mock()
     obj.panel = SimpleNamespace(emit=Mock()) if panel else None
     return obj
 

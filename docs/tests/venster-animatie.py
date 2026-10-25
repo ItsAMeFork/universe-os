@@ -13,11 +13,11 @@ sys.path.insert(0, str(SH))
 src = (SH / 'universe_shell.py').read_text(encoding='utf-8')
 tree = ast.parse(src)
 cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'Shell')
-cls.body = [n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name in ('window_flits', 'flits_mode', 'play_flits', 'flits_gemeten', 'launch_bron', 'flits_scherm', 'flits_basis', 'flits_achter', 'flits_voor_opname', 'flits_ontdooi', 'flits_bevries')]
+cls.body = [n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name in ('window_flits', 'flits_mode', 'play_flits', 'flits_gemeten', 'launch_bron', 'flits_scherm', 'flits_basis', 'flits_achter', 'flits_voor_opname', 'flits_ontdooi', 'flits_bevries', 'onthul_onthoud', 'onthul_apps')]
 settings = {'animations': 'full'}
 light = {'on': False}
 ns = {'config': SimpleNamespace(settings=lambda: settings), 'grafisch': SimpleNamespace(light_active=lambda: light['on']),
-      'time': time, 'log': print, 'GLib': SimpleNamespace(timeout_add=lambda *a: 1), 'Gdk': None, 'BRON_GELDIG': 30}
+      'time': time, 'log': print, 'GLib': SimpleNamespace(timeout_add=lambda *a: 1), 'Gdk': None, 'BRON_GELDIG': 30, 'VENSTERS_BESTAND': '/tmp/universe-test-vensters.json', 'os': __import__('os')}
 exec(compile(ast.Module(body=[cls], type_ignores=[]), 'universe_shell.py', 'exec'), ns)
 fails = []
 
