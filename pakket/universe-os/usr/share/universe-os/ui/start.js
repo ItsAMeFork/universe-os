@@ -14,7 +14,10 @@ document.body.append(menu);
 
 const act=fn=>Promise.resolve().then(fn).catch(e=>toast(e.message));
 const hide=()=>call('surface.hide',{name:'start'}).catch(()=>{});
-const launch=id=>{hide();act(()=>call('apps.launch',{id}));};
+// 0.2.38: the window comes out of the shortcut that was clicked (CSS px of the start surface; the shell converts).
+let lastPointer=null;
+addEventListener('pointerdown',e=>{lastPointer={x:e.clientX,y:e.clientY,at:performance.now()};},true);
+const launch=id=>{const from=lastPointer&&performance.now()-lastPointer.at<4000?{x:lastPointer.x,y:lastPointer.y}:{};hide();act(()=>call('apps.launch',{id,bron:'start',...from}));};
 function saveLayout(){return call('layout.set',{layout}).then(l=>{layout=l;}).catch(e=>toast('Opslaan mislukt: '+e.message));}
 
 // ----- small popup menu (right click on a program, power button) -----

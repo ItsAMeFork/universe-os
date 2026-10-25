@@ -187,6 +187,13 @@ html.background-busy .bg-planet .float{animation-play-state:paused}
 .sp-planet{position:absolute;inset:0;display:block;border-radius:50%}
 .sp-planet canvas{width:100%;height:100%;display:block}
 .sp-app .sp-planet::after{content:'';position:absolute;inset:-14%;border-radius:50%;background:radial-gradient(circle,transparent 52%,#85ffe314 60%,transparent 72%);pointer-events:none}
+/* 0.2.38 planets with light and atmosphere: a thin scattering rim on the sunlit side (upper left, like globe.js) and a
+   soft night side; plain gradients, no blur, so the light version has exactly the same look. */
+.sp-app .sp-planet::before{content:'';position:absolute;inset:-4%;border-radius:50%;pointer-events:none;z-index:1;
+ background:radial-gradient(circle at 32% 28%,#ffffff1c 0%,transparent 34%),
+            radial-gradient(circle closest-side,transparent 83%,#bfe6ff40 87%,#8fd0ff18 91%,transparent 96%)}
+.sp-earth .sp-planet::before{content:'';position:absolute;inset:-3%;border-radius:50%;pointer-events:none;z-index:1;
+ background:radial-gradient(circle at 34% 30%,transparent 60%,#9fd4ff40 67%,#6fb4ff1a 71%,transparent 75%)}
 .sp-earth .sp-planet::after{content:'';position:absolute;inset:-10%;border-radius:50%;background:radial-gradient(circle,transparent 55%,#6fb4ff33 64%,transparent 74%);pointer-events:none}
 .sp-icon{position:absolute;left:50%;top:50%;width:46%;height:46%;translate:-50% -50%;object-fit:contain;filter:none}
 .sp-app .sp-icon{background:#0b1021a6;border-radius:24%;padding:7%;box-sizing:border-box}

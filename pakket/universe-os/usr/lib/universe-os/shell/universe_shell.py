@@ -736,8 +736,8 @@ class Shell:
         return False
 
     def flits_mode(self):
-        """0.2.35: 'vol' (hologram), 'snel' (alleen vervagen: lichte modus, eenvoudige wereld, Animaties verminderd)
-        or None (Animaties uit)."""
+        """'vol', 'licht' (0.2.38: dezelfde animaties in lagere kwaliteit: oude/zwakke videokaart, eenvoudige wereld),
+        'snel' (alleen vervagen: Animaties verminderd) or None (Animaties uit)."""
         animations = config.settings().get('animations', 'full')
         if animations == 'off':
             return None
@@ -745,12 +745,14 @@ class Shell:
             light = grafisch.light_active()
         except Exception:  # noqa: BLE001 - never block windows for an animation
             light = True
-        if animations == 'reduced' or light or self.lite:
+        if animations == 'reduced':
             return 'snel'
+        if light or self.lite:
+            return 'licht'
         return 'vol'
 
     def window_flits(self, windows):
-        """0.2.36: window open/close/minimise as a flower on the window's real rectangle. The first snapshot (shell
+        """0.2.38: window open/close/minimise as a portal from the clicked planet/shortcut to the real rectangle. The first snapshot (shell
         start or restart) does not animate the windows already open. Wine/X11 windows that unmap and map again
         (same program and title within a second) and windows that are gone before they could be measured (splash
         screens, launchers) get no animation, so never a double or strange one."""
@@ -776,7 +778,13 @@ class Shell:
                 if t - recent.get(key(w), -99) < 1.0 or t - recent.get(('open',) + key(w), -99) < 1.0:
                     continue  # the same program window mapped again (Wine/Xwayland): no second flower
                 recent[('open',) + key(w)] = t
-                events.append({'soort': 'open', 'wid': wid})
+                e = {'soort': 'open', 'wid': wid}
+                bron = getattr(self, 'flits_bron', None)
+                if bron and t - bron[2] < 10:  # the window of the program that was just clicked
+                    e['bron'] = (bron[0], bron[1])
+                    self.flits_bron = None
+                    self.__dict__.setdefault('flits_bronnen', {})[wid] = e['bron']
+                events.append(e)
             elif w.get('minimized') and not old.get('minimized'):
                 events.append({'soort': 'min', 'wid': wid})
             elif old.get('minimized') and not w.get('minimized'):
@@ -791,6 +799,7 @@ class Shell:
                     events.append({'soort': 'sluit', 'wid': wid})
         for e in events:
             e['snel'] = mode == 'snel'
+            e['kwaliteit'] = 'licht' if mode == 'licht' else 'vol'
             e['van'] = 'dock' if self.dock and self.dock.window.get_visible() else 'midden'
         if events:
             self.play_flits(events)
@@ -820,8 +829,9 @@ class Shell:
                 known = cache.pop(e['wid'], None) if e['soort'] == 'sluit' else cache.get(e['wid'])
                 if not known:
                     continue  # never measured (no Universe border, splash): no animation instead of a guess
+                bron = getattr(self, 'flits_bronnen', {}).pop(e['wid'], None) if e['soort'] == 'sluit' else None
                 direct.append(dict(e, rect=known['rect'], pix=None if e['snel'] else known.get('pix'),
-                                   dock=self.flits_dock() if e['van'] == 'dock' else None))
+                                   dock=self.flits_dock() if e['van'] == 'dock' else None, bron=bron))
             if direct:
                 self.flits_overlay().play(direct)
         except Exception as error:  # noqa: BLE001 - an animation never breaks the shell
@@ -861,10 +871,10 @@ class Shell:
                 rect = (0, 0, width, height - (80 if self.dock and self.dock.window.get_visible() else 0))
             if rect is None:
                 return False
-            pix = None if e['snel'] else venstermeting.inhoud(width, height, data, rect)
+            pix = None if e['snel'] or e.get('kwaliteit') == 'licht' else venstermeting.inhoud(width, height, data, rect)
             self.flits_cache[wid] = {'rect': rect, 'pix': pix}
             import flits
-            if e['soort'] == 'open' and time.monotonic() - e['gevraagd'] < 0.6 * flits.traag():  # later: no flower
+            if e['soort'] == 'open' and time.monotonic() - e['gevraagd'] < 0.6 * flits.traag():  # later: no portal
                 self.flits_overlay().play([dict(e, rect=rect, pix=pix)])
         except Exception as error:  # noqa: BLE001
             log('venstermeting overgeslagen: %s' % error)
@@ -874,6 +884,32 @@ class Shell:
                 GLib.timeout_add(30, self.flits_meet_start)
         return False
 
+    def launch_bron(self, a):
+        """0.2.38: where the program was clicked (planet in the world or shortcut in the start menu), in screen pixels,
+        so its window can come out of it. Pages send CSS pixels of their own surface."""
+        try:
+            x, y = float(a['x']), float(a['y'])
+        except (KeyError, TypeError, ValueError):
+            return None
+        bron = a.get('bron')
+        surface = self.start if bron == 'start' else (self.worlds[0] if self.worlds else None)
+        try:
+            zoom = surface.view.get_zoom_level() if surface else 1.0
+        except Exception:  # noqa: BLE001
+            zoom = 1.0
+        x, y = x * zoom, y * zoom
+        if bron == 'start' and surface:
+            try:
+                sw = self.flits_overlay().size()[0]
+                if sw <= 1:
+                    sw = Gdk.Screen.get_default().get_width()
+                x += (sw - surface.window.get_allocated_width()) / 2
+                y += 56  # top margin of the start surface (make_start)
+            except Exception:  # noqa: BLE001
+                pass
+        self.flits_bron = (x, y, time.monotonic())
+        return self.flits_bron
+
     def flits_bestand(self, x=None, y=None, naam=''):
         """A file goes to the trash: flash + small hole at its place (or in the middle of the window in front)."""
         mode = self.flits_mode()
@@ -881,7 +917,7 @@ class Shell:
             return False
         if x is None or y is None:
             x, y = self.flits_plek()
-        return self.flits_overlay().play([{'soort': 'gat', 'x': float(x), 'y': float(y), 'naam': naam, 'snel': mode == 'snel'}])
+        return self.flits_overlay().play([{'soort': 'gat', 'x': float(x), 'y': float(y), 'naam': naam, 'snel': mode == 'snel', 'kwaliteit': 'licht' if mode == 'licht' else 'vol'}])
 
     def flits_plek(self):
         """Middle of the active window (e.g. Thunar or Windows-programma's), else the middle of the screen."""
@@ -903,7 +939,7 @@ class Shell:
         self.zwartgat_plek = None
         if x is None or y is None:
             x, y = self.flits_plek()
-        return self.flits_overlay().play([{'soort': 'zwartgat', 'x': float(x), 'y': float(y), 'namen': list(namen), 'snel': mode == 'snel'}])
+        return self.flits_overlay().play([{'soort': 'zwartgat', 'x': float(x), 'y': float(y), 'namen': list(namen), 'snel': mode == 'snel', 'kwaliteit': 'licht' if mode == 'licht' else 'vol'}])
 
     # ----- de prullenbak (Thunar, bureaublad en alles wat via GIO naar trash:/// gaat) -----
     def prullenbak_start(self):
@@ -1022,6 +1058,7 @@ class Shell:
             return True
 
         def launch(a):
+            self.launch_bron(a)
             result = backend.launch(a.get('id'))
             app = backend.desktop_app(a.get('id'))
             from buddy_hints import log_event  # timeline of the second brain (habits for the buddy)

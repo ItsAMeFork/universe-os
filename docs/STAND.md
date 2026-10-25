@@ -2,6 +2,16 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
+## 25 oktober: versie 0.2.38 (portaal-vensteranimatie, mooiere ruimte, filmische in-/uitlog, lichte modus = zelfde in lagere kwaliteit; lokaal, NIET gepubliceerd, geen ISO)
+Jesse (t129u/t130u): vensters niet meer als bloem maar vanuit de aangeklikte planeet/snelkoppeling; alle animaties en de ruimte mooier; de lichte modus exact hetzelfde maar lichter.
+- `flits.py`: portaal (venster groeit langs een gebogen baan met lichtspoor uit de bron, lichtpunt + lensstreep bij de bron; sluiten terug naar de bron of het midden; minimaliseren naar het dock). Eén tekenpad met `KWALITEIT` vol/licht (licht: minder gloedlagen/spoorpunten/schijfsegmenten, geen vensterinhoud, ~30 fps); ook gat en zwart gat. 'snel' alleen nog voor Animaties verminderd.
+- `universe_shell.py`: flits_mode geeft 'licht' bij oude/zwakke videokaart of eenvoudige wereld; `launch_bron` (klikpunt van world/start naar schermpixels); bron per venster onthouden voor sluiten.
+- `world.js`/`start.js`: klikpunt (planeetmidden of laatste aanwijzer) mee met apps.launch.
+- `sterrenhemel.js` (nieuw): 9000 sterren in 3 dieptelagen met parallax, temperatuurkleuren, twinkeling (eigen canvas, 24/8 fps), melkwegband met nevels en stofbanen, warp-strepen. Licht = elke 3e ster, kleinere nevel, minder twinkel. Gebruikt in de wereld en op het inlogscherm (`space.js`).
+- In-/uitloggen/opstarten (`animateWorld`): 2.8/2.3 s, sterren worden lichtstrepen, lensstreep bij de kern. Inlogscherm (`explode.js`): langer opladen/inklappen, planeet vormen 1.7 s, lensstreep.
+- Planeten (`world.css`): atmosfeerrand + belichte kant, alleen gradients (geen blur).
+- Tests: venster-animatie.py (portaal, bron, kwaliteit), lichte-hardware.py, nieuw sterrenhemel.mjs. Frames: uitvoer/vm-test/0.2.38-*.png (cairo offscreen + headless Chrome harnas, geen echte sessie).
+
 ## 25 oktober: versie 0.2.37 (animaties trager en zichtbaar, realistisch zwart gat; GEPUBLICEERD 25 okt 17:34, apt test + stable; geen ISO)
 Jesse (t126u): animaties te snel, zwart gat moet echt lijken op een ster die wordt opgeslokt.
 - `flits.py`: bloem openen 1.0 s, sluiten 0.9 s, minimaliseren 1.0 s, lichtflits + gat 1.1 s, met ease-in-out (geldt ook voor Wine/.exe-vensters: zelfde pad).

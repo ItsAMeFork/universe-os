@@ -67,7 +67,7 @@ with tempfile.TemporaryDirectory() as d:
 ui = root / 'pakket/universe-os/usr/share/universe-os/ui'
 assert "params.append('gfx=licht')" in (shell / 'webview.py').read_text()
 w = (ui / 'world.js').read_text()
-for part in ("get('gfx')==='licht'", 'STARS.slice(0,300)', 'lastFrameAt<32', 'LIGHT_GFX||(MEMORY_GB'):
+for part in ("get('gfx')==='licht'", 'licht:SKY_LIGHT()', 'lastFrameAt<32', 'LIGHT_GFX||(MEMORY_GB'):
     assert part in w, part
 assert 'html.licht' in (ui / 'world.css').read_text()
 assert "'lightGraphics'" in (ui / 'control.js').read_text()

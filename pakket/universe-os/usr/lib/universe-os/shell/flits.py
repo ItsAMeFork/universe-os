@@ -1,20 +1,20 @@
-"""Animaties van vensters en bestanden (0.2.37: trager en beter zichtbaar, realistisch zwart gat): de bloem, het kleine gat en het zwarte gat.
+"""Animaties van vensters en bestanden (0.2.38): het portaal, het kleine gat en het zwarte gat.
 
 Alles wordt getekend met GTK/cairo op een eigen layer-shell-oppervlak (OVERLAY, geen toetsenbord, lege invoerregio).
 Het echte venster is daardoor meteen klikbaar en houdt de focus. Het oppervlak staat alleen tijdens een animatie op
 het scherm. Zonder RGBA-visual tekenen we niets, want dan zou het een zwart scherm worden (0.2.35, laptop-VM).
 
- * bloem    Een venster vouwt open als een bloem, op zijn echte rechthoek en met zijn echte inhoud. Sluiten speelt
-            dezelfde bloem andersom. Minimaliseren vouwt dicht richting het dock. De rechthoek en de inhoud komen uit
-            venstermeting.py.
- * gat      Een bestand gaat naar de prullenbak: een korte lichtflits, waarna het in een klein zwart gat verdwijnt.
- * zwartgat Bij het legen van de prullenbak verschijnt een zwart gat zoals bij een ster die wordt opgeslokt (tidal
-            disruption): zwarte kern, gloeiende draaiende accretieschijf (helderder aan de naderende kant), fotonring
-            met lensgloed. Elk bestand wordt uitgerekt (spaghettificatie), spiraalt als lichtstroom naar binnen en dooft
-            roodverschoven bij de horizon: licht dat niet meer ontsnapt. Per bestand ~1.8 s, achter elkaar; samen
-            hooguit ~8 s (bij veel bestanden gegroepeerd en dichter op elkaar). Aan het eind zakt het gat langzaam in.
-Jesse (25 okt): 'de animaties gaan te snel en zie er niks van' -> 0.8-1.2 s per venster-/bestandsanimatie, met easing.
-Snel ('snel': lichte modus, eenvoudige wereld, Animaties verminderd): alleen korte vervaging en schaal, geen effecten.
+ * portaal  (0.2.38, Jesse: 'geen bloem maar de planeet die word aangeklikt of snelkoppelingen in het menu')
+            Een venster komt tevoorschijn uit de planeet of de menu-snelkoppeling waarop geklikt is ('bron'): een
+            lichtpunt flitst op, het venster groeit langs een licht gebogen baan met een lichtspoor naar zijn echte
+            rechthoek en echte inhoud. Sluiten speelt hetzelfde andersom, terug naar de bron (of het midden).
+            Minimaliseren gaat naar het dock. Geldt voor elk venster, ook Wine/.exe.
+ * gat      Een bestand gaat naar de prullenbak: een lichtflits, waarna het in een klein zwart gat verdwijnt.
+ * zwartgat Bij het legen van de prullenbak: een zwart gat zoals bij een ster die wordt opgeslokt (zie zwartgat_item).
+Kwaliteit (0.2.38, Jesse: 'de lichte modus moet het zelfde zijn maar dan lichter dus minder kwaliteit'): één tekenpad
+voor alles; 'kwaliteit': 'licht' (oude/zwakke videokaart, eenvoudige wereld) tekent dezelfde animatie met dezelfde
+beweging en duur, alleen met minder lagen gloed, minder spoorpunten/schijfsegmenten, zonder vensterinhoud en op
+~30 beelden per seconde. 'snel' is alleen nog 'Animaties verminderd' (toegankelijkheid): korte vervaging.
 """
 import math
 import random
@@ -23,8 +23,16 @@ import time
 MINT = (0x85 / 255, 0xff / 255, 0xe3 / 255)
 RUIMTE = (0x05 / 255, 0x08 / 255, 0x15 / 255)
 DUUR = {'open': 1.0, 'sluit': 0.9, 'min': 1.0, 'gat': 1.1}
+KWALITEIT = {
+    'vol': {'gloed': ((10, 0.10), (5, 0.22), (2, 0.85)), 'spoor': 14, 'segmenten': 48, 'ringen': 4, 'lens': 3, 'tick': 16,
+            'inhoud': True},
+    'licht': {'gloed': ((2, 0.85),), 'spoor': 6, 'segmenten': 16, 'ringen': 3, 'lens': 1, 'tick': 33, 'inhoud': False},
+}
+
+
+def kwaliteit(anim):
+    return KWALITEIT['licht' if anim.get('kwaliteit') == 'licht' else 'vol']
 SNEL = 0.15
-BLADEREN = 8
 ZWARTGAT_MAX = 8.0
 ZG_GROEI = 0.8      # s: het gat verschijnt
 ZG_SLOK = 1.8       # s: één bestand wordt opgeslokt
@@ -77,43 +85,74 @@ def voortgang(anim, now):
     return clamp(t)
 
 
-# ---------- de bloem ----------
-def bloem_frame(anim, t, dock):
-    """Shape of the flower at time t (0..1). Returns dict(p, cx, cy, schaal, draai, alpha, dek): p is how far the flower
-    is open (0 = a point, 1 = exactly the window rectangle), dek how much the dark cover hides the real window
-    (only while opening)."""
+# ---------- het portaal ----------
+PORTAAL_START = 36  # px: the window starts as a small square of light at the source
+
+
+def portaal_bron(anim):
+    """Source point: the clicked planet/shortcut ('bron'), the dock (minimise) or the middle of the screen."""
     x, y, w, h = anim['rect']
+    if anim['soort'] == 'min' and anim.get('dock'):
+        return anim['dock']
+    b = anim.get('bron')
+    if b:
+        return float(b[0]), float(b[1])
+    sw, sh = anim.get('scherm') or (0, 0)
+    return (sw / 2, sh / 2) if sw > 1 else (x + w / 2, y + h / 2)
+
+
+def portaal_frame(anim, t):
+    """Window at time t (0..1): rect (x, y, w, h) on its way between source and real rectangle, p (0 = at the source,
+    1 = exactly the window), alpha, flare (light point at the source), dek (dark cover over the real window while
+    opening). Path: a gentle arc, not a straight line, so it looks thrown out of the planet."""
+    x, y, w, h = anim['rect']
+    bx, by = portaal_bron(anim)
     soort = anim['soort']
-    cx, cy = x + w / 2, y + h / 2
+    p = ease_in_out(t) if soort == 'open' else 1 - ease_in_out(t)
+    tx, ty = x + w / 2, y + h / 2
+    # quadratic Bezier with the control point beside the straight line (arc)
+    mx, my = (bx + tx) / 2, (by + ty) / 2
+    dx, dy = tx - bx, ty - by
+    cx, cy = mx - dy * 0.18, my + dx * 0.18
+    u = p
+    px = (1 - u) ** 2 * bx + 2 * (1 - u) * u * cx + u ** 2 * tx
+    py = (1 - u) ** 2 * by + 2 * (1 - u) * u * cy + u ** 2 * ty
+    s = PORTAAL_START
+    rw, rh = s + (w - s) * p, s + (h - s) * p
     if soort == 'open':
-        p = ease_in_out(t)
+        flare = math.sin(math.pi * clamp(t / 0.35))
         dek = 1.0 if t < 0.85 else 1 - (t - 0.85) / 0.15
-    else:  # sluit/min: exactly the opening animation in reverse
-        p = 1 - ease_in_out(t)
+        alpha = clamp(0.35 + p * 1.2)
+    else:
+        flare = math.sin(math.pi * clamp((t - 0.65) / 0.35))
         dek = 0.0
-        if soort == 'min' and dock:
-            k = ease_in(t)
-            cx, cy = cx + (dock[0] - cx) * k, cy + (dock[1] - cy) * k
-    alpha = 1.0 if soort == 'open' else clamp(p * 1.6)
-    return {'p': p, 'cx': cx, 'cy': cy, 'schaal': 0.55 + 0.45 * p, 'draai': (1 - p) * 0.6, 'alpha': alpha, 'dek': dek}
+        alpha = clamp(p * 1.4 + 0.15) if t < 0.95 else clamp((1 - t) * 20) * 0.5
+    return {'rect': (px - rw / 2, py - rh / 2, rw, rh), 'p': p, 'cx': px, 'cy': py, 'bron': (bx, by),
+            'ctrl': (cx, cy), 'doel': (tx, ty), 'alpha': alpha, 'flare': flare, 'dek': dek}
 
 
-def bloem_straal(w, h):
-    """Radius at which the flower (petal dents included) covers the whole rectangle."""
-    return math.hypot(w, h) / 2 / 0.82
+def portaal_spoor(anim, t, punten):
+    """The light trail: points on the arc from the window back towards the source (the last 40 % of the way),
+    newest first. Fewer points in the light version, the same path."""
+    f = portaal_frame(anim, t)
+    (bx, by), (cx, cy), (tx, ty) = f['bron'], f['ctrl'], f['doel']
+    out = []
+    for j in range(punten):
+        u = f['p'] - 0.4 * j / max(1, punten - 1)
+        if u < 0:
+            break
+        out.append(((1 - u) ** 2 * bx + 2 * (1 - u) * u * cx + u ** 2 * tx,
+                    (1 - u) ** 2 * by + 2 * (1 - u) * u * cy + u ** 2 * ty, u))
+    return out
 
 
-def bloem_pad(cr, cx, cy, straal, draai, bladeren=BLADEREN):
-    """A flower curve: r(a) = R * (0.82 + 0.18 * |cos(n a / 2)|), drawn as one path."""
-    stappen = bladeren * 12
-    for i in range(stappen + 1):
-        a = 2 * math.pi * i / stappen
-        r = straal * (0.82 + 0.18 * abs(math.cos(bladeren * (a + draai) / 2)))
-        px, py = cx + r * math.cos(a + draai), cy + r * math.sin(a + draai)
-        if i == 0:
-            cr.move_to(px, py)
-        else:
-            cr.line_to(px, py)
+def rond_pad(cr, x, y, w, h, r):
+    r = max(0.0, min(r, w / 2, h / 2))
+    cr.new_sub_path()
+    cr.arc(x + w - r, y + r, r, -math.pi / 2, 0)
+    cr.arc(x + w - r, y + h - r, r, 0, math.pi / 2)
+    cr.arc(x + r, y + h - r, r, math.pi / 2, math.pi)
+    cr.arc(x + r, y + r, r, math.pi, 3 * math.pi / 2)
     cr.close_path()
 
 
@@ -255,7 +294,8 @@ class Flits:
             self.window.show_all()
             self.no_input()
         if not self.tick:
-            self.tick = GLib.timeout_add(16, self.step)
+            licht = all(a.get('kwaliteit') == 'licht' for a in self.anims)
+            self.tick = GLib.timeout_add(KWALITEIT['licht' if licht else 'vol']['tick'], self.step)
         return True
 
     def step(self):
@@ -281,7 +321,7 @@ class Flits:
             alive.append(anim)
             try:
                 cr.save()
-                getattr(self, 'teken_' + ('bloem' if anim['soort'] in ('open', 'sluit', 'min') else anim['soort']))(cr, anim, t, w, h)
+                getattr(self, 'teken_' + ('portaal' if anim['soort'] in ('open', 'sluit', 'min') else anim['soort']))(cr, anim, t, w, h)
             except Exception as error:  # noqa: BLE001 - a broken frame is skipped, never a black screen
                 alive.remove(anim)
                 self.log('animatie overgeslagen: %s' % error)
@@ -290,37 +330,46 @@ class Flits:
         self.anims = alive
         return True
 
-    # ----- bloem -----
-    def teken_bloem(self, cr, anim, t, w, h):
+    # ----- portaal -----
+    def teken_portaal(self, cr, anim, t, w, h):
         import cairo
         x, y, bw, bh = anim['rect']
-        if anim.get('snel'):  # cheap: soft outline on the real rectangle, small scale, fade
+        if anim.get('snel'):  # Animaties verminderd: soft outline on the real rectangle, fade
             open_ = anim['soort'] == 'open'
             a = (1 - t) if open_ else (1 - t) * 0.8
-            s = 0.97 + 0.03 * (t if open_ else 1 - t)
-            cx, cy = x + bw / 2, y + bh / 2
-            cr.rectangle(cx - bw * s / 2, cy - bh * s / 2, bw * s, bh * s)
+            cr.rectangle(x, y, bw, bh)
             cr.set_source_rgba(*MINT, 0.5 * a)
             cr.set_line_width(2)
             cr.stroke()
             return
-        f = bloem_frame(anim, t, anim.get('dock'))
-        p, cx, cy = f['p'], f['cx'], f['cy']
-        straal = bloem_straal(bw, bh) * max(0.02, p)
-        # 1. while opening: the real window is still hidden behind a dark cover, only on its own rectangle
+        q = kwaliteit(anim)
+        anim.setdefault('scherm', (w, h))
+        f = portaal_frame(anim, t)
+        rx, ry, rw, rh = f['rect']
+        bx, by = f['bron']
+        # 1. while opening: the real window stays hidden behind a dark cover until the portal arrives
         if f['dek'] > 0.01:
             cr.rectangle(x, y, bw, bh)
             cr.set_source_rgba(*RUIMTE, 0.96 * f['dek'])
             cr.fill()
-        # 2. the flower: clipped to the window rectangle (moved and scaled when minimising), real content inside
-        s = f['schaal']
-        rx, ry, rw, rh = cx - bw * s / 2, cy - bh * s / 2, bw * s, bh * s
+        # 2. light trail from the source along the arc to the window (tapered, fading towards the source)
+        spoor = portaal_spoor(anim, t, q['spoor'])
+        zicht = math.sin(math.pi * clamp(f['p'] * 0.98 + 0.02)) if anim['soort'] == 'open' else math.sin(math.pi * f['p'])
+        for j in range(len(spoor) - 1):
+            (x0, y0, _), (x1, y1, _) = spoor[j], spoor[j + 1]
+            fade = (1 - j / len(spoor)) * zicht
+            for width, a in q['gloed']:
+                cr.set_line_width(width * 2.4 * (1 - j / len(spoor)) + 1.0)
+                cr.set_source_rgba(*MINT, a * fade)
+                cr.move_to(x0, y0)
+                cr.line_to(x1, y1)
+                cr.stroke()
+        # 3. the window itself on its way: real content (vol) or a glowing glass card (licht)
+        radius = 6 + 18 * (1 - f['p'])
         cr.save()
-        cr.rectangle(rx, ry, rw, rh)
+        rond_pad(cr, rx, ry, rw, rh, radius)
         cr.clip()
-        bloem_pad(cr, cx, cy, straal, f['draai'])
-        cr.clip()
-        pix = anim.get('pix')
+        pix = anim.get('pix') if q['inhoud'] else None
         if pix is not None:
             from gi.repository import Gdk
             cr.save()
@@ -330,34 +379,46 @@ class Flits:
             cr.paint_with_alpha(f['alpha'])
             cr.restore()
         else:
-            grad = cairo.RadialGradient(cx, cy, 0, cx, cy, max(1.0, straal))
-            grad.add_color_stop_rgba(0, 0.91, 1, 0.98, 0.5 * f['alpha'])
-            grad.add_color_stop_rgba(1, *MINT, 0.12 * f['alpha'])
+            grad = cairo.LinearGradient(rx, ry, rx, ry + rh)
+            grad.add_color_stop_rgba(0, 0.16, 0.22, 0.32, 0.92 * f['alpha'])
+            grad.add_color_stop_rgba(1, 0.07, 0.10, 0.18, 0.92 * f['alpha'])
             cr.set_source(grad)
             cr.paint()
-        # light on the petals, fading as the flower is fully open
-        licht = (1 - p) * f['alpha']
+            cr.rectangle(rx, ry, rw, min(rh, 28 * max(0.3, f['p'])))  # title bar
+            cr.set_source_rgba(*MINT, 0.18 * f['alpha'])
+            cr.fill()
+        # light washing over the window while it is still small
+        licht = (1 - f['p']) * f['alpha']
         if licht > 0.02:
-            grad = cairo.RadialGradient(cx, cy, 0, cx, cy, max(1.0, straal))
-            grad.add_color_stop_rgba(0, 0.91, 1, 0.98, 0.55 * licht)
-            grad.add_color_stop_rgba(0.6, *MINT, 0.18 * licht)
-            grad.add_color_stop_rgba(1, *MINT, 0.0)
-            cr.set_source(grad)
+            cr.set_source_rgba(0.9, 1, 0.97, 0.55 * licht)
             cr.paint()
         cr.restore()
-        # 3. petal edges: a mint glow along the flower curve (no filters, a few wider strokes)
-        rand = (1 - p) * f['alpha']
-        if rand > 0.02 and straal > 3:
-            cr.save()
-            cr.rectangle(rx - 16, ry - 16, rw + 32, rh + 32)
-            cr.clip()
-            bloem_pad(cr, cx, cy, straal, f['draai'])
-            for width, a in ((10, 0.10), (5, 0.22), (2, 0.8)):
-                cr.set_line_width(width)
-                cr.set_source_rgba(*MINT, a * rand)
-                cr.stroke_preserve()
-            cr.new_path()
-            cr.restore()
+        # 4. glowing edge, strongest while travelling
+        rand = (0.25 + 0.75 * (1 - f['p'])) * f['alpha']
+        rond_pad(cr, rx, ry, rw, rh, radius)
+        for width, a in q['gloed']:
+            cr.set_line_width(width)
+            cr.set_source_rgba(*MINT, a * rand)
+            cr.stroke_preserve()
+        cr.new_path()
+        # 5. the flare at the planet / shortcut: the window is born from (or returns into) a point of light
+        if f['flare'] > 0.02:
+            r = 26 + 46 * f['flare']
+            grad = cairo.RadialGradient(bx, by, 0, bx, by, r)
+            grad.add_color_stop_rgba(0, 1, 1, 1, 0.95 * f['flare'])
+            grad.add_color_stop_rgba(0.35, *MINT, 0.55 * f['flare'])
+            grad.add_color_stop_rgba(1, *MINT, 0)
+            cr.set_source(grad)
+            cr.arc(bx, by, r, 0, 2 * math.pi)
+            cr.fill()
+            if q['lens'] > 1:  # thin horizontal lens streak
+                lin = cairo.LinearGradient(bx - r * 2.5, by, bx + r * 2.5, by)
+                lin.add_color_stop_rgba(0, *MINT, 0)
+                lin.add_color_stop_rgba(0.5, 1, 1, 1, 0.6 * f['flare'])
+                lin.add_color_stop_rgba(1, *MINT, 0)
+                cr.set_source(lin)
+                cr.rectangle(bx - r * 2.5, by - 1.5, r * 5, 3)
+                cr.fill()
 
     # ----- klein gat -----
     def teken_gat(self, cr, anim, t, w, h):
@@ -428,7 +489,7 @@ class Flits:
             if isinstance(st, dict):
                 voeding = max(voeding, st['rood'])
         if g > 1:
-            self.zwartgat_schijf(cr, x, y, g, G, f['draai'], voeding, achter=True)
+            self.zwartgat_schijf(cr, x, y, g, G, f['draai'], voeding, achter=True, anim=anim)
         # the files and their light streams (before the horizon, so the horizon covers what falls in)
         for item, st in staten:
             if st is None:
@@ -440,14 +501,15 @@ class Flits:
             cr.set_source_rgba(0, 0, 0, 1)
             cr.fill()
             # photon ring: thin, very bright, with a lensing glow around it
-            for width, a in ((g * 0.5, 0.08), (g * 0.22, 0.18), (g * 0.08, 0.5), (1.6, 0.95)):
+            ringgloed = ((g * 0.5, 0.08), (g * 0.22, 0.18), (g * 0.08, 0.5), (1.6, 0.95))
+            for width, a in (ringgloed if kwaliteit(anim)['lens'] > 1 else ringgloed[2:]):
                 cr.set_line_width(width)
                 cr.set_source_rgba(1, 0.9, 0.72, a * G * (1 + 0.5 * voeding))
                 cr.arc(x, y, g * 1.06, 0, 2 * math.pi)
                 cr.stroke()
-            self.zwartgat_schijf(cr, x, y, g, G, f['draai'], voeding, achter=False)
+            self.zwartgat_schijf(cr, x, y, g, G, f['draai'], voeding, achter=False, anim=anim)
 
-    def zwartgat_schijf(self, cr, x, y, g, G, draai, voeding, achter):
+    def zwartgat_schijf(self, cr, x, y, g, G, draai, voeding, achter, anim=None):
         """Accretion disk, tilted. achter=True: the far half plus the lensed image of the disk arching over the hole
         (gravitational lensing); achter=False: the near half in front of the hole. Doppler beaming: the side that moves
         towards us (left) is brighter and whiter, the other side dimmer and redder."""
@@ -461,7 +523,7 @@ class Flits:
             cr.arc(x, y, g * 4.5, 0, 2 * math.pi)
             cr.fill()
             # lensed disk: the back of the disk seen bent over and under the horizon
-            for rr, a in ((1.35, 0.55), (1.6, 0.3), (1.9, 0.14)):
+            for rr, a in ((1.35, 0.55), (1.6, 0.3), (1.9, 0.14))[:kwaliteit(anim or {})['lens']]:
                 cr.save()
                 cr.translate(x, y)
                 cr.scale(1.0, 0.92)
@@ -477,9 +539,10 @@ class Flits:
         cr.translate(x, y)
         cr.rotate(-0.18)
         cr.scale(1.0, 0.24)
-        segmenten = 48
+        q = kwaliteit(anim or {})
+        segmenten = q['segmenten']
         a0, a1 = (math.pi, 2 * math.pi) if achter else (0, math.pi)
-        for ring, (rr, breed, helder) in enumerate(((1.5, 0.35, 1.0), (2.0, 0.45, 0.8), (2.7, 0.6, 0.5), (3.5, 0.7, 0.25))):
+        for ring, (rr, breed, helder) in enumerate(((1.5, 0.35, 1.0), (2.0, 0.45, 0.8), (2.7, 0.6, 0.5), (3.5, 0.7, 0.25))[:q['ringen']]):
             snelheid = 1.0 / rr ** 1.5  # inner rings turn faster
             for i in range(segmenten // 2):
                 b0 = a0 + (a1 - a0) * i / (segmenten // 2)
@@ -507,7 +570,7 @@ class Flits:
         # light stream: the path of the last ~0.35 s, colour shifting to red near the horizon
         if st != 'wacht' and licht > 0.01:
             punten = []
-            for j in range(14):
+            for j in range(kwaliteit(anim)['spoor']):
                 sp = zwartgat_item(item, max(item['vertrek'], s - j * 0.025))
                 if isinstance(sp, dict):
                     punten.append((x + sp['r'] * math.cos(sp['a']), y + sp['r'] * math.sin(sp['a']), sp['rood']))
@@ -515,7 +578,7 @@ class Flits:
                 (x0, y0, r0), (x1, y1, _) = punten[j], punten[j + 1]
                 col = roodverschuiving(r0)
                 fade = (1 - j / len(punten)) * licht * zicht
-                for width, al in ((9, 0.12), (4, 0.35), (1.6, 0.95)):
+                for width, al in (((9, 0.12), (4, 0.35), (1.6, 0.95)) if kwaliteit(anim)['lens'] > 1 else ((3, 0.6),)):
                     cr.set_line_width(width * (1 - 0.5 * rood))
                     cr.set_source_rgba(*col, al * fade)
                     cr.move_to(x0, y0)

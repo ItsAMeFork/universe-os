@@ -8,6 +8,7 @@ import {debugFPS,afterPaint,perfMark} from './performance.js';
 import {SETTINGS} from './settings-index.js';
 import {keepTab} from './focus.js';
 import {distFor} from './space.js';
+import {tekenNevel,tekenSterren,twinkelLaag} from './sterrenhemel.js';
 import {mountNebula} from './brein-nevel.js';
 import {mountClaudeRoute} from './claude-route.js';
 // The 3D desktop (Axel, 10 Oct: "the desktop in 3D, every program a planet somewhere that you arrange yourself,
@@ -114,7 +115,7 @@ const planetGlobe=(p,diameter)=>{
  return g;
 };
 function build(){
- root.replaceChildren(h('div',{class:'nebula','aria-hidden':'true'}),sky,layer,room,zenForm);
+ root.replaceChildren(h('div',{class:'nebula','aria-hidden':'true'}),sky,twinkleCanvas,layer,room,zenForm);twinkle.start();
  return refreshSpace();
 }
 
@@ -150,31 +151,25 @@ function worldAt(sx,sy){
 // 0.2.31 lichte hardware-modus (gfx=licht, grafisch.py: oude/zwakke videokaart): kleiner canvas, 1/3 van de sterren,
 // geen schaduw/vervaging, hooguit 30 beelden per seconde en kleinere planeetplaatjes.
 const LIGHT_GFX=new URLSearchParams(location.search).get('gfx')==='licht';
+const SOFT_GFX=new URLSearchParams(location.search).get('gfx')==='soft';
 if(LIGHT_GFX)document.documentElement.classList.add('licht');
 let lastFrameAt=0;
-const STARS=Array.from({length:900},(_,i)=>{let s=(i*9301+49297)%233280;const r=()=>(s=(s*9301+49297)%233280)/233280;
- const u=r()*2-1,t=r()*Math.PI*2,q=Math.sqrt(1-u*u);return [q*Math.cos(t),u,q*Math.sin(t),.25+r()*.75,r()<.06];});
-// Stars grouped by brightness: one path and one fill per group instead of a fill (and a colour string) per star.
-// 24 steps between .25 and 1: the difference with the exact brightness is invisible.
-const STAR_GROUPS=Array.from({length:24},(_,i)=>({style:`rgba(208,224,255,${alpha(.25+.75*(i+.5)/24)})`,stars:[]}));
-for(const s of (LIGHT_GFX?STARS.slice(0,300):STARS))STAR_GROUPS[Math.min(23,Math.floor((s[3]-.25)/.75*24))].stars.push(s);
+// 0.2.38: sterrenhemel.js (diepere sterrenvelden met parallax, kleur, nevels, twinkeling). Eén pad: de lichte modus
+// tekent dezelfde hemel met minder sterren, een kleinere nevel en 8 twinkelbeelden per seconde.
+const SKY_LIGHT=()=>LIGHT_GFX||isLight();
+let warp=0; // light streaks of the stars during login/logout/start (animateWorld)
+const twinkleCanvas=h('canvas',{class:'space-canvas twinkle-canvas','aria-hidden':'true'});
+const twinkle=twinkelLaag(twinkleCanvas,()=>cam,{licht:SKY_LIGHT(),scale:(w,hh)=>canvasScale(w,hh,LIGHT_GFX?1:devicePixelRatio,SOFT_GFX,LIGHT_GFX),actief:()=>!root.inert||warp>0});
 let skyShown=false;
-const SOFT_GFX=new URLSearchParams(location.search).get('gfx')==='soft';
 function drawSky(){
  const w=innerWidth,hgt=innerHeight,dpr=canvasScale(w,hgt,LIGHT_GFX?1:devicePixelRatio,SOFT_GFX,LIGHT_GFX);
  if(sky.width!==Math.round(w*dpr)||sky.height!==Math.round(hgt*dpr)){sky.width=Math.round(w*dpr);sky.height=Math.round(hgt*dpr);}
  const c=sky.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,hgt);
  if(!skyShown){skyShown=true;document.body.style.backgroundImage='none';} // the login picture of world.html, until the first real sky
  const cy=Math.cos(cam.yaw),sy=Math.sin(cam.yaw),cp=Math.cos(cam.pitch),sp=Math.sin(cam.pitch);
- for(const group of STAR_GROUPS){ // stars are far away: they only turn with the camera
-  c.beginPath();
-  for(const [x,y,z,,big] of group.stars){
-   const x1=x*cy-z*sy,z1=x*sy+z*cy,y2=y*cp-z1*sp,z2=y*sp+z1*cp;if(z2<=.05)continue;
-   const px=w/2+x1/z2*FOV,py=hgt/2+y2/z2*FOV;if(px<0||py<0||px>w||py>hgt)continue;
-   const r=big?1.5:.7;c.moveTo(px+r,py);c.arc(px,py,r,0,7);
-  }
-  c.fillStyle=group.style;c.fill();
- }
+ tekenNevel(c,cam,w,hgt,SKY_LIGHT(),.9);
+ tekenSterren(c,cam,w,hgt,{licht:SKY_LIGHT(),warp,zonderHelder:true});
+ twinkle.setWarp(warp);twinkle.draw();
  // Orbits around the Earth (folders) and the galaxy ring of the programs, as real 3D circles.
  const ringAlpha=Math.min(1,mix*1.4);
  if(ringAlpha>0){c.globalAlpha=ringAlpha;ring(c,420,'rgba(255,165,82,.55)',1.5);ring(c,1350,'rgba(133,255,227,.10)',1);ring(c,1900,'rgba(133,255,227,.06)',1);c.globalAlpha=1;}
@@ -366,7 +361,7 @@ function launchEffect(o){
 }
 function openObj(o){
  const fail=e=>toast(e.message);
- if(o.kind==='app'){launchEffect(o);return launch(o.target);}
+ if(o.kind==='app'){launchEffect(o);const r=o.el?.getBoundingClientRect();return launch(o.target,r&&r.width?{x:r.left+r.width/2,y:r.top+r.height/2}:undefined);}
  if(o.kind==='launcher')return call('desktop.launch',{path:o.target}).catch(fail);
  if(o.kind==='install')return call('run',{tool:'installer'}).catch(fail);
  return call('open.path',{path:o.target}).catch(fail);
@@ -510,6 +505,8 @@ function drawBoom(c){
   const k=Math.max(0,(t-delay)/(1-delay));if(!k)continue;const r=R0*(.6+(1-Math.pow(1-k,3))*7);
   c.strokeStyle=`rgba(${col},${alpha(.85*(1-k))})`;c.lineWidth=1.5+7*(1-k);c.beginPath();c.ellipse(p.x,p.y,r,r*.38,-.17,0,Math.PI*2);c.stroke();
  }
+ // 0.2.38 filmic: a horizontal lens streak through the core while it bursts (one gradient, also in the light version)
+ const fl=Math.max(0,1-t*1.6);if(fl>0){const g=c.createLinearGradient(0,p.y,innerWidth,p.y);g.addColorStop(0,'rgba(120,180,255,0)');g.addColorStop(.5,`rgba(255,240,220,${alpha(.7*fl)})`);g.addColorStop(1,'rgba(120,180,255,0)');c.fillStyle=g;c.fillRect(0,p.y-2-4*fl,innerWidth,4+8*fl);}
  c.lineCap='round';
  const every=isLight()?3:1; // the light version draws a third of the sparks
  // Per-frame constants and the two colour strings are computed once, not per spark (same values, same order).
@@ -535,7 +532,7 @@ function animateWorld(dir,target,{core=false}={}){
  trailDir=dir==='in'?1:-1;
  cam={...start};mix=dir==='in'?0:1;earthScale=dir==='in'?0:1;requestRender();
  // motion.js keeps the clock: the animation always ends, also when frames stall, and turns light on slow pcs.
- return animate(dir==='in'?2300:1900,k=>{
+ return animate(dir==='in'?2800:2300,k=>{
    if(dir==='in'){
     // 0-0.25: the Earth grows out of light (overshoots a little); 0.15-1: everything flies out, camera pulls back
     const a=Math.min(1,k/.25);earthScale=a<1?Math.sin(a*Math.PI/2)*1.08:1+.08*Math.max(0,1-(k-.25)/.15);
@@ -546,17 +543,19 @@ function animateWorld(dir,target,{core=false}={}){
     const m=Math.max(0,Math.min(1,(k-.15)/.85)),e=easeInOut(m);
     mix=e;for(const key of Object.keys(end))cam[key]=start[key]+(end[key]-start[key])*e;
     cam.yaw+=.7*Math.sin(Math.PI*e); // a swirl that ends exactly in the target view
+    warp=Math.sin(Math.PI*Math.min(1,m*1.25))*.9; // 0.2.38: the stars stretch into light streaks while flying out
    }else{
     const e=easeInOut(k);
     mix=1-Math.min(1,e*1.1);glow=Math.sin(Math.min(1,k*1.1)*Math.PI)*.9; // brightest while everything falls in, calm at the end
     for(const key of Object.keys(end))cam[key]=start[key]+(end[key]-start[key])*e;
     cam.yaw-=.7*Math.sin(Math.PI*e);
+    warp=Math.sin(Math.PI*e)*.8; // 0.2.38: falling into the Earth: stars stretch into streaks
     if(core){ // everything gathers into the core: it ends exactly on kern.png, the first picture of the login screen
      const c=Math.max(0,(k-.62)/.38);setCore(c*c*(3-2*c),2.4-1.4*(1-Math.pow(1-c,2)));
     }else setFlash(k>.72?Math.sin((k-.72)/.28*Math.PI)*.55:0); // peaks and is gone at the end: the last picture = lock screen
    }
    render();
- }).then(()=>{glow=0;earthScale=1;setFlash(0);boom=0;if(core)setCore(dir==='out'?1:0,1);render();});
+ }).then(()=>{glow=0;earthScale=1;setFlash(0);boom=0;warp=0;if(core)setCore(dir==='out'?1:0,1);render();});
 }
 // Lock / unlock (universe-lock): the desktop goes into the Earth before the lock screen (which shows the same Earth),
 // and comes out again when it is unlocked.
@@ -698,7 +697,11 @@ function openRoom(p){
  (main.querySelector('input,button')||back).focus({preventScroll:true});
 }
 
-const launch=id=>call('apps.launch',{id}).catch(e=>toast('Kan het programma niet openen: '+e.message));
+// 0.2.38: the window comes out of what was clicked (planet or tile): the shell gets that point (CSS px of this page).
+let lastPointer=null;
+addEventListener('pointerdown',e=>{lastPointer={x:e.clientX,y:e.clientY,at:performance.now()};},true);
+const clickPoint=()=>lastPointer&&performance.now()-lastPointer.at<4000?{x:lastPointer.x,y:lastPointer.y}:{};
+const launch=(id,from)=>call('apps.launch',{id,bron:'world',...(from||clickPoint())}).catch(e=>toast('Kan het programma niet openen: '+e.message));
 const run=(tool,args={})=>call('run',{tool,...args}).catch(e=>toast(e.message));
 function tile({name,sub,iconName,img,onClick,wide}){
  const pic=img?h('img',{class:'app-icon',src:img,alt:''}):icon(iconName||'planet');

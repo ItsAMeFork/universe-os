@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""0.2.36: venster-animatie als bloem op de echte venstergrootte. Controleert de shell-logica (welke gebeurtenis, welke
+"""0.2.38: venster-animatie als portaal vanuit de aangeklikte planeet/snelkoppeling naar de echte venstergrootte. Controleert de shell-logica (welke gebeurtenis, welke
 modus, geen dubbele animaties bij Wine/X11-vensters en splash-schermen), de vensterherkenning in een schermopname
 (venstermeting.py) en de bloem zelf (open = punt -> exacte rechthoek, sluiten = precies andersom, duur)."""
 import ast, math, sys, time
@@ -13,11 +13,11 @@ sys.path.insert(0, str(SH))
 src = (SH / 'universe_shell.py').read_text(encoding='utf-8')
 tree = ast.parse(src)
 cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'Shell')
-cls.body = [n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name in ('window_flits', 'flits_mode', 'play_flits', 'flits_gemeten')]
+cls.body = [n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name in ('window_flits', 'flits_mode', 'play_flits', 'flits_gemeten', 'launch_bron')]
 settings = {'animations': 'full'}
 light = {'on': False}
 ns = {'config': SimpleNamespace(settings=lambda: settings), 'grafisch': SimpleNamespace(light_active=lambda: light['on']),
-      'time': time, 'log': print, 'GLib': SimpleNamespace(timeout_add=lambda *a: 1)}
+      'time': time, 'log': print, 'GLib': SimpleNamespace(timeout_add=lambda *a: 1), 'Gdk': None}
 exec(compile(ast.Module(body=[cls], type_ignores=[]), 'universe_shell.py', 'exec'), ns)
 fails = []
 
@@ -62,9 +62,11 @@ check('twee keer hetzelfde venster tegelijk -> één bloem', soorten(e) == ['ope
 settings['animations'] = 'reduced'
 check('verminderd -> snel', s.window_flits([W('1')])[0]['snel'] is True)
 settings['animations'] = 'full'; light['on'] = True
-check('lichte modus -> snel', s.window_flits([W('1'), W('6')])[0]['snel'] is True)
+ev = s.window_flits([W('1'), W('6')])[0]
+check('lichte modus -> dezelfde animatie in lichte kwaliteit (niet meer alleen vervagen)', ev['snel'] is False and ev['kwaliteit'] == 'licht')
 light['on'] = False; s.lite = 'test'
-check('eenvoudige wereld -> snel', s.window_flits([W('1')])[0]['snel'] is True)
+ev = s.window_flits([W('1')])[0]
+check('eenvoudige wereld -> lichte kwaliteit', ev['snel'] is False and ev['kwaliteit'] == 'licht')
 s.lite = None; settings['animations'] = 'off'
 check('animaties uit -> niets', s.window_flits([W('1'), W('7')]) == [] and s.window_flits([W('1')]) == [])
 settings['animations'] = 'full'
@@ -77,6 +79,7 @@ s.flits_overlay = lambda: over
 s.flits_dock = lambda: (960, 1040)
 s.flits_meet = Mock()
 s.flits_cache = {'2': {'rect': (100, 120, 800, 500), 'pix': 'PIX'}}
+s.flits_bronnen = {'2': (640, 360)}
 s.play_flits([{'soort': 'sluit', 'wid': '2', 'snel': False, 'van': 'dock'}])
 arg = over.play.call_args[0][0][0]
 check('sluiten speelt op de gemeten rechthoek met inhoud', arg['rect'] == (100, 120, 800, 500) and arg['pix'] == 'PIX')
@@ -118,6 +121,21 @@ ppm = b'P6\n# grim\n2 1\n255\n' + b'\x01\x02\x03\x04\x05\x06'
 check('PPM van grim lezen', venstermeting.lees_ppm(ppm) == (2, 1, b'\x01\x02\x03\x04\x05\x06'))
 check('grim met time-out (nooit hangen)', 'timeout=timeout' in (SH / 'venstermeting.py').read_text())
 
+# 0.2.38: the window comes out of what was clicked
+s = shell()
+s.worlds = [SimpleNamespace(view=SimpleNamespace(get_zoom_level=lambda: 1.0))]
+s.start = SimpleNamespace(view=SimpleNamespace(get_zoom_level=lambda: 1.5), window=SimpleNamespace(get_allocated_width=lambda: 990))
+s.flits_overlay = lambda: SimpleNamespace(size=lambda: (1920, 1080))
+b = s.launch_bron({'x': 100, 'y': 200, 'bron': 'start'})
+check('start-menu: paginapunt -> schermpunt (zoom, gecentreerd, bovenmarge)', b[:2] == ((1920 - 990) / 2 + 150, 300 + 56))
+check('planeet in de wereld: zelfde punt', s.launch_bron({'x': 640, 'y': 360, 'bron': 'world'})[:2] == (640, 360))
+check('Claude/zonder punt: geen bron', s.launch_bron({'id': 'x'}) is None)
+s.window_flits([W('1')])
+e = s.window_flits([W('1'), W('2', activated=True)])
+check('nieuw venster na klik -> komt uit de planeet', e[0].get('bron') == (640, 360) and s.flits_bron is None and s.flits_bronnen['2'] == (640, 360))
+e = s.window_flits([W('1'), W('2'), W('3')])
+check('volgend venster zonder klik -> geen bron (midden)', 'bron' not in e[0])
+
 s = shell(echte_play=True)
 s.flits_overlay = lambda: over
 over.play.reset_mock()
@@ -126,7 +144,7 @@ s.toplevels = SimpleNamespace(list=lambda: [W('5', activated=True)])
 s.flits_cache = {}
 s.flits_wacht = {'5': {'soort': 'open', 'wid': '5', 'snel': False, 'gevraagd': time.monotonic()}}
 s.flits_gemeten((WD, HD, scherm((37, 41, 250, 180))))
-check('gemeten -> bloem op de echte rechthoek met echte inhoud',
+check('gemeten -> portaal op de echte rechthoek met echte inhoud',
       over.play.called and over.play.call_args[0][0][0]['rect'] == (37, 41, 250, 180) and s.flits_cache['5']['pix'] == 'PIX')
 over.play.reset_mock()
 s.toplevels = SimpleNamespace(list=lambda: [])
@@ -136,27 +154,37 @@ check('al weg bij het meten (splash/launcher) -> niets', not over.play.called an
 s.toplevels = SimpleNamespace(list=lambda: [W('7', activated=True)])
 s.flits_wacht = {'7': {'soort': 'open', 'wid': '7', 'snel': False, 'gevraagd': time.monotonic() - 2}}
 s.flits_gemeten((WD, HD, scherm((37, 41, 250, 180))))
-check('te late meting -> geen bloem, wel onthouden voor sluiten', not over.play.called and '7' in s.flits_cache)
+check('te late meting -> geen portaal, wel onthouden voor sluiten', not over.play.called and '7' in s.flits_cache)
 s.toplevels = SimpleNamespace(list=lambda: [W('8', activated=True)])
 s.flits_wacht = {'8': {'soort': 'open', 'wid': '8', 'snel': False, 'gevraagd': time.monotonic()}}
 s.flits_gemeten(None)
 check('opname mislukt -> overslaan', not over.play.called)
 
-# the flower itself
+# the portal itself
 import flits
 A = lambda soort, snel=False: {'soort': soort, 'snel': snel, 'rect': (100, 100, 800, 500), 'start': 0.0, 'traag': 1.0}
 check('openen goed zichtbaar (0.8-1.2 s)', 0.8 <= flits.DUUR['open'] <= 1.2)
 check('sluiten/minimaliseren goed zichtbaar (0.8-1.2 s)', all(0.8 <= flits.DUUR[k] <= 1.2 for k in ('sluit', 'min')))
 check('easing in-out (traag begin en eind)', flits.ease_in_out(0.1) < 0.1 and flits.ease_in_out(0.9) > 0.9 and abs(flits.ease_in_out(0.5) - 0.5) < 1e-9)
 check('snel-modus kort (<=160 ms)', flits.SNEL <= 0.16)
-f0, f1 = flits.bloem_frame(A('open'), 0.0, None), flits.bloem_frame(A('open'), 0.999, None)
-check('open begint als punt in het midden van het venster', f0['p'] == 0 and (f0['cx'], f0['cy']) == (500, 350))
-check('open eindigt op de exacte rechthoek, afdekking weg', f1['p'] > 0.99 and f1['schaal'] > 0.99 and f1['dek'] < 0.01)
-check('bloem dekt bij p=1 de hele rechthoek', flits.bloem_straal(800, 500) * 0.82 >= math.hypot(400, 250) - 0.01)
-same = all(abs(flits.bloem_frame(A('open'), t, None)['p'] - flits.bloem_frame(A('sluit'), 1 - t, None)['p']) < 1e-9 for t in (0.1, 0.3, 0.5, 0.9))
-check('sluiten = open precies andersom', same)
-fm = flits.bloem_frame(dict(A('min'), soort='min'), 0.9, (960, 1040))
-check('minimaliseren vouwt dicht richting het dock', fm['cy'] > 700 and fm['p'] < 0.3)
+P = lambda soort, bron=(300, 900): dict(A(soort), bron=bron, scherm=(1920, 1080))
+f0, f1 = flits.portaal_frame(P('open'), 0.0), flits.portaal_frame(P('open'), 0.999)
+check('open begint klein bij de aangeklikte planeet/snelkoppeling', f0['p'] == 0 and abs(f0['cx'] - 300) < 1e-6 and abs(f0['cy'] - 900) < 1e-6
+      and f0['rect'][2] == flits.PORTAAL_START)
+check('open eindigt op de exacte rechthoek, afdekking weg', f1['p'] > 0.99 and abs(f1['rect'][2] - 800) < 2 and abs(f1['rect'][0] - 100) < 2 and f1['dek'] < 0.01)
+fm_ = flits.portaal_frame(P('open'), 0.5)
+lijn = ((fm_['cx'] - 300) * (350 - 900) - (fm_['cy'] - 900) * (500 - 300))
+check('gebogen baan (geen rechte lijn) met lichtpunt bij de bron', abs(lijn) > 1000 and flits.portaal_frame(P('open'), 0.17)['flare'] > 0.9)
+check('zonder bron: vanuit het midden van het scherm', flits.portaal_bron(dict(A('open'), scherm=(1920, 1080))) == (960, 540))
+same = all(abs(flits.portaal_frame(P('open'), t)['p'] - flits.portaal_frame(P('sluit'), 1 - t)['p']) < 1e-9 for t in (0.1, 0.3, 0.5, 0.9))
+check('sluiten = open precies andersom, terug naar de bron', same and abs(flits.portaal_frame(P('sluit'), 0.999)['cx'] - 300) < 2)
+fm = flits.portaal_frame(dict(A('min'), soort='min', dock=(960, 1040)), 0.9)
+check('minimaliseren gaat naar het dock', fm['cy'] > 900 and fm['p'] < 0.1)
+sp = flits.portaal_spoor(P('open'), 0.5, flits.KWALITEIT['vol']['spoor'])
+check('lichtspoor: lichte modus minder punten, zelfde baan', len(flits.portaal_spoor(P('open'), 0.5, flits.KWALITEIT['licht']['spoor'])) < len(sp) and sp[0][:2] == (fm_['cx'], fm_['cy']))
+check('één tekenpad, kwaliteit als parameter', flits.kwaliteit({'kwaliteit': 'licht'}) is flits.KWALITEIT['licht'] and flits.kwaliteit({}) is flits.KWALITEIT['vol']
+      and flits.KWALITEIT['licht']['tick'] >= 30 and not flits.KWALITEIT['licht']['inhoud'])
+check('lichte modus: zelfde duur', flits.duur(dict(A('open'), kwaliteit='licht')) == flits.duur(A('open')))
 check('voortgang klaar na de duur', flits.voortgang(A('open'), 1.01) is None and flits.voortgang(A('open'), 0.5) is not None and flits.voortgang(A('sluit'), 0.91) is None)
 check('traag-factor alleen via testbestand', flits.TRAAG_BESTAND == '/tmp/universe-flits-traag')
 fsrc = (SH / 'flits.py').read_text()
