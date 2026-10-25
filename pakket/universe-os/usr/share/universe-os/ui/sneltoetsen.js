@@ -22,7 +22,9 @@ export const OVERZICHT=[
   ['Alt+F4','Venster sluiten'],
   ['Ctrl+Shift+Esc','Taakbeheer (systeemmonitor)'],
   ['Ctrl+Alt+Del','Menu: vergrendelen, afmelden, taakbeheer'],
-  ['Ctrl+Alt+T','Terminal']]},
+  ['Ctrl+Alt+T','Terminal'],
+  ['Volumetoetsen, dempentoets','Volume hoger/lager, geluid dempen'],
+  ['Helderheidstoetsen','Helderheid hoger/lager']]},
  {titel:'In programma\'s en in de Universe-pagina\'s',regels:[
   ['Ctrl+C, Ctrl+X, Ctrl+V','Kopiëren, knippen, plakken'],
   ['Ctrl+A, Ctrl+Z','Alles selecteren, ongedaan maken'],
