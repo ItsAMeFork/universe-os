@@ -201,3 +201,7 @@ het concept (eventueel als achtergrond of onderdelen van het startmenu).
 3. Oorzaak van het oorspronkelijke zwarte scherm op de echte pc: niet nagebootst; bij een fout nu melding + `shell.log`.
 4. Chrome-beeldcorruptie: PR #34 (B) is een diagnosetool, nog niet samengevoegd; hardwaregegevens van Axel nodig.
 5. PR #28 en #30 kunnen dicht (vervangen).
+
+## 0.2.34 (lokaal, niet gepubliceerd, geen ISO)
+- Bovenbalk (pil) op de BOTTOM-laag: gemaximaliseerde/fullscreen vensters en vensters die erover staan bedekken hem; vervaagt zacht; komt terug bij herstellen/sluiten. Open paneel (klik/Win+A) gaat naar TOP.
+- Tests: bovenbalk-bedekt.py, bovenbalk-gedrag.py, alle-tests.sh; tests werken vanuit elke map; sneltoetsen-docs compleet.
