@@ -10,7 +10,9 @@ Jesse (t129u/t130u): vensters niet meer als bloem maar vanuit de aangeklikte pla
 - `sterrenhemel.js` (nieuw): 9000 sterren in 3 dieptelagen met parallax, temperatuurkleuren, twinkeling (eigen canvas, 24/8 fps), melkwegband met nevels en stofbanen, warp-strepen. Licht = elke 3e ster, kleinere nevel, minder twinkel. Gebruikt in de wereld en op het inlogscherm (`space.js`).
 - In-/uitloggen/opstarten (`animateWorld`): 2.8/2.3 s, sterren worden lichtstrepen, lensstreep bij de kern. Inlogscherm (`explode.js`): langer opladen/inklappen, planeet vormen 1.7 s, lensstreep.
 - Planeten (`world.css`): atmosfeerrand + belichte kant, alleen gradients (geen blur).
-- Tests: venster-animatie.py (portaal, bron, kwaliteit), lichte-hardware.py, nieuw sterrenhemel.mjs. Frames: uitvoer/vm-test/0.2.38-*.png (cairo offscreen + headless Chrome harnas, geen echte sessie).
+- Vergrendelscherm: vergrendel-/ontgrendelanimatie met warp-sterren (zelfde als uitloggen), universe-lock wacht 2.3 s, gtklock-kaart en klok schuiven in beeld (keyframes), sterren.png en vergrendeld.png opnieuw gemaakt met de nieuwe ruimte.
+- Samengevoegd (Jesse t134u): klus/1 (pyflakes-opruiming), klus/3 (build-scripts: versie via argv, build-iso stopt als build-deb faalt), klus/4 (config.read_json robuust + test), klus/5 (docs). klus/2 blijft staan.
+- Tests: venster-animatie.py (portaal, bron, kwaliteit), lichte-hardware.py, nieuw sterrenhemel.mjs en vergrendelscherm.py. Frames: uitvoer/vm-test/0.2.38-*.png (cairo offscreen + headless Chrome harnas, geen echte sessie).
 
 ## 25 oktober: versie 0.2.37 (animaties trager en zichtbaar, realistisch zwart gat; GEPUBLICEERD 25 okt 17:34, apt test + stable; geen ISO)
 Jesse (t126u): animaties te snel, zwart gat moet echt lijken op een ster die wordt opgeslokt.
