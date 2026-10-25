@@ -480,7 +480,7 @@ class Shell:
             self.worlds.remove(world)
 
     def surfaces(self):
-        return self.worlds + [s for s in (self.panel, self.dock, self.start, self.overview) if s]
+        return self.worlds + [s for s in (self.panel, self.dock, self.start, self.overview, getattr(self, 'flits', None)) if s]
 
     def broadcast(self, name, data=None):
         code = event_code(name, data)  # serialise once, not once per surface
@@ -715,6 +715,7 @@ class Shell:
             self.last_busy = busy
             for world in self.worlds:
                 world.emit('background-busy', busy)
+        self.window_flits(windows)
         covered = any(not w.get('minimized') and (w.get('maximized') or w.get('fullscreen')) for w in windows)
         if getattr(self, 'panel', None) and covered != getattr(self, 'last_covered', None):
             self.last_covered = covered
@@ -732,6 +733,87 @@ class Shell:
             emit_code(self.overview.view, code)
         if self.dock:
             emit_code(self.dock.view, code if code is not None else event_code('windows', self.window_list(windows)))
+        return False
+
+    def flits_mode(self):
+        """0.2.35: 'vol' (hologram), 'snel' (alleen vervagen: lichte modus, eenvoudige wereld, Animaties verminderd)
+        or None (Animaties uit)."""
+        animations = config.settings().get('animations', 'full')
+        if animations == 'off':
+            return None
+        try:
+            light = grafisch.light_active()
+        except Exception:  # noqa: BLE001 - never block windows for an animation
+            light = True
+        if animations == 'reduced' or light or self.lite:
+            return 'snel'
+        return 'vol'
+
+    def window_flits(self, windows):
+        """Window open/close/minimise animation on its own overlay without input (clicks and focus go straight to the
+        real window). The first snapshot (shell start or restart) does not animate the windows already open."""
+        now = {str(w.get('id')): w for w in windows}
+        before = getattr(self, 'flits_seen', None)
+        self.flits_seen = {k: dict(w) for k, w in now.items()}
+        if before is None:
+            return []
+        mode = self.flits_mode()
+        if not mode:
+            return []
+        events = []
+        for wid, w in now.items():
+            old = before.get(wid)
+            if old is None and not w.get('minimized'):
+                events.append({'soort': 'open', 'max': bool(w.get('maximized') or w.get('fullscreen'))})
+            elif old is not None and w.get('minimized') and not old.get('minimized'):
+                events.append({'soort': 'min', 'max': bool(old.get('maximized') or old.get('fullscreen'))})
+            elif old is not None and old.get('minimized') and not w.get('minimized'):
+                events.append({'soort': 'open', 'max': bool(w.get('maximized') or w.get('fullscreen'))})
+        for wid, old in before.items():
+            if wid not in now and not old.get('minimized'):
+                events.append({'soort': 'sluit', 'max': bool(old.get('maximized') or old.get('fullscreen'))})
+        for e in events:
+            e['van'] = 'dock' if self.dock and self.dock.window.get_visible() else 'midden'
+            e['snel'] = mode == 'snel'
+        if events:
+            self.play_flits(events)
+        return events
+
+    def play_flits(self, events):
+        try:
+            if getattr(self, 'flits', None) is None:
+                L, E, K = GtkLayerShell.Layer, GtkLayerShell.Edge, GtkLayerShell.KeyboardMode
+                self.flits = Surface(self, 'flits', 'flits.html', L.OVERLAY, [E.TOP, E.BOTTOM, E.LEFT, E.RIGHT],
+                                     K.NONE, transparent=True)
+                GtkLayerShell.set_exclusive_zone(self.flits.window, -1)
+                self.flits.window.connect('realize', self.flits_no_input)
+                self.flits.window.show_all()
+                self.flits_no_input(self.flits.window)
+                GLib.timeout_add(400, lambda: self.play_flits(events) and False)  # the page loads once
+                return True
+            if not self.flits.window.get_visible():
+                self.flits.window.show_all()
+                self.flits_no_input(self.flits.window)
+            for e in events:
+                self.flits.emit('venster-flits', e)
+            if getattr(self, 'flits_timer', 0):
+                GLib.source_remove(self.flits_timer)
+            self.flits_timer = GLib.timeout_add(700, self.flits_hide)  # nothing left on screen to composite
+        except Exception as error:  # noqa: BLE001 - an animation never breaks the shell
+            log('venster-animatie overgeslagen: %s' % error)
+        return True
+
+    def flits_no_input(self, window):
+        import cairo
+        gdk_window = window.get_window()
+        if gdk_window:
+            gdk_window.input_shape_combine_region(cairo.Region(), 0, 0)
+        return False
+
+    def flits_hide(self):
+        self.flits_timer = 0
+        if getattr(self, 'flits', None):
+            self.flits.window.hide()
         return False
 
     def desktop_toggle(self):

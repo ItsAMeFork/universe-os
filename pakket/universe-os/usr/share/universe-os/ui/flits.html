@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<title>Venster-animatie</title>
+<style>
+/* 0.2.35 (Jesse): een venster komt binnen als ruimtebericht / hologram-transmissie. Deze laag ligt boven alles maar
+   heeft geen invoer (lege invoerregio in de shell): het echte venster is meteen klikbaar en houdt de focus.
+   Alleen transform en opacity: goedkoop. De shell stuurt in de lichte modus 'snel' (alleen vervagen, geen gloed). */
+html,body{margin:0;background:transparent;overflow:hidden;width:100%;height:100%;pointer-events:none}
+.holo{position:absolute;box-sizing:border-box;border:2px solid #85ffe3;border-radius:12px;
+ background:linear-gradient(#85ffe30f,#85ffe305);box-shadow:0 0 24px #85ffe399,inset 0 0 18px #85ffe355;
+ overflow:hidden;will-change:transform,opacity;transform-origin:var(--ox) var(--oy)}
+.holo::after{content:'';position:absolute;left:0;right:0;height:22%;top:-22%;
+ background:linear-gradient(transparent,#85ffe355 45%,#e8fffa99 50%,#85ffe355 55%,transparent);animation:scan var(--d) ease-out forwards}
+.holo.lijnen{background-image:repeating-linear-gradient(#85ffe314 0 1px,transparent 1px 4px),linear-gradient(#85ffe30f,#85ffe305)}
+.holo.snel{border-color:#85ffe366;box-shadow:none;background:#85ffe308}
+.holo.snel::after{display:none}
+@keyframes scan{to{top:100%}}
+</style>
+</head>
+<body>
+<script type="module" src="flits.js"></script>
+</body>
+</html>

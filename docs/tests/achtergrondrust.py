@@ -17,6 +17,7 @@ obj.overview = None
 obj.dock = None
 obj.claude = None
 obj.release_initial_focus = Mock()
+obj.window_flits = Mock()
 for windows, busy in [([], False), ([{'minimized': True}], False),
                       ([{'minimized': False}], True),
                       ([{'minimized': True}, {'minimized': False}], True)]:
