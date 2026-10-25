@@ -1,5 +1,6 @@
-const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
-const code=fs.readFileSync('pakket/universe-os/usr/share/universe-os/ui/updates-ui.js','utf8').replace(/^import .*\n/,'').replaceAll('export function','function');
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict');
+const root=path.join(__dirname,'..','..');
+const code=fs.readFileSync(path.join(root,'pakket/universe-os/usr/share/universe-os/ui/updates-ui.js'),'utf8').replace(/^import .*\n/,'').replaceAll('export function','function');
 const nodes=[],calls=[];let state={state:'available',count:4},failure=false;
 const h=(tag,attrs={},...kids)=>{const n={tag,...attrs,kids,textContent:kids.filter(x=>typeof x==='string').join(''),events:{},isConnected:true,append(...items){this.kids.push(...items);},addEventListener(k,fn){this.events[k]=fn;}};nodes.push(n);return n;};
 const context={h,Date,Set,setTimeout(){},call:async cmd=>{calls.push(cmd);if(cmd==='updates.install'&&failure)throw Error('Geen installatieservice');return state;}};

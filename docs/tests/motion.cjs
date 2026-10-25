@@ -1,6 +1,7 @@
 // motion.js: animations always end, follow the clock and turn light on slow frames (Axel, 14 Oct: never hang or stutter).
-const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
-const src=fs.readFileSync('pakket/universe-os/usr/share/universe-os/ui/motion.js','utf8').replace(/export /g,'');
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict');
+const root=path.join(__dirname,'..','..');
+const src=fs.readFileSync(path.join(root,'pakket/universe-os/usr/share/universe-os/ui/motion.js'),'utf8').replace(/export /g,'');
 function load({cores=4,soft=false,frames}){
  let now=0;const queue=[];
  const ctx={URLSearchParams,setTimeout,clearTimeout,console:{error(){}},Promise,Math,
