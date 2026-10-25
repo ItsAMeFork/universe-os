@@ -3,7 +3,6 @@
 Opened from the file manager with --installeer FILE (the file is only shown; nothing runs until the user clicks
 "Installeren"), from the Applicaties planet, or from search.
 """
-import json
 import os
 import subprocess
 import sys

@@ -430,7 +430,7 @@ class ClaudeUI:
                 self.holder.pack_start(self.term, True, True, 0)
         if self.term is None:
             self.start_terminal()
-        E, K = GtkLayerShell.Edge, GtkLayerShell.KeyboardMode
+        K = GtkLayerShell.KeyboardMode
         GtkLayerShell.set_keyboard_mode(self.panel, K.EXCLUSIVE)
         if not self.panel.get_visible():
             self.panel.show_all()
