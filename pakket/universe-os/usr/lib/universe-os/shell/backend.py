@@ -18,8 +18,8 @@ from gi.repository import Gio, GLib, Gtk  # noqa: E402
 
 import config  # noqa: E402
 import updates  # noqa: E402
-import update_channel  # noqa: E402
-import audio  # noqa: E402
+import update_channel  # noqa: E402,F401  re-exported: control_center uses backend.update_channel
+import audio  # noqa: E402,F401  re-exported: control_center/universe_shell use backend.audio
 import app_planets  # noqa: E402
 import network_status  # noqa: E402
 import chrome_status  # noqa: E402

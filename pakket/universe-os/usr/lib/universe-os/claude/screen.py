@@ -113,7 +113,7 @@ def available():
     evdev = False
     if os.path.exists('/dev/uinput'):
         try:
-            import evdev as _evdev  # noqa: F401
+            import evdev as _evdev  # noqa: F401  availability check only
             evdev = True
         except ImportError:
             evdev = False
