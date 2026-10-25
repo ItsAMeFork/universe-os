@@ -39,7 +39,7 @@ world.html steeds (`free(): invalid pointer`), na 3 keer world-lite (2D).
 - Windows-sneltoetsen (Win+R/S/V/./M, Win+Shift+S, Ctrl+Alt+Del-menu) in `shortcuts.json`; `universe-klembord` (klembordgeschiedenis, emoji, Ctrl+Alt+Del); Ctrl+V plakt in de terminal (sessie zet `~/.config/xfce4/terminal/accels.scm` eenmalig neer). Overzicht: `docs/SNELTOETSEN.md`. Test: `docs/tests/sneltoetsen.py`.
 
 ## 24 oktober: versie 0.2.29 (NVIDIA-pc; ISO gebouwd; gepubliceerd 24 okt 22:20 als onderdeel van 0.2.32)
-Gepubliceerd (apt test + stable): 0.2.24 t/m 0.2.28 (0.2.28 op 24 okt) en 0.2.32 (24 okt 22:20; bevat 0.2.29 t/m 0.2.31, die geen los pakket kregen), 0.2.33 (24 okt 23:29) en 0.2.34 (25 okt 14:11).
+Gepubliceerd (apt test + stable): 0.2.24 t/m 0.2.28 (0.2.28 op 24 okt) en 0.2.32 (24 okt 22:20; bevat 0.2.29 t/m 0.2.31, die geen los pakket kregen), 0.2.33 (24 okt 23:29), 0.2.34 (25 okt 14:11) en 0.2.35 (25 okt 15:51).
 - Met het eigen NVIDIA-stuurprogramma geen grafische proef meer en nooit processor-tekenen door een proefuitslag; normaal tekenen met gedeeld geheugen (`shell/grafisch.py`). Oorzaak van de 2D-terugval: proef zei 'safe' -> llvmpipe -> wereld te traag -> world-lite.
 - Proefpagina neutraal donker (#050815 / #151828) met "Beeld wordt getest…" in plaats van blauw/paars (`shell/grafisch_proef.py`). Dat was het blauw/paarse beeld na inloggen.
 - `ui/world.js`: frame-/planeetcontrole 25 s in plaats van 12/14 s bij `gfx=soft`.
@@ -206,6 +206,6 @@ het concept (eventueel als achtergrond of onderdelen van het startmenu).
 - Bovenbalk (pil) op de BOTTOM-laag: gemaximaliseerde/fullscreen vensters en vensters die erover staan bedekken hem; vervaagt zacht; komt terug bij herstellen/sluiten. Open paneel (klik/Win+A) gaat naar TOP.
 - Tests: bovenbalk-bedekt.py, bovenbalk-gedrag.py, alle-tests.sh; tests werken vanuit elke map; sneltoetsen-docs compleet.
 
-## 0.2.35 (lokaal, niet gepubliceerd, geen ISO)
+## 0.2.35 (GEPUBLICEERD 25 okt 15:51, apt test + stable; netwerkupdate, Jesse test zelf)
 - Venster-animatie als ruimtebericht: overlay (flits.html/js, OVERLAY-laag, geen invoer) met mint-hologram vanuit het dock; sluiten/minimaliseren terug. Lichte modus, eenvoudige wereld, Animaties 'Verminderd': alleen vervagen; 'Uit': niets.
 - Nog niet visueel bevestigd: in de QEMU-demo (TCG) was het hologram niet te zien; moet op echte hardware gecontroleerd worden.
