@@ -59,30 +59,34 @@ check('animaties uit -> niets', s.window_flits([W('1'), W('7')]) == [] and s.win
 settings['animations'] = 'full'
 s.dock = None
 check('geen dock -> vanuit midden', s.window_flits([W('1'), W('8')])[0]['van'] == 'midden')
-check('overlay: OVERLAY-laag, geen toetsenbord, lege invoerregio',
-      "'flits.html', L.OVERLAY" in src and 'K.NONE' in src and 'input_shape_combine_region(cairo.Region()' in src)
-check('overlay verdwijnt na de animatie', 'self.flits_hide' in src)
 check('windows_update roept window_flits aan', 'self.window_flits(windows)' in src)
 
-js = r'''
-globalThis.window=globalThis;globalThis.addEventListener=()=>{};
-import(process.argv[1]).then(m=>{
- const o=m.plan({soort:'open',van:'dock'},1920,1080), c=m.plan({soort:'sluit',van:'dock'},1920,1080),
-       f=m.plan({soort:'open',snel:true},1920,1080), x=m.plan({soort:'open',max:true},1920,1080);
- console.log(JSON.stringify({o:o.duur,c:c.duur,f:f.duur,fl:f.lijnen,ol:o.lijnen,ease:o.easing,xw:x.v.w,end:o.frames.at(-1).opacity,start:o.frames[0].opacity}));
-});'''
-out = subprocess.run(['node', '-e', js, (UI / 'flits.js').as_uri()], capture_output=True, text=True)
-try:
-    r = json.loads(out.stdout)
-except Exception:
-    r = {}
-    print(out.stderr)
-check('open 250-350 ms ease-out', 250 <= r.get('o', 0) <= 350 and r.get('ease', '').startswith('cubic-bezier(.16'))
-check('sluiten sneller (~180 ms)', r.get('c') == 180 and r.get('c', 999) < r.get('o', 0))
-check('snel: kort, geen scanlines', r.get('f', 999) <= 160 and r.get('fl') is False and r.get('ol') is True)
-check('gemaximaliseerd vak = schermbreedte', r.get('xw') == 1920)
-check('begint en eindigt onzichtbaar (scherp echt venster)', r.get('start') == 0 and r.get('end') == 0)
-css = (UI / 'flits.html').read_text()
-check('mint-gloed #85ffe3, geen CSS-filters', '#85ffe3' in css and 'filter:' not in css and 'pointer-events:none' in css)
-check('snel-modus zonder gloed', '.holo.snel{' in css and 'box-shadow:none' in css)
+FL = ROOT / 'pakket/universe-os/usr/lib/universe-os/shell/flits.py'
+fsrc = FL.read_text(encoding='utf-8')
+ft = ast.parse(fsrc)
+keep = [n for n in ft.body if (isinstance(n, ast.FunctionDef) and n.name in ('ease_out', 'ease_in', 'vak', 'frame'))
+        or (isinstance(n, ast.Assign) and getattr(n.targets[0], 'id', '') in ('DUUR', 'SNEL'))]
+fns = {}
+import math; fns['math'] = math
+exec(compile(ast.Module(body=keep, type_ignores=[]), str(FL), 'exec'), fns)
+frame, DUUR, SNEL = fns['frame'], fns['DUUR'], fns['SNEL']
+A = lambda soort, snel=False, mx=False: {'soort': soort, 'snel': snel, 'max': mx, 'van': 'dock', 'start': 0.0, 'traag': 1.0}
+check('open 250-350 ms', 0.25 <= DUUR['open'] <= 0.35)
+check('sluiten sneller (~180 ms)', DUUR['sluit'] == 0.18 and DUUR['sluit'] < DUUR['open'])
+check('snel-modus kort (<=160 ms)', SNEL <= 0.16)
+f0, fm, fe = frame(A('open'), 0.0, 1920, 1080), frame(A('open'), 0.15, 1920, 1080), frame(A('open'), 0.31, 1920, 1080)
+check('open begint klein en onzichtbaar bij het dock', f0[4] == 0 and f0[2] < 200 and f0[1] > 900)
+check('open midden: groot, zichtbaar, scanline + gloed', fm[2] > 900 and fm[4] > 0.5 and fm[5] is not None and fm[6])
+check('daarna klaar (scherp echt venster)', fe is None)
+fs = frame(A('open', snel=True), 0.07, 1920, 1080)
+check('snel: geen scanline, geen gloed', fs[5] is None and fs[6] is False)
+check('gemaximaliseerd vak = schermbreedte', frame(A('open', mx=True), 0.29, 1920, 1080)[2] > 1900)
+fc = frame(A('sluit'), 0.17, 1920, 1080)
+check('sluiten krimpt naar het dock', fc[2] < 800 and fc[1] > 300)
+check('traag-factor alleen via testbestand', "TRAAG_BESTAND = '/tmp/universe-flits-traag'" in fsrc)
+check('overlay: OVERLAY, geen toetsenbord, lege invoerregio, geen WebKit',
+      'Layer.OVERLAY' in fsrc and 'KeyboardMode.NONE' in fsrc and 'input_shape_combine_region(cairo.Region()' in fsrc and 'WebKit' not in fsrc.split('"""', 2)[2])
+check('zonder RGBA-visual geen overlay (geen zwart scherm)', 'if not self.transparent:' in fsrc)
+check('overlay verdwijnt als alles klaar is', 'self.window.hide()' in fsrc)
+check('mint #85ffe3', '0x85 / 255, 0xff / 255, 0xe3 / 255' in fsrc)
 sys.exit(1 if fails else 0)

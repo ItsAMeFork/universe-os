@@ -480,7 +480,7 @@ class Shell:
             self.worlds.remove(world)
 
     def surfaces(self):
-        return self.worlds + [s for s in (self.panel, self.dock, self.start, self.overview, getattr(self, 'flits', None)) if s]
+        return self.worlds + [s for s in (self.panel, self.dock, self.start, self.overview) if s]
 
     def broadcast(self, name, data=None):
         code = event_code(name, data)  # serialise once, not once per surface
@@ -782,52 +782,12 @@ class Shell:
     def play_flits(self, events):
         try:
             if getattr(self, 'flits', None) is None:
-                L, E, K = GtkLayerShell.Layer, GtkLayerShell.Edge, GtkLayerShell.KeyboardMode
-                self.flits = Surface(self, 'flits', 'flits.html', L.OVERLAY, [E.TOP, E.BOTTOM, E.LEFT, E.RIGHT],
-                                     K.NONE, transparent=True)
-                GtkLayerShell.set_exclusive_zone(self.flits.window, -1)
-                self.flits.window.connect('realize', self.flits_no_input)
-                self.flits.window.show_all()
-                self.flits_no_input(self.flits.window)
-                self.flits_ready = False
-            if not getattr(self, 'flits_ready', False):
-                # The page is still loading (seconds on a slow PC): keep only the latest few, play them when it reports.
-                self.flits_queue = (getattr(self, 'flits_queue', []) + list(events))[-4:]
-                self.flits_queued_at = time.monotonic()
-                return True
-            if not self.flits.window.get_visible():
-                self.flits.window.show_all()
-                self.flits_no_input(self.flits.window)
-            for e in events:
-                self.flits.emit('venster-flits', e)
-            if getattr(self, 'flits_timer', 0):
-                GLib.source_remove(self.flits_timer)
-            self.flits_timer = GLib.timeout_add(700, self.flits_hide)  # nothing left on screen to composite
+                import flits
+                self.flits = flits.Flits(log)
+            self.flits.play(events)
         except Exception as error:  # noqa: BLE001 - an animation never breaks the shell
             log('venster-animatie overgeslagen: %s' % error)
         return True
-
-    def flits_page_ready(self):
-        self.flits_ready = True
-        queued, self.flits_queue = getattr(self, 'flits_queue', []), []
-        if queued and time.monotonic() - getattr(self, 'flits_queued_at', 0) < 1.0:
-            self.play_flits(queued)
-        else:  # too late: the window is already there; an animation now would look like a glitch
-            GLib.idle_add(self.flits_hide)
-        return True
-
-    def flits_no_input(self, window):
-        import cairo
-        gdk_window = window.get_window()
-        if gdk_window:
-            gdk_window.input_shape_combine_region(cairo.Region(), 0, 0)
-        return False
-
-    def flits_hide(self):
-        self.flits_timer = 0
-        if getattr(self, 'flits', None):
-            self.flits.window.hide()
-        return False
 
     def desktop_toggle(self):
         self.hide_overview()
@@ -950,7 +910,6 @@ class Shell:
             'surface.hide': surface_hide,
             'surface.show': surface_show,
             'surface.size': lambda a: self.resize_panel(bool(a.get('open'))),
-            'flits.ready': lambda a: self.flits_page_ready(),
             'dock.size': lambda a: self.resize_dock(float(a.get('width') or 0), float(a.get('height') or 0) or None),
             'layout.get': lambda a: config.layout(),
             'layout.set': layout_set,
