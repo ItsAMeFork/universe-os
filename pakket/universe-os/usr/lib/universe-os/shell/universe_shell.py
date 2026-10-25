@@ -30,6 +30,9 @@ import grafisch  # noqa: E402
 from webview import WEBKIT_GRAPHICS, Bridge, page_uri, emit, emit_code, event_code, make_view  # noqa: E402
 
 SOCKET = os.path.join(os.environ.get('XDG_RUNTIME_DIR', '/tmp'), 'universe-shell.sock')
+# 0.2.38 live test: on a slow pc a program can take well over 10 s before its window appears; it still comes out of
+# the planet/shortcut that was clicked (the next new window takes the source, so it is never used twice).
+BRON_GELDIG = 30
 # Page handlers that Claude Code may use through `universe-ctl call` (the universe-mcp tools): what a user does in the
 # desktop (Axel, 13 Oct: "Claude can do everything in the software, except security and the code itself"). Power goes
 # through claude.power, so locking and shutting down always play the same animations as the buttons. Missing on purpose:
@@ -751,6 +754,17 @@ class Shell:
             return 'licht'
         return 'vol'
 
+    def flits_basis(self):
+        """0.2.38 live test: the first snapshot of the window list only came with the first window change, so the first
+        program opened after logging in never got its portal (and closed into the middle). Take the snapshot as soon as
+        the window list is connected (the initial roundtrip has already reported the windows that were open)."""
+        if getattr(self, 'flits_seen', None) is None and self.toplevels:
+            try:
+                self.flits_seen = {str(w.get('id')): dict(w) for w in self.toplevels.list()}
+            except Exception as error:  # noqa: BLE001
+                log('vensterlijst nog niet klaar: %s' % error)
+        return False
+
     def window_flits(self, windows):
         """0.2.38: window open/close/minimise as a portal from the clicked planet/shortcut to the real rectangle. The first snapshot (shell
         start or restart) does not animate the windows already open. Wine/X11 windows that unmap and map again
@@ -780,7 +794,7 @@ class Shell:
                 recent[('open',) + key(w)] = t
                 e = {'soort': 'open', 'wid': wid}
                 bron = getattr(self, 'flits_bron', None)
-                if bron and t - bron[2] < 10:  # the window of the program that was just clicked
+                if bron and t - bron[2] < BRON_GELDIG:  # the window of the program that was just clicked
                     e['bron'] = (bron[0], bron[1])
                     self.flits_bron = None
                     self.__dict__.setdefault('flits_bronnen', {})[wid] = e['bron']
@@ -811,9 +825,23 @@ class Shell:
             self.flits = flits.Flits(log)
         return self.flits
 
+    def flits_scherm(self):
+        """Screen size for animation positions. The overlay is 1x1 until it was shown once (0.2.38 live test: the
+        black hole of the first emptied trash appeared in the top-left corner), so then ask the monitor."""
+        w, h = self.flits_overlay().size()
+        if w > 1 and h > 1:
+            return w, h
+        try:
+            display = Gdk.Display.get_default()
+            monitor = display.get_primary_monitor() or display.get_monitor(0)
+            geo = monitor.get_geometry()
+            return geo.width, geo.height
+        except Exception:  # noqa: BLE001
+            return w, h
+
     def flits_dock(self):
         try:
-            w, h = self.flits_overlay().size()
+            w, h = self.flits_scherm()
             return (w / 2, h - 40) if w > 1 else None
         except Exception:  # noqa: BLE001
             return None
@@ -900,10 +928,11 @@ class Shell:
         x, y = x * zoom, y * zoom
         if bron == 'start' and surface:
             try:
-                sw = self.flits_overlay().size()[0]
-                if sw <= 1:
-                    sw = Gdk.Screen.get_default().get_width()
-                x += (sw - surface.window.get_allocated_width()) / 2
+                sw = self.flits_scherm()[0]
+                own = surface.window.get_allocated_width()
+                if own <= 1:  # 0.2.38 live test: the menu is already hidden when the call arrives (allocation 1 px)
+                    own = surface.window.get_size_request()[0]
+                x += (sw - own) / 2
                 y += 56  # top margin of the start surface (make_start)
             except Exception:  # noqa: BLE001
                 pass
@@ -926,7 +955,7 @@ class Shell:
             if w.get('activated') and known:
                 x, y, bw, bh = known['rect']
                 return x + bw / 2, y + bh / 2
-        w, h = self.flits_overlay().size()
+        w, h = self.flits_scherm()
         return w / 2, h / 2
 
     def flits_zwartgat(self, namen, x=None, y=None):
@@ -1713,6 +1742,8 @@ class Shell:
         GLib.timeout_add_seconds(45, self.check_updates_at_login)
         if not self.toplevels.start():
             log('Zonder vensteroverzicht verder.')
+        else:
+            self.flits_basis()  # the roundtrips in start() have reported the windows that were already open
         self.prullenbak_start()
         GLib.timeout_add_seconds(10, self.status_tick)
         GLib.timeout_add_seconds(45, self.doelen_tick)

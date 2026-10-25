@@ -13,7 +13,7 @@ sys.path.insert(0, str(SH))
 src = (SH / 'universe_shell.py').read_text(encoding='utf-8')
 cls = next(n for n in ast.parse(src).body if isinstance(n, ast.ClassDef) and n.name == 'Shell')
 cls.body = [n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name in
-            ('flits_mode', 'flits_bestand', 'flits_plek', 'desktop_trash', 'prullenbak_vergelijk', 'flits_zwartgat')]
+            ('flits_mode', 'flits_bestand', 'flits_plek', 'flits_scherm', 'desktop_trash', 'prullenbak_vergelijk', 'flits_zwartgat')]
 settings = {'animations': 'full'}
 backend = SimpleNamespace(desktop_trash=Mock())
 ns = {'config': SimpleNamespace(settings=lambda: settings), 'grafisch': SimpleNamespace(light_active=lambda: False),

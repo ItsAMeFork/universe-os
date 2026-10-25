@@ -13,11 +13,11 @@ sys.path.insert(0, str(SH))
 src = (SH / 'universe_shell.py').read_text(encoding='utf-8')
 tree = ast.parse(src)
 cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'Shell')
-cls.body = [n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name in ('window_flits', 'flits_mode', 'play_flits', 'flits_gemeten', 'launch_bron')]
+cls.body = [n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name in ('window_flits', 'flits_mode', 'play_flits', 'flits_gemeten', 'launch_bron', 'flits_scherm', 'flits_basis')]
 settings = {'animations': 'full'}
 light = {'on': False}
 ns = {'config': SimpleNamespace(settings=lambda: settings), 'grafisch': SimpleNamespace(light_active=lambda: light['on']),
-      'time': time, 'log': print, 'GLib': SimpleNamespace(timeout_add=lambda *a: 1), 'Gdk': None}
+      'time': time, 'log': print, 'GLib': SimpleNamespace(timeout_add=lambda *a: 1), 'Gdk': None, 'BRON_GELDIG': 30}
 exec(compile(ast.Module(body=[cls], type_ignores=[]), 'universe_shell.py', 'exec'), ns)
 fails = []
 
@@ -194,4 +194,29 @@ check('zonder RGBA-visual geen overlay (geen zwart scherm)', 'if not self.transp
 check('kapot frame wordt overgeslagen', 'animatie overgeslagen' in fsrc)
 check('overlay verdwijnt als alles klaar is', 'self.window.hide()' in fsrc)
 check('afdekking alleen op de eigen rechthoek (nooit volledig scherm)', 'cr.rectangle(x, y, bw, bh)' in fsrc)
+# 0.2.38 live test: overlay still 1x1 (never shown) -> ask the monitor, never the top-left corner
+s = shell()
+s.flits_overlay = lambda: SimpleNamespace(size=lambda: (1, 1))
+geo = SimpleNamespace(width=1920, height=1080)
+ns['Gdk'] = SimpleNamespace(Display=SimpleNamespace(get_default=lambda: SimpleNamespace(get_primary_monitor=lambda: None, get_monitor=lambda i: SimpleNamespace(get_geometry=lambda: geo))))
+check('overlay nog 1x1: schermmaat van de monitor', s.flits_scherm() == (1920, 1080))
+ns['Gdk'] = None
+check('zonder monitor: geen crash', s.flits_scherm() == (1, 1))
+check('trage pc: bron blijft 30 s geldig', 'BRON_GELDIG = 30' in (SH / 'universe_shell.py').read_text() and 't - bron[2] < BRON_GELDIG' in (SH / 'universe_shell.py').read_text())
+# 0.2.38 live test: the first program after logging in also gets its portal (snapshot when the window list connects)
+s = shell()
+s.toplevels = SimpleNamespace(list=lambda: [])
+s.flits_basis()
+e = s.window_flits([W('7', activated=True)])
+check('eerste programma na inloggen: ook een portaal', [x['soort'] for x in e] == ['open'])
+s = shell()
+s.toplevels = SimpleNamespace(list=lambda: [W('3')])
+s.flits_basis()
+check('vensters die al open waren bij herstart: geen portaal', s.window_flits([W('3')]) == [])
+# 0.2.38 live test: the start menu is already hidden when the launch arrives (allocated width 1): use its fixed width
+s = shell()
+s.worlds = []
+s.start = SimpleNamespace(view=SimpleNamespace(get_zoom_level=lambda: 1.0), window=SimpleNamespace(get_allocated_width=lambda: 1, get_size_request=lambda: (660, -1)))
+s.flits_overlay = lambda: SimpleNamespace(size=lambda: (1920, 1080))
+check('menu al verborgen: snelkoppeling op de juiste plek', s.launch_bron({'x': 488, 'y': 347, 'bron': 'start'})[:2] == (488 + 630, 347 + 56))
 sys.exit(1 if fails else 0)

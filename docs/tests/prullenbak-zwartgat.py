@@ -14,7 +14,7 @@ import flits
 src = (SH / 'universe_shell.py').read_text(encoding='utf-8')
 cls = next(n for n in ast.parse(src).body if isinstance(n, ast.ClassDef) and n.name == 'Shell')
 cls.body = [n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name in
-            ('flits_mode', 'flits_plek', 'prullenbak_vergelijk', 'flits_zwartgat', 'flits_bestand', 'empty_trash')]
+            ('flits_mode', 'flits_plek', 'flits_scherm', 'prullenbak_vergelijk', 'flits_zwartgat', 'flits_bestand', 'empty_trash')]
 settings = {'animations': 'full'}
 backend = SimpleNamespace(trash_empty=Mock(return_value=True))
 ns = {'config': SimpleNamespace(settings=lambda: settings), 'grafisch': SimpleNamespace(light_active=lambda: False),
