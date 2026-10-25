@@ -2,7 +2,7 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
-## 25 oktober: versie 0.2.38 (portaal-vensteranimatie, mooiere ruimte, filmische in-/uitlog, lichte modus = zelfde in lagere kwaliteit; lokaal, NIET gepubliceerd, geen ISO)
+## 25 oktober: versie 0.2.38 (portaal-vensteranimatie, mooiere ruimte, filmische in-/uitlog, lichte modus = zelfde in lagere kwaliteit; GEPUBLICEERD 25 okt 21:47, apt test + stable, commit ebdbbb4; geen ISO)
 Jesse (t129u/t130u): vensters niet meer als bloem maar vanuit de aangeklikte planeet/snelkoppeling; alle animaties en de ruimte mooier; de lichte modus exact hetzelfde maar lichter.
 - `flits.py`: portaal (venster groeit langs een gebogen baan met lichtspoor uit de bron, lichtpunt + lensstreep bij de bron; sluiten terug naar de bron of het midden; minimaliseren naar het dock). Eén tekenpad met `KWALITEIT` vol/licht (licht: minder gloedlagen/spoorpunten/schijfsegmenten, geen vensterinhoud, ~30 fps); ook gat en zwart gat. 'snel' alleen nog voor Animaties verminderd.
 - `universe_shell.py`: flits_mode geeft 'licht' bij oude/zwakke videokaart of eenvoudige wereld; `launch_bron` (klikpunt van world/start naar schermpixels); bron per venster onthouden voor sluiten.
@@ -13,6 +13,8 @@ Jesse (t129u/t130u): vensters niet meer als bloem maar vanuit de aangeklikte pla
 - Vergrendelscherm: vergrendel-/ontgrendelanimatie met warp-sterren (zelfde als uitloggen), universe-lock wacht 2.3 s, gtklock-kaart en klok schuiven in beeld (keyframes), sterren.png en vergrendeld.png opnieuw gemaakt met de nieuwe ruimte.
 - Samengevoegd (Jesse t134u): klus/1 (pyflakes-opruiming), klus/3 (build-scripts: versie via argv, build-iso stopt als build-deb faalt), klus/4 (config.read_json robuust + test), klus/5 (docs). klus/2 blijft staan.
 - Tests: venster-animatie.py (portaal, bron, kwaliteit), lichte-hardware.py, nieuw sterrenhemel.mjs en vergrendelscherm.py. Frames: uitvoer/vm-test/0.2.38-*.png (cairo offscreen + headless Chrome harnas, geen echte sessie).
+- Live getest in de laptop-VM, licht en vol (4aa64e1): zwart gat midden i.p.v. linksboven, eerste programma na inloggen krijgt portaal, menubron klopt, bron 30 s geldig. Screenshots: uitvoer/vm-test/0.2.38-live-*.png.
+- Live2 (ebdbbb4, Jesse t142u): toetsen direct na Super+L kwamen in de app ('tes' in de rekenmachine). Nu labwc `Unfocus` vóór universe-lock + onzichtbare invoervanger in de shell tot gtklock het toetsenbord heeft; focus terug na ontgrendelen (test vergrendel-invoer.py; live: 36-42 toetsen tijdens de animatie, rekenmachine leeg). Nieuw venster: na de grim-opname het scherm van vóór het venster erover (flits_voor/bevries), afdekking = echte achtergrond (zachte rand als terugval); wek-timer brak het portaal en gaf zwarte beelden (opgelost). Afmeld-animatie vastgelegd. Screenshots: uitvoer/vm-test/0.2.38-live2-*.png. Rest: venster nog ~1 grim-opname zichtbaar (labwc 0.8.3 geeft geen vensterpositie).
 
 ## 25 oktober: versie 0.2.37 (animaties trager en zichtbaar, realistisch zwart gat; GEPUBLICEERD 25 okt 17:34, apt test + stable; geen ISO)
 Jesse (t126u): animaties te snel, zwart gat moet echt lijken op een ster die wordt opgeslokt.
@@ -69,7 +71,7 @@ world.html steeds (`free(): invalid pointer`), na 3 keer world-lite (2D).
 - Windows-sneltoetsen (Win+R/S/V/./M, Win+Shift+S, Ctrl+Alt+Del-menu) in `shortcuts.json`; `universe-klembord` (klembordgeschiedenis, emoji, Ctrl+Alt+Del); Ctrl+V plakt in de terminal (sessie zet `~/.config/xfce4/terminal/accels.scm` eenmalig neer). Overzicht: `docs/SNELTOETSEN.md`. Test: `docs/tests/sneltoetsen.py`.
 
 ## 24 oktober: versie 0.2.29 (NVIDIA-pc; ISO gebouwd; gepubliceerd 24 okt 22:20 als onderdeel van 0.2.32)
-Gepubliceerd (apt test + stable): 0.2.24 t/m 0.2.28 (0.2.28 op 24 okt) en 0.2.32 (24 okt 22:20; bevat 0.2.29 t/m 0.2.31, die geen los pakket kregen), 0.2.33 (24 okt 23:29), 0.2.34 (25 okt 14:11), 0.2.35 (25 okt 15:51), 0.2.36 (25 okt 16:58) en 0.2.37 (25 okt 17:34).
+Gepubliceerd (apt test + stable): 0.2.24 t/m 0.2.28 (0.2.28 op 24 okt) en 0.2.32 (24 okt 22:20; bevat 0.2.29 t/m 0.2.31, die geen los pakket kregen), 0.2.33 (24 okt 23:29), 0.2.34 (25 okt 14:11), 0.2.35 (25 okt 15:51), 0.2.36 (25 okt 16:58), 0.2.37 (25 okt 17:34) en 0.2.38 (25 okt 21:47).
 - Met het eigen NVIDIA-stuurprogramma geen grafische proef meer en nooit processor-tekenen door een proefuitslag; normaal tekenen met gedeeld geheugen (`shell/grafisch.py`). Oorzaak van de 2D-terugval: proef zei 'safe' -> llvmpipe -> wereld te traag -> world-lite.
 - Proefpagina neutraal donker (#050815 / #151828) met "Beeld wordt getest…" in plaats van blauw/paars (`shell/grafisch_proef.py`). Dat was het blauw/paarse beeld na inloggen.
 - `ui/world.js`: frame-/planeetcontrole 25 s in plaats van 12/14 s bij `gfx=soft`.
