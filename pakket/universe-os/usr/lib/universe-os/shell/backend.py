@@ -5,6 +5,7 @@ import collections
 import grp
 import json
 import os
+import threading
 import pwd
 import re
 import shutil
@@ -647,6 +648,24 @@ def desktop_rename(path, name):
 
 def desktop_trash(path):
     Gio.File.new_for_path(_in_desktop(path)).trash(None)
+    sound('prullenbak')
+    return True
+
+
+def trash_empty():
+    """Empty the trash (desktop menu 'Prullenbak leegmaken'). In a thread: the shell sees the trash become empty
+    through its monitor and plays the black hole."""
+    def work():
+        trash = Gio.File.new_for_uri('trash:///')
+        try:
+            for info in trash.enumerate_children('standard::name', Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS, None):
+                try:
+                    trash.get_child(info.get_name()).delete(None)
+                except GLib.Error:
+                    pass
+        except GLib.Error:
+            pass
+    threading.Thread(target=work, daemon=True).start()
     sound('prullenbak')
     return True
 

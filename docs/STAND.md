@@ -2,6 +2,17 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
+## 25 oktober: versie 0.2.36 (bloem-animatie op echte venstergrootte, lichtflits + gat, zwart gat bij prullenbak legen; NIET gepubliceerd, geen ISO)
+Jesse vond de 0.2.35-animatie een 'vierkante lichtflits'.
+- Vensters (ook Wine/.exe via Xwayland): openen = bloem die vanuit het midden uitvouwt tot precies de rechthoek van het venster, met de echte inhoud; sluiten = dezelfde bloem andersom; minimaliseren vouwt dicht richting het dock. Open ~350 ms, sluiten ~250 ms.
+- Geometrie: labwc 0.8.3 heeft geen IPC en geeft via wlr-foreign-toplevel geen positie; ext-image-copy-capture per venster pas in labwc 0.9. Daarom `shell/venstermeting.py`: één grim-opname (wlr-screencopy) en de actieve vensterrand (#85ffe3, 2 px, titelbalk #162335) terugzoeken = exacte rechthoek + inhoud. Gemaximaliseerd zonder rand: scherm min dock. Geen rand gevonden (splash, launcher, volledig scherm) = geen animatie.
+- Geen dubbele animaties: Wine/X11-vensters die opnieuw mappen (zelfde app+titel binnen 1 s) en vensters die weg zijn voor de meting krijgen niets; sluiten alleen als het venster ooit gemeten is.
+- Bestand naar de prullenbak: lichtflits op de plek (bureaublad: positie van het icoon; Thunar/gio: midden van het actieve venster) en een klein zwart gat. Via een Gio-monitor op trash:///. Windows-programma verwijderen (wine.remove) roept `universe-ctl flits verwijder <naam>`.
+- Prullenbak legen (Thunar, gio, nieuw menu 'Prullenbak leegmaken' op het bureaublad-icoon): groot zwart gat met accretieschijf en lens-gloed slokt de bestanden één voor één op met lichtsporen; max ~3 s, boven 18 bestanden gegroepeerd ('+N').
+- Verminderd/lichte modus/eenvoudige wereld: alleen een korte omlijning/vervaging (150 ms); Uit: niets. Elk kapot frame wordt overgeslagen.
+- Bekend: de meting komt na het verschijnen van het venster (grim-opname), dus het venster is heel even zichtbaar voordat de bloem het afdekt (in de VM duidelijk, op echte hardware ~50-100 ms). Positie bij sluiten = laatst gemeten (bij activeren/maximaliseren), een venster dat daarna versleept is sluit op zijn oude plek.
+- Tests: venster-animatie.py (herschreven), bestand-verwijderen.py, prullenbak-zwartgat.py. Screenshots: uitvoer/vm-test/0.2.36-*.png (0.2.33-demo in QEMU TCG, vertraagd x12).
+
 ## 24 oktober: versie 0.2.33 (opstartmenu in home-wereld-stijl; ISO gebouwd; GEPUBLICEERD 24 okt 23:29, apt test + stable)
 - BIOS (syslinux) en UEFI (GRUB) tonen de ingelogde 'home'-wereld (aarde + sterren, zonder dock/bovenbalk) als achtergrond.
 - Geen menutitel meer over het logo; één optie 'Universe OS' in een pil zoals de dock, aftelling en hint in shell-kleuren.

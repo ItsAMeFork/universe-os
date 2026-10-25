@@ -750,8 +750,10 @@ class Shell:
         return 'vol'
 
     def window_flits(self, windows):
-        """Window open/close/minimise animation on its own overlay without input (clicks and focus go straight to the
-        real window). The first snapshot (shell start or restart) does not animate the windows already open."""
+        """0.2.36: window open/close/minimise as a flower on the window's real rectangle. The first snapshot (shell
+        start or restart) does not animate the windows already open. Wine/X11 windows that unmap and map again
+        (same program and title within a second) and windows that are gone before they could be measured (splash
+        screens, launchers) get no animation, so never a double or strange one."""
         now = {str(w.get('id')): w for w in windows}
         before = getattr(self, 'flits_seen', None)
         self.flits_seen = {k: dict(w) for k, w in now.items()}
@@ -760,34 +762,210 @@ class Shell:
         mode = self.flits_mode()
         if not mode:
             return []
+        t = time.monotonic()
+        recent = self.__dict__.setdefault('flits_recent', {})
+        for key in [k for k, v in recent.items() if t - v > 5]:
+            del recent[key]
+        key = lambda w: (w.get('appId') or '', w.get('title') or '')
         events = []
         for wid, w in now.items():
             old = before.get(wid)
-            if old is None and not w.get('minimized'):
-                events.append({'soort': 'open', 'max': bool(w.get('maximized') or w.get('fullscreen'))})
-            elif old is not None and w.get('minimized') and not old.get('minimized'):
-                events.append({'soort': 'min', 'max': bool(old.get('maximized') or old.get('fullscreen'))})
-            elif old is not None and old.get('minimized') and not w.get('minimized'):
-                events.append({'soort': 'open', 'max': bool(w.get('maximized') or w.get('fullscreen'))})
+            if old is None:
+                if w.get('minimized'):
+                    continue
+                if t - recent.get(key(w), -99) < 1.0 or t - recent.get(('open',) + key(w), -99) < 1.0:
+                    continue  # the same program window mapped again (Wine/Xwayland): no second flower
+                recent[('open',) + key(w)] = t
+                events.append({'soort': 'open', 'wid': wid})
+            elif w.get('minimized') and not old.get('minimized'):
+                events.append({'soort': 'min', 'wid': wid})
+            elif old.get('minimized') and not w.get('minimized'):
+                events.append({'soort': 'open', 'wid': wid})
+            elif w.get('activated') and (not old.get('activated') or w.get('maximized') != old.get('maximized')
+                                         or w.get('fullscreen') != old.get('fullscreen')):
+                events.append({'soort': 'meet', 'wid': wid})  # refresh rectangle and content for closing later
         for wid, old in before.items():
-            if wid not in now and not old.get('minimized'):
-                events.append({'soort': 'sluit', 'max': bool(old.get('maximized') or old.get('fullscreen'))})
+            if wid not in now:
+                recent[key(old)] = t
+                if not old.get('minimized'):
+                    events.append({'soort': 'sluit', 'wid': wid})
         for e in events:
-            e['van'] = 'dock' if self.dock and self.dock.window.get_visible() else 'midden'
             e['snel'] = mode == 'snel'
+            e['van'] = 'dock' if self.dock and self.dock.window.get_visible() else 'midden'
         if events:
             self.play_flits(events)
         return events
 
+    def flits_overlay(self):
+        if getattr(self, 'flits', None) is None:
+            import flits
+            self.flits = flits.Flits(log)
+        return self.flits
+
+    def flits_dock(self):
+        try:
+            w, h = self.flits_overlay().size()
+            return (w / 2, h - 40) if w > 1 else None
+        except Exception:  # noqa: BLE001
+            return None
+
     def play_flits(self, events):
         try:
-            if getattr(self, 'flits', None) is None:
-                import flits
-                self.flits = flits.Flits(log)
-            self.flits.play(events)
+            cache = self.__dict__.setdefault('flits_cache', {})
+            direct = []
+            for e in events:
+                if e['soort'] in ('open', 'meet'):
+                    self.flits_meet(e)
+                    continue
+                known = cache.pop(e['wid'], None) if e['soort'] == 'sluit' else cache.get(e['wid'])
+                if not known:
+                    continue  # never measured (no Universe border, splash): no animation instead of a guess
+                direct.append(dict(e, rect=known['rect'], pix=None if e['snel'] else known.get('pix'),
+                                   dock=self.flits_dock() if e['van'] == 'dock' else None))
+            if direct:
+                self.flits_overlay().play(direct)
         except Exception as error:  # noqa: BLE001 - an animation never breaks the shell
             log('venster-animatie overgeslagen: %s' % error)
         return True
+
+    def flits_meet(self, e):
+        """Measure the active window (rectangle + content) shortly after it appeared, in a thread (grim)."""
+        e = dict(e, gevraagd=time.monotonic())
+        pending = self.__dict__.setdefault('flits_wacht', {})
+        pending[e['wid']] = e
+        if not getattr(self, 'flits_bezig', False):
+            self.flits_bezig = True
+            GLib.timeout_add(50, self.flits_meet_start)
+
+    def flits_meet_start(self):
+        import venstermeting
+        threading.Thread(target=lambda: GLib.idle_add(self.flits_gemeten, venstermeting.opname()), daemon=True).start()
+        return False
+
+    def flits_gemeten(self, shot):
+        import venstermeting
+        pending, self.flits_wacht = getattr(self, 'flits_wacht', {}), {}
+        self.flits_bezig = False
+        try:
+            windows = {str(w.get('id')): w for w in self.toplevels.list()} if self.toplevels else {}
+            active = [wid for wid in pending if windows.get(wid, {}).get('activated')]
+            if not shot or not active:
+                return False  # gone already (splash/launcher) or not in front: nothing, never a guess
+            wid = active[-1]
+            e, w = pending[wid], windows[wid]
+            if w.get('fullscreen'):
+                return False
+            width, height, data = shot
+            rect = venstermeting.vind_actief(width, height, data)
+            if rect is None and w.get('maximized'):
+                rect = (0, 0, width, height - (80 if self.dock and self.dock.window.get_visible() else 0))
+            if rect is None:
+                return False
+            pix = None if e['snel'] else venstermeting.inhoud(width, height, data, rect)
+            self.flits_cache[wid] = {'rect': rect, 'pix': pix}
+            import flits
+            if e['soort'] == 'open' and time.monotonic() - e['gevraagd'] < 0.6 * flits.traag():  # later: no flower
+                self.flits_overlay().play([dict(e, rect=rect, pix=pix)])
+        except Exception as error:  # noqa: BLE001
+            log('venstermeting overgeslagen: %s' % error)
+        finally:
+            if getattr(self, 'flits_wacht', None):
+                self.flits_bezig = True
+                GLib.timeout_add(30, self.flits_meet_start)
+        return False
+
+    def flits_bestand(self, x=None, y=None, naam=''):
+        """A file goes to the trash: flash + small hole at its place (or in the middle of the window in front)."""
+        mode = self.flits_mode()
+        if not mode:
+            return False
+        if x is None or y is None:
+            x, y = self.flits_plek()
+        return self.flits_overlay().play([{'soort': 'gat', 'x': float(x), 'y': float(y), 'naam': naam, 'snel': mode == 'snel'}])
+
+    def flits_plek(self):
+        """Middle of the active window (e.g. Thunar or Windows-programma's), else the middle of the screen."""
+        for w in (self.toplevels.list() if self.toplevels else []):
+            known = getattr(self, 'flits_cache', {}).get(str(w.get('id')))
+            if w.get('activated') and known:
+                x, y, bw, bh = known['rect']
+                return x + bw / 2, y + bh / 2
+        w, h = self.flits_overlay().size()
+        return w / 2, h / 2
+
+    def flits_zwartgat(self, namen, x=None, y=None):
+        mode = self.flits_mode()
+        if not mode or not namen:
+            return False
+        plek = getattr(self, 'zwartgat_plek', None)
+        if x is None and plek and time.monotonic() - plek[2] < 10:
+            x, y = plek[0], plek[1]
+        self.zwartgat_plek = None
+        if x is None or y is None:
+            x, y = self.flits_plek()
+        return self.flits_overlay().play([{'soort': 'zwartgat', 'x': float(x), 'y': float(y), 'namen': list(namen), 'snel': mode == 'snel'}])
+
+    # ----- de prullenbak (Thunar, bureaublad en alles wat via GIO naar trash:/// gaat) -----
+    def prullenbak_start(self):
+        try:
+            self.trash_dir = Gio.File.new_for_uri('trash:///')
+            self.trash_monitor = self.trash_dir.monitor_directory(Gio.FileMonitorFlags.NONE, None)
+            self.trash_monitor.connect('changed', lambda *a: self.prullenbak_gewijzigd())
+            self.trash_names = None
+            self.prullenbak_gewijzigd()
+        except Exception as error:  # noqa: BLE001
+            log('prullenbak-animaties niet beschikbaar: %s' % error)
+
+    def prullenbak_gewijzigd(self):
+        if not getattr(self, 'trash_timer', 0):
+            self.trash_timer = GLib.timeout_add(150, self.prullenbak_lees)
+
+    def prullenbak_lees(self):
+        self.trash_timer = 0
+
+        def work():
+            names = {}
+            try:
+                for info in self.trash_dir.enumerate_children('standard::name,standard::display-name', Gio.FileQueryInfoFlags.NONE, None):
+                    names[info.get_name()] = info.get_display_name()
+            except Exception:  # noqa: BLE001
+                return
+            GLib.idle_add(self.prullenbak_vergelijk, names)
+        threading.Thread(target=work, daemon=True).start()
+        return False
+
+    def prullenbak_vergelijk(self, names):
+        """New items: a file went to the trash (Thunar, Delete key). All items gone: the trash was emptied (black hole).
+        Items taken out while others stay (restore) get no animation."""
+        old, self.trash_names = getattr(self, 'trash_names', None), dict(names)
+        if old is None:
+            return []
+        added = [names[k] for k in names if k not in old]
+        removed = [old[k] for k in old if k not in names]
+        events = []
+        if added and time.monotonic() - getattr(self, 'flits_eigen', -99) > 1.5:  # the desktop already flashed itself
+            events.append(('gat', added))
+            x, y = self.flits_plek()
+            for i, n in enumerate(added[:6]):  # several at once: a small grid around the middle
+                self.flits_bestand(x + (i % 3 - (min(len(added), 3) - 1) / 2) * 44, y + (i // 3) * 44, n)
+        if removed and not names:
+            events.append(('zwartgat', removed))
+            self.flits_zwartgat(removed)
+        return events
+
+    def desktop_trash(self, a):
+        backend.desktop_trash(str(a.get('path') or ''))
+        self.flits_eigen = time.monotonic()
+        try:
+            self.flits_bestand(a.get('x'), a.get('y'), os.path.basename(str(a.get('path') or '')))
+        except Exception as error:  # noqa: BLE001
+            log('verwijder-animatie overgeslagen: %s' % error)
+        return True
+
+    def empty_trash(self, a):
+        if a.get('x') is not None:
+            self.zwartgat_plek = (float(a['x']), float(a['y']), time.monotonic())
+        return backend.trash_empty()
 
     def desktop_toggle(self):
         self.hide_overview()
@@ -918,7 +1096,8 @@ class Shell:
             'desktop.list': lambda a: backend.desktop_list(),
             'desktop.mkdir': lambda a: backend.desktop_mkdir(),
             'desktop.rename': lambda a: backend.desktop_rename(str(a.get('path') or ''), a.get('name')),
-            'desktop.trash': lambda a: backend.desktop_trash(str(a.get('path') or '')),
+            'desktop.trash': self.desktop_trash,
+            'desktop.empty-trash': self.empty_trash,
             'desktop.launch': lambda a: backend.desktop_launch(str(a.get('path') or '')),
             'start.toggle': lambda a: self.start_menu(a.get('open')),
             'intro.claim': lambda a: self.claim_intro(),
@@ -1185,6 +1364,9 @@ class Shell:
                     self.flash_brein(data)  # a new memory: the open nebula flashes a star
                 elif self.claude:
                     self.claude.event(parts[1], data)
+            elif cmd == 'flits' and len(parts) > 1:  # universe-ctl flits verwijder [naam] (Windows-programma verwijderd)
+                if parts[1] == 'verwijder':
+                    self.flits_bestand(naam=parts[2] if len(parts) > 2 else '')
             elif cmd == 'apps-changed':
                 self.broadcast('apps-changed')
             elif cmd == 'reload':
@@ -1494,6 +1676,7 @@ class Shell:
         GLib.timeout_add_seconds(45, self.check_updates_at_login)
         if not self.toplevels.start():
             log('Zonder vensteroverzicht verder.')
+        self.prullenbak_start()
         GLib.timeout_add_seconds(10, self.status_tick)
         GLib.timeout_add_seconds(45, self.doelen_tick)
         self.watch_devices()

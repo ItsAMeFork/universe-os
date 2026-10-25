@@ -588,7 +588,7 @@ function rename(o){
  input.addEventListener('pointerdown',ev=>ev.stopPropagation());
 }
 async function removeObj(o){
- if(o.source==='desktop'){await call('desktop.trash',{path:o.target});toast(o.name+' staat in de prullenbak.');return;}
+ if(o.source==='desktop'){const r=o.el?.getBoundingClientRect();await call('desktop.trash',{path:o.target,...(r&&r.width?{x:r.left+r.width/2,y:r.top+r.height/2}:{})});toast(o.name+' staat in de prullenbak.');return;}
  if(o.source==='shortcut'){layout.items=layout.items.filter(i=>i.id!==o.key);await saveLayout();refreshSpace();return;}
  hideObj(o);
 }
@@ -638,6 +638,7 @@ function objectMenu(o){
   '-',
   ...(o.source==='desktop'?[{label:'Naam wijzigen',run:()=>rename(o),keys:'F2'},{label:'Naar de prullenbak',run:()=>removeObj(o),keys:'Delete'}]:[]),
   ...(o.source==='shortcut'?[{label:'Van het bureaublad verwijderen',run:()=>removeObj(o),keys:'Delete'}]:[]),
+  ...(o.key==='sys:trash'?[{label:'Prullenbak leegmaken',run:()=>{const r=o.el?.getBoundingClientRect();return call('desktop.empty-trash',r&&r.width?{x:r.left+r.width/2,y:r.top+r.height/2}:{});}}]:[]),
   ...(o.kind==='app'||o.key==='sys:trash'||o.key==='sys:home'?[{label:'Verbergen',run:()=>hideObj(o),keys:'Delete'}]:[]),
  ];
 }
