@@ -716,7 +716,7 @@ class Shell:
             for world in self.worlds:
                 world.emit('background-busy', busy)
         covered = any(not w.get('minimized') and (w.get('maximized') or w.get('fullscreen')) for w in windows)
-        if self.panel and covered != getattr(self, 'last_covered', None):
+        if getattr(self, 'panel', None) and covered != getattr(self, 'last_covered', None):
             self.last_covered = covered
             self.panel.emit('bar-covered', covered)  # the pill fades away smoothly (it is below the window anyway)
         if self.claude and self.claude.buddy:
