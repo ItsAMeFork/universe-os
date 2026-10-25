@@ -19,9 +19,13 @@ def user_dir():
 def read_json(path, fallback):
     try:
         with open(path, encoding='utf-8') as f:
-            return json.load(f)
+            data = json.load(f)
     except (OSError, ValueError):
         return copy.deepcopy(fallback)
+    # valid JSON of the wrong shape (null, a list instead of an object, ...) counts as damaged too
+    if isinstance(fallback, (dict, list)) and not isinstance(data, type(fallback)):
+        return copy.deepcopy(fallback)
+    return data
 
 
 def write_json(path, data):
