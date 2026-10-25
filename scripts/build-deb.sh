@@ -5,7 +5,7 @@
 set -eu
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 OUT="$ROOT/uitvoer"
-VERSION=$(python3 -c "import json;print(json.load(open('$ROOT/branding/universe.json'))['version'])")
+VERSION=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["version"])' "$ROOT/branding/universe.json")
 STAGE=$(mktemp -d)
 trap 'rm -rf "$STAGE"' EXIT
 mkdir -p "$OUT"

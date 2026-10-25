@@ -6,13 +6,19 @@ set -eu
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 OUT="$ROOT/uitvoer"
 LIVE="$ROOT/live"
-VERSION=$(python3 -c "import json;print(json.load(open('$ROOT/branding/universe.json'))['version'])")
+VERSION=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["version"])' "$ROOT/branding/universe.json")
 STAMP=$(date +%Y%m%d-%H%M)
 LOGS="$OUT/logs/$STAMP"
 mkdir -p "$OUT" "$LOGS"
 
 echo "== 1/4 Universe OS-pakket bouwen"
-sh "$ROOT/scripts/build-deb.sh" | tee "$LOGS/build-deb.log"
+# set -e only sees tee's status in a pipe (no portable pipefail in sh): record a failure of build-deb.sh ourselves,
+# otherwise an older .deb of the same version in uitvoer/ would silently end up in the ISO.
+{ sh "$ROOT/scripts/build-deb.sh" || echo "$?" >"$LOGS/build-deb.mislukt"; } | tee "$LOGS/build-deb.log"
+if [ -f "$LOGS/build-deb.mislukt" ]; then
+    echo "Het pakket is NIET gebouwd. Zie $LOGS/build-deb.log" >&2
+    exit 1
+fi
 mkdir -p "$LIVE/config/packages.chroot"
 rm -f "$LIVE"/config/packages.chroot/universe-os_*.deb
 cp "$OUT/universe-os_${VERSION}_all.deb" "$LIVE/config/packages.chroot/"
