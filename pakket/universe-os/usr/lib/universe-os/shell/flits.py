@@ -33,6 +33,7 @@ KWALITEIT = {
 def kwaliteit(anim):
     return KWALITEIT['licht' if anim.get('kwaliteit') == 'licht' else 'vol']
 SNEL = 0.15
+ZACHT = 28  # px: soft edge of the cover when there is no picture of the background
 ZWARTGAT_MAX = 8.0
 ZG_GROEI = 0.8      # s: het gat verschijnt
 ZG_SLOK = 1.8       # s: één bestand wordt opgeslokt
@@ -247,6 +248,7 @@ class Flits:
         from gi.repository import Gtk, GtkLayerShell
         self.log = log
         self.anims = []
+        self.bevroren = None  # (pixbuf, until): the screen as it was before the new window, while it is measured
         self.tick = 0
         self.window = Gtk.Window()
         self.window.set_title('Universe venster-animatie')
@@ -281,6 +283,8 @@ class Flits:
             return False  # without an RGBA visual the overlay would be a black screen: no animation
         from gi.repository import GLib
         now, factor = time.monotonic(), traag()
+        if any(e.get('soort') == 'open' for e in events):
+            self.bevroren = None  # the portal (with the background under the window) takes over
         for e in events:
             a = dict(e, start=now, traag=factor)
             if a['soort'] == 'zwartgat':
@@ -298,9 +302,51 @@ class Flits:
             self.tick = GLib.timeout_add(KWALITEIT['licht' if licht else 'vol']['tick'], self.step)
         return True
 
+    def wek(self, seconden=3.0):
+        """Map the (empty, transparent) overlay ahead of an animation that is coming (a program was just clicked), so
+        the first frame of the portal does not wait for the layer surface to be configured first."""
+        if not self.transparent:
+            return False
+        from gi.repository import GLib
+        if not self.window.get_visible():
+            self.window.show_all()
+            self.no_input()
+        if getattr(self, 'wek_timer', 0):
+            GLib.source_remove(self.wek_timer)
+        self.wek_timer = GLib.timeout_add(int(seconden * 1000 * traag()), self.wek_klaar)
+        return True
+
+    def wek_klaar(self):
+        self.wek_timer = 0
+        if not self.anims and not self.tick:
+            self.window.hide()
+        return False
+
+    def bevries(self, pix, seconden=1.5):
+        """Show the screen as it was right after the click (before the new window existed) over everything, so the new
+        window stays out of sight while it is measured; the portal takes over (ontdooi) or it ends by itself."""
+        if not self.transparent or pix is None:
+            return False
+        from gi.repository import GLib
+        self.bevroren = (pix, time.monotonic() + seconden * traag())
+        if not self.window.get_visible():
+            self.window.show_all()
+            self.no_input()
+        self.window.queue_draw()
+        if not self.tick:
+            self.tick = GLib.timeout_add(KWALITEIT['vol']['tick'], self.step)
+        return True
+
+    def ontdooi(self):
+        if self.bevroren is not None:
+            self.bevroren = None
+            self.window.queue_draw()
+
     def step(self):
         self.window.queue_draw()
-        if not self.anims:
+        if self.bevroren is not None and time.monotonic() > self.bevroren[1]:
+            self.bevroren = None
+        if not self.anims and self.bevroren is None:
             self.tick = 0
             self.window.hide()
             return False
@@ -313,6 +359,10 @@ class Flits:
         cr.paint()
         cr.set_operator(cairo.OPERATOR_OVER)
         w, h = widget.get_allocated_width(), widget.get_allocated_height()
+        if self.bevroren is not None:
+            from gi.repository import Gdk
+            Gdk.cairo_set_source_pixbuf(cr, self.bevroren[0], 0, 0)
+            cr.paint()
         now, alive = time.monotonic(), []
         for anim in self.anims:
             t = voortgang(anim, now)
@@ -349,9 +399,7 @@ class Flits:
         bx, by = f['bron']
         # 1. while opening: the real window stays hidden behind a dark cover until the portal arrives
         if f['dek'] > 0.01:
-            cr.rectangle(x, y, bw, bh)
-            cr.set_source_rgba(*RUIMTE, 0.96 * f['dek'])
-            cr.fill()
+            self.teken_dek(cr, anim, x, y, bw, bh, f['dek'])
         # 2. light trail from the source along the arc to the window (tapered, fading towards the source)
         spoor = portaal_spoor(anim, t, q['spoor'])
         zicht = math.sin(math.pi * clamp(f['p'] * 0.98 + 0.02)) if anim['soort'] == 'open' else math.sin(math.pi * f['p'])
@@ -419,6 +467,45 @@ class Flits:
                 cr.set_source(lin)
                 cr.rectangle(bx - r * 2.5, by - 1.5, r * 5, 3)
                 cr.fill()
+
+    def teken_dek(self, cr, anim, x, y, bw, bh, dek):
+        """0.2.38 (Jesse: the dark cover looked like a dark block): cover the real window with what was behind it (a
+        screenshot taken right after the click, 'achter'), so it simply looks like the window is not there yet. Without
+        that picture: the space colour with soft edges fading outwards, never a hard rectangle."""
+        import cairo
+        achter = anim.get('achter')
+        if achter is not None:
+            from gi.repository import Gdk
+            ax, ay = anim.get('achter_xy', (x, y))
+            cr.save()
+            cr.rectangle(x, y, bw, bh)
+            cr.clip()
+            Gdk.cairo_set_source_pixbuf(cr, achter, ax, ay)
+            cr.paint_with_alpha(dek)
+            cr.restore()
+            return
+        r = ZACHT
+        cr.save()
+        cr.rectangle(x, y, bw, bh)
+        cr.set_source_rgba(*RUIMTE, dek)
+        cr.fill()
+        for (gx0, gy0, gx1, gy1, rx, ry, rw, rh) in (
+                (x, 0, x - r, 0, x - r, y, r, bh), (x + bw, 0, x + bw + r, 0, x + bw, y, r, bh),
+                (0, y, 0, y - r, x, y - r, bw, r), (0, y + bh, 0, y + bh + r, x, y + bh, bw, r)):
+            g = cairo.LinearGradient(gx0, gy0, gx1, gy1)
+            g.add_color_stop_rgba(0, *RUIMTE, dek)
+            g.add_color_stop_rgba(1, *RUIMTE, 0)
+            cr.set_source(g)
+            cr.rectangle(rx, ry, rw, rh)
+            cr.fill()
+        for (cx, cy, hx, hy) in ((x, y, -1, -1), (x + bw, y, 1, -1), (x, y + bh, -1, 1), (x + bw, y + bh, 1, 1)):
+            g = cairo.RadialGradient(cx, cy, 0, cx, cy, r)
+            g.add_color_stop_rgba(0, *RUIMTE, dek)
+            g.add_color_stop_rgba(1, *RUIMTE, 0)
+            cr.set_source(g)
+            cr.rectangle(min(cx, cx + hx * r), min(cy, cy + hy * r), r, r)
+            cr.fill()
+        cr.restore()
 
     # ----- klein gat -----
     def teken_gat(self, cr, anim, t, w, h):

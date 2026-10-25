@@ -13,7 +13,7 @@ sys.path.insert(0, str(SH))
 src = (SH / 'universe_shell.py').read_text(encoding='utf-8')
 tree = ast.parse(src)
 cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'Shell')
-cls.body = [n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name in ('window_flits', 'flits_mode', 'play_flits', 'flits_gemeten', 'launch_bron', 'flits_scherm', 'flits_basis')]
+cls.body = [n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name in ('window_flits', 'flits_mode', 'play_flits', 'flits_gemeten', 'launch_bron', 'flits_scherm', 'flits_basis', 'flits_achter', 'flits_voor_opname', 'flits_ontdooi', 'flits_bevries')]
 settings = {'animations': 'full'}
 light = {'on': False}
 ns = {'config': SimpleNamespace(settings=lambda: settings), 'grafisch': SimpleNamespace(light_active=lambda: light['on']),
@@ -119,13 +119,13 @@ klein = venstermeting.vind_actief(WD, HD, scherm((10, 10, 90, 50)))
 check('te klein (tooltip/splash) -> None', klein is None)
 ppm = b'P6\n# grim\n2 1\n255\n' + b'\x01\x02\x03\x04\x05\x06'
 check('PPM van grim lezen', venstermeting.lees_ppm(ppm) == (2, 1, b'\x01\x02\x03\x04\x05\x06'))
-check('grim met time-out (nooit hangen)', 'timeout=timeout' in (SH / 'venstermeting.py').read_text())
+check('grim met time-out (nooit hangen)', 'threading.Timer(timeout, proc.kill)' in (SH / 'venstermeting.py').read_text())
 
 # 0.2.38: the window comes out of what was clicked
 s = shell()
 s.worlds = [SimpleNamespace(view=SimpleNamespace(get_zoom_level=lambda: 1.0))]
 s.start = SimpleNamespace(view=SimpleNamespace(get_zoom_level=lambda: 1.5), window=SimpleNamespace(get_allocated_width=lambda: 990))
-s.flits_overlay = lambda: SimpleNamespace(size=lambda: (1920, 1080))
+s.flits_overlay = lambda: SimpleNamespace(size=lambda: (1920, 1080), wek=lambda: True)
 b = s.launch_bron({'x': 100, 'y': 200, 'bron': 'start'})
 check('start-menu: paginapunt -> schermpunt (zoom, gecentreerd, bovenmarge)', b[:2] == ((1920 - 990) / 2 + 150, 300 + 56))
 check('planeet in de wereld: zelfde punt', s.launch_bron({'x': 640, 'y': 360, 'bron': 'world'})[:2] == (640, 360))
@@ -217,6 +217,69 @@ check('vensters die al open waren bij herstart: geen portaal', s.window_flits([W
 s = shell()
 s.worlds = []
 s.start = SimpleNamespace(view=SimpleNamespace(get_zoom_level=lambda: 1.0), window=SimpleNamespace(get_allocated_width=lambda: 1, get_size_request=lambda: (660, -1)))
-s.flits_overlay = lambda: SimpleNamespace(size=lambda: (1920, 1080))
+s.flits_overlay = lambda: SimpleNamespace(size=lambda: (1920, 1080), wek=lambda: True)
 check('menu al verborgen: snelkoppeling op de juiste plek', s.launch_bron({'x': 488, 'y': 347, 'bron': 'start'})[:2] == (488 + 630, 347 + 56))
+
+# 0.2.38 live2: the cover shows what was behind the window (screenshot right after the click), not a dark block
+from gi.repository import GLib as _G
+ns['GLib'].Bytes = _G.Bytes
+s = shell()
+achter_shot = (WD, HD, scherm((500, 500, 200, 150)))  # anything; the window is not in it
+s.flits_voor = (time.monotonic() - 1, achter_shot)
+r = s.flits_achter((37, 41, 250, 180), {'bron': (1, 2), 'gevraagd': time.monotonic()})
+check('achtergrond onder het nieuwe venster uitgeknipt', 'achter' in r and r['achter_xy'] == (37, 41)
+      and (r['achter'].get_width(), r['achter'].get_height()) == (250, 180))
+check('opname van na het verschijnen -> niet gebruiken', s.flits_achter((37, 41, 250, 180), {'bron': (1, 2), 'gevraagd': time.monotonic() - 5}) == {})
+check('zonder klik (geen bron) -> geen achtergrond', s.flits_achter((37, 41, 250, 180), {'gevraagd': time.monotonic()}) == {})
+import cairo
+from gi.repository import GdkPixbuf
+F = flits.Flits.__new__(flits.Flits)
+img = cairo.ImageSurface(cairo.FORMAT_ARGB32, 400, 300)
+cr = cairo.Context(img)
+F.teken_dek(cr, {}, 100, 100, 200, 100, 1.0)
+px = lambda x, y: img.get_data()[(y * img.get_stride() + x * 4) + 3]
+check('donkere afdekking zonder opname: zachte randen (geen blok)', px(150, 150) == 255 and 0 < px(150, 88) < 255 and px(150, 60) == 0)
+img = cairo.ImageSurface(cairo.FORMAT_ARGB32, 400, 300)
+cr = cairo.Context(img)
+pb = GdkPixbuf.Pixbuf.new(GdkPixbuf.Colorspace.RGB, False, 8, 200, 100)
+pb.fill(0x336699ff)
+F.teken_dek(cr, {'achter': pb, 'achter_xy': (100, 100)}, 100, 100, 200, 100, 1.0)
+d = img.get_data(); i = 150 * img.get_stride() + 150 * 4
+check('afdekking met opname: precies de achtergrond, buiten het venster niets', (d[i + 2], d[i + 1], d[i]) == (0x33, 0x66, 0x99) and px(150, 95) == 0)
+check('nieuw venster meteen meten (geen 50 ms wachten)', "0 if e['soort'] == 'open' else 50" in (SH / 'universe_shell.py').read_text())
+# live2: wek() (overlay ready after a click) must not take the frame timer: the portal was never drawn
+src = (SH / 'flits.py').read_text()
+wek = src[src.index('def wek('):src.index('def wek_klaar')]
+check('wek() gebruikt niet de beeldtimer (self.tick)', 'self.tick =' not in wek)
+# live2: the screen from before the window covers it once grim has its picture (never before: grim would see it)
+import subprocess as _sp, types as _t
+calls = []
+class _P:
+    def __init__(self, *a, **k):
+        import os
+        r, w = os.pipe()
+        os.write(w, b'P6\n2 1\n255\n' + b'\x01' * 6); os.close(w)
+        self.stdout = os.fdopen(r, 'rb')
+    def wait(self): return 0
+    def kill(self): pass
+_orig = venstermeting.subprocess.Popen
+venstermeting.subprocess.Popen = _P
+r = venstermeting.opname(timeout=2, gemaakt=lambda: calls.append('gemaakt'))
+venstermeting.subprocess.Popen = _orig
+check('grim: melding "foto gemaakt" zodra grim schrijft, daarna de hele opname', calls == ['gemaakt'] and r == (2, 1, b'\x01' * 6))
+F = flits.Flits.__new__(flits.Flits)
+F.anims, F.bevroren, F.transparent, F.tick = [], None, True, 1
+F.window = SimpleNamespace(get_visible=lambda: True, queue_draw=lambda: None, show_all=lambda: None, hide=lambda: None)
+pb2 = GdkPixbuf.Pixbuf.new(GdkPixbuf.Colorspace.RGB, False, 8, 40, 30); pb2.fill(0x204060ff)
+F.bevries(pb2)
+img = cairo.ImageSurface(cairo.FORMAT_ARGB32, 40, 30); cr = cairo.Context(img)
+F.draw(SimpleNamespace(get_allocated_width=lambda: 40, get_allocated_height=lambda: 30), cr)
+d = img.get_data(); i = 10 * img.get_stride() + 10 * 4
+check('vastgehouden scherm: het oude beeld over alles (nieuw venster onzichtbaar)', (d[i + 2], d[i + 1], d[i], d[i + 3]) == (0x20, 0x40, 0x60, 255))
+F.play([{'soort': 'open', 'wid': '9', 'rect': (0, 0, 10, 10)}])
+check('portaal neemt het over (vasthouden stopt)', F.bevroren is None)
+s = shell(echte_play=True)
+s.flits = SimpleNamespace(bevroren=('x', 0), ontdooi=lambda: setattr(s.flits, 'bevroren', None))
+s.flits_ontdooi()
+check('meting mislukt terwijl vastgehouden: echte scherm terug, niet opnieuw vasthouden', s.flits.bevroren is None and s.flits_ontdooid)
 sys.exit(1 if fails else 0)

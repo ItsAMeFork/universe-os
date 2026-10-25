@@ -8,11 +8,13 @@ pgrep -u "$(id -u)" -x gtklock >/dev/null && exit 0
 pgrep -u "$(id -u)" -x swaylock >/dev/null && exit 0
 # Animation (Axel, 10 Oct): the desktop is first pulled into the Earth that the lock screen shows, then swaylock
 # starts; the shell brings the desktop back out after unlocking. --direct (before sleep): lock at once.
-[ "$1" != "--direct" ] && universe-geluid vergrendelen
 # 0.2.38: the lock animation (world.js animateWorld 'out', stars stretching into light streaks) takes 2.3 s.
-if [ "$1" != "--direct" ] && [ "$(universe-ctl lock 2>/dev/null)" = "ok anim" ]; then
-    sleep 2.3
-fi
+# 'universe-ctl lock' comes first: the shell catches the keyboard at once (keys typed during the animation used to
+# reach the app in front, 0.2.38 live test), only then the sound.
+ANIM=
+[ "$1" != "--direct" ] && ANIM=$(universe-ctl lock 2>/dev/null)
+[ "$1" != "--direct" ] && universe-geluid vergrendelen
+[ "$ANIM" = "ok anim" ] && sleep 2.3
 # gtklock (12 Oct, Axel: "like the login screen, with the user name, and the user types his password"): the Earth in
 # space, a glass card with the picture and name of the user, a real password field and the time (style.css). It is a
 # secure lock as well (ext-session-lock: if it crashed, the screen stays locked). swaylock below is the fallback.

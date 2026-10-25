@@ -25,7 +25,8 @@ want = {'Super_L': 'universe-ctl start', 'W-Tab': 'universe-ctl overview', 'W-r'
         'C-S-Escape': 'universe-ctl run monitor', 'C-A-Delete': 'universe-klembord beveiliging'}
 for key, command in want.items():
     assert key in binds, key
-    assert binds[key].find('action').get('command') == command, key
+    assert [a.get('command') for a in binds[key].iter('action') if a.get('name') == 'Execute'] == [command], key
+assert [a.get('name') for a in binds['W-l'].iter('action')] == ['Unfocus', 'Execute']  # 0.2.38: focus away at once
 for key, action in {'A-Tab': 'NextWindow', 'A-S-Tab': 'PreviousWindow', 'A-F4': 'Close'}.items():
     assert binds[key].find('action').get('name') == action, key
 for key in ('W-Left', 'W-Right', 'W-Up', 'W-Down'):

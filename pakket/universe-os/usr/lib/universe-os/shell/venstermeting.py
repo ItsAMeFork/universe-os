@@ -17,16 +17,45 @@ MIN_BREEDTE = 120
 MIN_HOOGTE = 60
 
 
-def opname(timeout=None):
-    """Screenshot of the whole layout as binary PPM via grim (wlr-screencopy). (w, h, rgb-bytes) or None."""
+def opname(timeout=None, gemaakt=None):
+    """Screenshot of the whole layout as binary PPM via grim (wlr-screencopy). (w, h, rgb-bytes) or None.
+    gemaakt: called (from this thread) as soon as grim starts writing, i.e. the picture has been taken; the shell then
+    covers the new window (0.2.38 live2) without hiding it from this picture."""
     if timeout is None:
         import flits
         timeout = 0.8 * flits.traag()  # the slow test mode (VM) waits longer as well
+    import os
+    import threading
     try:
-        out = subprocess.run(['grim', '-t', 'ppm', '-'], capture_output=True, timeout=timeout, check=True).stdout
-    except (OSError, subprocess.SubprocessError):
+        proc = subprocess.Popen(['grim', '-t', 'ppm', '-'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    except OSError:
         return None
-    return lees_ppm(out)
+    klok = threading.Timer(timeout, proc.kill)
+    klok.start()
+    try:
+        delen = []
+        eerste = os.read(proc.stdout.fileno(), 65536)
+        if eerste and gemaakt:
+            try:
+                gemaakt()
+            except Exception:  # noqa: BLE001 - only a cover, never the measurement
+                pass
+        delen.append(eerste)
+        while eerste:
+            eerste = proc.stdout.read(1 << 20)
+            if eerste:
+                delen.append(eerste)
+        if proc.wait() != 0:
+            return None
+    except (OSError, ValueError):
+        return None
+    finally:
+        klok.cancel()
+        try:
+            proc.stdout.close()
+        except OSError:
+            pass
+    return lees_ppm(b''.join(delen))
 
 
 def lees_ppm(data):

@@ -559,28 +559,98 @@ class Shell:
         """universe-lock: the desktop is pulled into the Earth before swaylock shows the same Earth; afterwards it comes
         out again. The world is raised above the windows for the animation; the shell watches swaylock itself, so the
         world always goes back below the windows (also when swaylock does not start). Returns 'anim' or 'direct'."""
-        if not self.worlds or self.logout_pending or getattr(self, 'lock_watch', 0):
+        if getattr(self, 'lock_watch', 0):
             return 'direct'
-        if config.settings().get('animations') != 'full':
+        # 0.2.38 live test (security): keys typed right after Super+L went to the app in front ('tes' of the password
+        # landed in the calculator) until gtklock had the session lock. Catch the keyboard from the first moment.
+        self.lock_catch(True)
+        self.lock_seen = False
+        self.lock_started = time.monotonic()
+        if not self.worlds or self.logout_pending or config.settings().get('animations') != 'full':
+            self.lock_anim = False
+            self.lock_watch = GLib.timeout_add(150, self.watch_lock)
             return 'direct'
+        self.lock_anim = True
         if self.claude:
             self.claude.toggle(False)  # the Claude panel lies above the world: it would hide the animation
         for world in self.worlds:
             GtkLayerShell.set_layer(world.window, GtkLayerShell.Layer.OVERLAY)
             world.emit('lock-begin')
-        self.lock_seen = False
-        self.lock_started = time.monotonic()
-        self.lock_watch = GLib.timeout_add(700, self.watch_lock)
+        self.lock_watch = GLib.timeout_add(150, self.watch_lock)
         return 'anim'
 
+    def lock_catch(self, on):
+        """An invisible OVERLAY surface with the keyboard EXCLUSIVE: while it is mapped no key reaches an app. Shown when
+        locking starts, removed once the lock screen holds the session lock (or locking failed)."""
+        try:
+            if on:
+                if getattr(self, 'lock_vanger', None) is None:
+                    win = Gtk.Window()
+                    win.set_title('Universe vergrendelen')
+                    visual = win.get_screen().get_rgba_visual()
+                    if visual:
+                        win.set_visual(visual)
+                    win.set_app_paintable(True)
+                    win.connect('draw', lambda w, cr: (cr.set_operator(0), cr.paint()) and False)
+                    GtkLayerShell.init_for_window(win)
+                    GtkLayerShell.set_namespace(win, 'universe-lock-input')
+                    GtkLayerShell.set_layer(win, GtkLayerShell.Layer.OVERLAY)
+                    GtkLayerShell.set_keyboard_mode(win, GtkLayerShell.KeyboardMode.EXCLUSIVE)
+                    win.set_size_request(1, 1)
+                    win.connect('key-press-event', lambda *a: True)
+                    win.connect('key-release-event', lambda *a: True)
+                    self.lock_vanger = win
+                self.lock_vanger.show_all()
+                self.lock_vanger.present()
+            elif getattr(self, 'lock_vanger', None) is not None:
+                self.lock_vanger.hide()
+        except Exception as error:  # noqa: BLE001 - never block locking itself
+            log('invoer vangen bij vergrendelen mislukt: %s' % error)
+
+    def lock_focus_weg(self, win, event):
+        if getattr(self, 'lock_seen', False):
+            log('vergrendelscherm heeft het toetsenbord; invoervanger weg')
+            self.lock_catch(False)
+            try:
+                win.disconnect_by_func(self.lock_focus_weg)
+            except Exception:  # noqa: BLE001
+                pass
+        return False
+
+    def lock_focus_terug(self):
+        """Super+L takes the keyboard focus away in labwc itself (action Unfocus, before anything else runs); after
+        unlocking the window that had it gets it back, unless the user already chose another one."""
+        wid = getattr(self, 'laatst_actief', None)
+        try:
+            if wid and self.toplevels:
+                windows = {str(w.get('id')): w for w in self.toplevels.list()}
+                if wid in windows and not any(w.get('activated') for w in windows.values()):
+                    self.toplevels.activate(wid)
+        except Exception as error:  # noqa: BLE001
+            log('focus na ontgrendelen niet teruggegeven: %s' % error)
+
+    def lock_locked(self):
+        """True when gtklock/swaylock holds the session lock (its process runs; the lock is taken before its UI)."""
+        return subprocess.run(['pgrep', '-u', str(os.getuid()), '-x', 'gtklock|swaylock'], stdout=subprocess.DEVNULL).returncode == 0
+
     def watch_lock(self):
-        running = subprocess.run(['pgrep', '-u', str(os.getuid()), '-x', 'gtklock|swaylock'], stdout=subprocess.DEVNULL).returncode == 0
+        running = self.lock_locked()
         if running:
-            self.lock_seen = True
+            if not self.lock_seen:
+                self.lock_seen = True
+                # Release only when the lock really holds the keyboard: the compositor then takes the keyboard focus
+                # away from our catcher (focus-out). A slow PC can need seconds between process start and lock.
+                if getattr(self, 'lock_vanger', None) is not None:
+                    self.lock_vanger.connect('focus-out-event', self.lock_focus_weg)
+                GLib.timeout_add_seconds(15, lambda: self.lock_catch(False) and False)
             return True
         if not self.lock_seen and time.monotonic() - self.lock_started < 12:
             return True
         self.lock_watch = 0
+        self.lock_catch(False)
+        self.lock_focus_terug()
+        if not getattr(self, 'lock_anim', True):
+            return False
         for world in self.worlds:
             world.emit('unlock')
         GLib.timeout_add(4000, self.unlock_done)  # fallback if the page does not answer
@@ -718,6 +788,9 @@ class Shell:
             self.last_busy = busy
             for world in self.worlds:
                 world.emit('background-busy', busy)
+        actief = [str(w.get('id')) for w in windows if w.get('activated')]
+        if actief and not getattr(self, 'lock_watch', 0):
+            self.laatst_actief = actief[-1]  # given back its focus after unlocking (Super+L unfocuses at once)
         self.window_flits(windows)
         covered = any(not w.get('minimized') and (w.get('maximized') or w.get('fullscreen')) for w in windows)
         if getattr(self, 'panel', None) and covered != getattr(self, 'last_covered', None):
@@ -873,11 +946,36 @@ class Shell:
         pending[e['wid']] = e
         if not getattr(self, 'flits_bezig', False):
             self.flits_bezig = True
-            GLib.timeout_add(50, self.flits_meet_start)
+            # 0.2.38: a new window is measured at once (it is visible until the cover is up); others after 50 ms
+            GLib.timeout_add(0 if e['soort'] == 'open' else 50, self.flits_meet_start)
 
     def flits_meet_start(self):
         import venstermeting
-        threading.Thread(target=lambda: GLib.idle_add(self.flits_gemeten, venstermeting.opname()), daemon=True).start()
+        # 0.2.38 live2 (Jesse: the real window flashed before the animation): a program that was just clicked gets the
+        # screen from before its window (flits_voor) over it the moment grim has its picture, so the window is out of
+        # sight while it is measured instead of until the portal starts. Never earlier: grim would see the cover.
+        self.flits_ronde = getattr(self, 'flits_ronde', 0) + 1
+        ronde, gemaakt = self.flits_ronde, None
+        wacht = list(getattr(self, 'flits_wacht', {}).values())
+        voor = getattr(self, 'flits_voor', None)
+        if voor and voor[1] and not getattr(self, 'flits_ontdooid', False) and any(
+                e['soort'] == 'open' and e.get('bron') and voor[0] <= e['gevraagd'] for e in wacht):
+            gemaakt = lambda: GLib.idle_add(self.flits_bevries, ronde, priority=GLib.PRIORITY_HIGH)
+        threading.Thread(target=lambda: GLib.idle_add(self.flits_gemeten, venstermeting.opname(gemaakt=gemaakt)),
+                         daemon=True).start()
+        return False
+
+    def flits_bevries(self, ronde):
+        if ronde != getattr(self, 'flits_ronde', 0) or not getattr(self, 'flits_bezig', False):
+            return False  # the measurement is already back
+        try:
+            from gi.repository import GdkPixbuf
+            width, height, data = self.flits_voor[1]
+            pix = GdkPixbuf.Pixbuf.new_from_bytes(GLib.Bytes.new(data), GdkPixbuf.Colorspace.RGB, False, 8,
+                                                  width, height, width * 3)
+            self.flits_overlay().bevries(pix)
+        except Exception as error:  # noqa: BLE001
+            log('scherm vasthouden overgeslagen: %s' % error)
         return False
 
     def flits_gemeten(self, shot):
@@ -888,28 +986,87 @@ class Shell:
             windows = {str(w.get('id')): w for w in self.toplevels.list()} if self.toplevels else {}
             active = [wid for wid in pending if windows.get(wid, {}).get('activated')]
             if not shot or not active:
+                self.flits_ontdooi()
+                import flits
+                for wid, e in pending.items():  # not active yet in its first frame: look again shortly
+                    if shot and wid in windows and e['soort'] == 'open' and time.monotonic() - e['gevraagd'] < 0.4 * flits.traag():
+                        self.flits_wacht.setdefault(wid, e)
                 return False  # gone already (splash/launcher) or not in front: nothing, never a guess
             wid = active[-1]
             e, w = pending[wid], windows[wid]
             if w.get('fullscreen'):
+                self.flits_ontdooi()
                 return False
             width, height, data = shot
             rect = venstermeting.vind_actief(width, height, data)
             if rect is None and w.get('maximized'):
                 rect = (0, 0, width, height - (80 if self.dock and self.dock.window.get_visible() else 0))
             if rect is None:
+                self.flits_ontdooi()
+                import flits
+                if e['soort'] == 'open' and time.monotonic() - e['gevraagd'] < 0.4 * flits.traag():
+                    # measured at once now: the window may not be active (mint border) in its very first frame yet
+                    self.flits_wacht.setdefault(wid, e)
                 return False
             pix = None if e['snel'] or e.get('kwaliteit') == 'licht' else venstermeting.inhoud(width, height, data, rect)
             self.flits_cache[wid] = {'rect': rect, 'pix': pix}
             import flits
+            self.flits_ontdooid = False
             if e['soort'] == 'open' and time.monotonic() - e['gevraagd'] < 0.6 * flits.traag():  # later: no portal
-                self.flits_overlay().play([dict(e, rect=rect, pix=pix)])
+                self.flits_overlay().play([dict(e, rect=rect, pix=pix, **self.flits_achter(rect, e))])
+            else:
+                self.flits_overlay().ontdooi()
         except Exception as error:  # noqa: BLE001
+            self.flits_ontdooi()
             log('venstermeting overgeslagen: %s' % error)
         finally:
             if getattr(self, 'flits_wacht', None):
                 self.flits_bezig = True
                 GLib.timeout_add(30, self.flits_meet_start)
+        return False
+
+    def flits_ontdooi(self):
+        """The frozen screen hid the window from grim as well (or the window is not ready): show the real screen again
+        and measure the next round without freezing."""
+        f = getattr(self, 'flits', None)
+        if f is not None and getattr(f, 'bevroren', None) is not None:
+            f.ontdooi()
+            self.flits_ontdooid = True
+
+    def flits_achter(self, rect, e):
+        """What was behind the new window: the matching piece of the screenshot taken right after the click (before
+        the window existed). {} when there is none (or it is too old / taken after the window appeared)."""
+        voor = getattr(self, 'flits_voor', None)
+        if not voor or not e.get('bron'):
+            return {}
+        genomen, shot = voor
+        if shot is None or genomen > e['gevraagd'] or e['gevraagd'] - genomen > BRON_GELDIG:
+            return {}
+        try:
+            from gi.repository import GdkPixbuf
+            width, height, data = shot
+            x, y, rw, rh = (int(v) for v in rect)
+            x, y = max(0, x), max(0, y)
+            rw, rh = min(rw, width - x), min(rh, height - y)
+            if rw < 2 or rh < 2:
+                return {}
+            pix = GdkPixbuf.Pixbuf.new_from_bytes(GLib.Bytes.new(data), GdkPixbuf.Colorspace.RGB, False, 8,
+                                                  width, height, width * 3)
+            return {'achter': pix.new_subpixbuf(x, y, rw, rh).copy(), 'achter_xy': (x, y)}
+        except Exception as error:  # noqa: BLE001
+            log('achtergrond voor het venster overgeslagen: %s' % error)
+            return {}
+
+    def flits_voor_opname(self):
+        """Screenshot right after a program was clicked (menu already closed), before its window exists."""
+        import venstermeting
+
+        def neem():
+            genomen = time.monotonic()
+            shot = venstermeting.opname()
+            GLib.idle_add(lambda: setattr(self, 'flits_voor', (genomen, shot)) and False)
+        self.flits_voor = None
+        threading.Thread(target=neem, daemon=True).start()
         return False
 
     def launch_bron(self, a):
@@ -937,6 +1094,13 @@ class Shell:
             except Exception:  # noqa: BLE001
                 pass
         self.flits_bron = (x, y, time.monotonic())
+        self.flits_ontdooid = False
+        try:
+            if self.flits_mode() in ('vol', 'licht'):
+                self.flits_overlay().wek()
+                GLib.timeout_add(400, self.flits_voor_opname)  # after the start menu has closed
+        except Exception as error:  # noqa: BLE001
+            log('venster-animatie voorbereiden overgeslagen: %s' % error)
         return self.flits_bron
 
     def flits_bestand(self, x=None, y=None, naam=''):

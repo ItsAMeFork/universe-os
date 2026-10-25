@@ -108,6 +108,10 @@ def _keybind(item):
         action = '<action name="%s"%s/>' % (item['labwc'], direction)
     else:
         action = '<action name="Execute" command=%s/>' % quoteattr(item['command'])
+        if item['command'].split()[:1] == ['universe-lock']:
+            # 0.2.38 (security): keys typed right after Super+L reached the app in front until the lock screen was up.
+            # labwc takes the focus away at once, before universe-lock even starts; the shell gives it back later.
+            action = '<action name="Unfocus"/>' + action
     return '    <keybind key=%s%s>%s</keybind>' % (key, extra, action)
 
 
