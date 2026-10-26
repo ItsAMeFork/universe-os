@@ -1,0 +1,27 @@
+#!/bin/sh
+# "Andere gebruiker": lock this session at once, then show the login screen (LightDM greeter) on a new VT. The session
+# of this user keeps running behind the lock (apps and windows stay), and can be resumed by logging in again as this user.
+# Locking comes first so the session is never open to the next person while the greeter is up.
+LOCKED='gtklock|swaylock'
+locked() { pgrep -u "$(id -u)" -x "$LOCKED" >/dev/null 2>&1; }
+if ! locked; then
+    universe-lock --direct >/dev/null 2>&1 &
+    # gtklock/swaylock take the session lock before their UI shows: wait for the process, at most 3 s
+    i=0
+    while [ "$i" -lt 30 ] && ! locked; do
+        sleep 0.1
+        i=$((i + 1))
+    done
+    locked || echo "universe-wissel: vergrendelen duurde te lang; toch naar het inlogscherm" >&2
+fi
+if command -v dm-tool >/dev/null 2>&1 && dm-tool switch-to-greeter; then
+    exit 0
+fi
+# Fallback: ask LightDM over D-Bus (the seat path is in XDG_SEAT_PATH, set by LightDM for the session)
+if [ -n "${XDG_SEAT_PATH:-}" ] && command -v dbus-send >/dev/null 2>&1 &&
+    dbus-send --system --type=method_call --dest=org.freedesktop.DisplayManager "$XDG_SEAT_PATH" \
+        org.freedesktop.DisplayManager.Seat.SwitchToGreeter; then
+    exit 0
+fi
+echo "universe-wissel: kon niet naar het inlogscherm wisselen" >&2
+exit 1
