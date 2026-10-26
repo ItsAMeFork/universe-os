@@ -7,6 +7,14 @@ arguments, and are never logged.
   remove-user NAAM keep-home|delete-home
   set-admin NAAM yes|no
   set-password NAAM                                   (wachtwoord op stdin)
+  set-fullname NAAM "Volledige naam"
+
+Rechten (de helper controleert dit zelf, ook al heeft polkit de aanroeper al gevraagd te authenticeren):
+  - de aanroeper is PKEXEC_UID; zonder geldige PKEXEC_UID wordt alles geweigerd;
+  - een beheerder (groep sudo) mag alles;
+  - een normale gebruiker mag alleen zichzelf wijzigen (set-password, set-fullname), nooit accounttype,
+    aanmaken of verwijderen;
+  - de laatste beheerder kan niet worden gedegradeerd of verwijderd; een aangemelde gebruiker niet verwijderd.
 """
 import grp
 import os
@@ -36,7 +44,24 @@ def normal_user(name):
 
 
 def admins():
-    return set(grp.getgrnam('sudo').gr_mem)
+    """Echte (normale) accounts met beheerdersrechten: lid van sudo of met sudo als hoofdgroep."""
+    try:
+        group = grp.getgrnam('sudo')
+    except KeyError:
+        return set()
+    names = set(group.gr_mem)
+    for pw in pwd.getpwall():
+        if pw.pw_gid == group.gr_gid:
+            names.add(pw.pw_name)
+    result = set()
+    for name in names:
+        try:
+            uid = pwd.getpwnam(name).pw_uid
+        except KeyError:
+            continue
+        if 1000 <= uid < 60000:
+            result.add(name)
+    return result
 
 
 def caller():
@@ -45,6 +70,21 @@ def caller():
         return pwd.getpwuid(int(uid)).pw_name if uid else None
     except (KeyError, ValueError):
         return None
+
+
+SELF_ACTIONS = ('set-password', 'set-fullname')
+
+
+def authorize(action, target=None):
+    """Opnieuw controleren wie ons via pkexec aanroept. Geeft de naam van de aanroeper terug of stopt."""
+    who = caller()
+    if who is None:
+        fail('Aanroeper onbekend; geweigerd.', 126)
+    if who in admins():
+        return who
+    if target is not None and who == target and action in SELF_ACTIONS:
+        return who
+    fail('Geen toestemming: alleen een beheerder mag dit, of je wijzigt alleen je eigen account.', 126)
 
 
 def read_password():
@@ -62,15 +102,22 @@ def chpasswd(name, password):
         fail('Wachtwoord instellen mislukt.')
 
 
-def main():
+def logged_in(name):
+    return subprocess.run(['loginctl', 'show-user', name], capture_output=True).returncode == 0
+
+
+def main(args=None):
     if os.geteuid() != 0:
         fail('Dit hulpprogramma moet via pkexec worden gestart.')
-    args = sys.argv[1:]
+    args = sys.argv[1:] if args is None else args
     if not args:
         fail(__doc__)
     cmd = args[0]
     if cmd == 'add-user' and len(args) == 4:
+        authorize(cmd)
         name, full, kind = args[1], args[2], args[3]
+        if kind not in ('admin', 'standard'):
+            fail('Ongeldig accounttype.')
         if not NAME.match(name) or name in ('root', 'admin'):
             fail('Ongeldige gebruikersnaam: gebruik kleine letters, cijfers, - en _ (begin met een letter).')
         if re.search(r'[:,\n]', full):
@@ -92,12 +139,13 @@ def main():
             subprocess.run(['adduser', name, 'sudo'], check=True, capture_output=True)
         print('ok')
     elif cmd == 'remove-user' and len(args) == 3:
+        authorize(cmd)
         pw = normal_user(args[1])
         if pw.pw_name == caller():
             fail('Je kunt je eigen account niet verwijderen.')
         if pw.pw_name in admins() and len(admins()) <= 1:
             fail('Dit is de laatste beheerder; die kan niet worden verwijderd.')
-        if subprocess.run(['loginctl', 'show-user', pw.pw_name], capture_output=True).returncode == 0:
+        if logged_in(pw.pw_name):
             fail('Deze gebruiker is nog aangemeld. Laat de gebruiker eerst afmelden.')
         cmdline = ['deluser'] + (['--remove-home'] if args[2] == 'delete-home' else []) + [pw.pw_name]
         r = subprocess.run(cmdline, capture_output=True, text=True)
@@ -105,19 +153,34 @@ def main():
             fail('Verwijderen mislukt: %s' % r.stderr.strip())
         print('ok')
     elif cmd == 'set-admin' and len(args) == 3:
+        authorize(cmd)
         pw = normal_user(args[1])
+        if args[2] not in ('yes', 'no'):
+            fail('Ongeldig accounttype.')
         if args[2] == 'no':
             if pw.pw_name == caller():
                 fail('Je kunt je eigen beheerdersrechten niet intrekken.')
             if pw.pw_name in admins() and len(admins()) <= 1:
                 fail('Er moet minstens één beheerder blijven.')
+            if pw.pw_name in admins() and pw.pw_gid == grp.getgrnam('sudo').gr_gid:
+                fail('Dit account heeft sudo als hoofdgroep; pas eerst de hoofdgroep aan.')
             subprocess.run(['deluser', pw.pw_name, 'sudo'], capture_output=True)
         else:
             subprocess.run(['adduser', pw.pw_name, 'sudo'], check=True, capture_output=True)
         print('ok')
     elif cmd == 'set-password' and len(args) == 2:
         pw = normal_user(args[1])
+        authorize(cmd, pw.pw_name)
         chpasswd(pw.pw_name, read_password())
+        print('ok')
+    elif cmd == 'set-fullname' and len(args) == 3:
+        pw = normal_user(args[1])
+        authorize(cmd, pw.pw_name)
+        if re.search(r'[:,\n\r]', args[2]) or len(args[2]) > 100:
+            fail('De volledige naam mag geen dubbele punt, komma of regeleinde bevatten (maximaal 100 tekens).')
+        r = subprocess.run(['usermod', '-c', args[2] or pw.pw_name, pw.pw_name], capture_output=True, text=True)
+        if r.returncode:
+            fail('Naam wijzigen mislukt.')
         print('ok')
     else:
         fail(__doc__)
