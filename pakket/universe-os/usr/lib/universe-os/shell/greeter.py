@@ -79,6 +79,13 @@ class PlanetGreeter:
         self.window.show_all()
         self.window.present()
         self.view.grab_focus()
+        # 0.3.0: new or removed accounts appear/disappear in the planet row at once (liblightdm watches /etc/passwd)
+        try:
+            lijst = LightDM.UserList.get_instance()
+            for sig in ('user-added', 'user-removed', 'user-changed'):
+                lijst.connect(sig, lambda *_: self.users_changed())
+        except Exception:
+            pass
 
     def set_cursor(self, window):
         cursor = Gdk.Cursor.new_from_name(window.get_display(), 'default')
@@ -90,6 +97,10 @@ class PlanetGreeter:
         startup_sound()  # with the planet forming on the login screen
         return {'user': self.dm.get_select_user_hint() or '', 'prompt': self.prompt, 'users': self.user_list(),
                 'animations': config.settings().get('animations', 'full')}
+
+    def users_changed(self):
+        emit(self.view, 'login-users', {'users': self.user_list()})
+        return False
 
     def user_list(self):
         """Name and display name of the users liblightdm knows (for the planet row); nothing else is shared."""

@@ -1,0 +1,56 @@
+#!/usr/bin/python3
+"""0.3.0: one password when switching back to a session ('Andere gebruiker').
+
+LightDM authenticates the user in the greeter with PAM and, when it switches back to the user's existing session,
+asks logind to unlock it (org.freedesktop.login1.Session.Unlock). This watcher runs inside the session and, on that
+signal for THIS session only, ends the lock screen (gtklock/swaylock), so the password is not asked a second time.
+
+Who can send Unlock: logind only emits the signal after UnlockSession by root (LightDM, after PAM success), by the
+session owner himself, or by someone allowed by polkit 'org.freedesktop.login1.lock-sessions'. Universe OS
+restricts that action to administrator authentication (rules.d/50-universe-ontgrendelen.rules), so another
+logged-in user cannot unlock this session. A marker in $XDG_RUNTIME_DIR (0700, only this user) tells universe-lock
+that the lock was ended on purpose, so it does not lock again.
+"""
+import os
+import signal
+import subprocess
+
+from gi.repository import Gio, GLib
+
+MARKER = os.path.join(os.environ.get('XDG_RUNTIME_DIR') or '/tmp', 'universe-ontgrendeld')
+
+
+def session_path(bus):
+    sid = os.environ.get('XDG_SESSION_ID')
+    if not sid:
+        return None
+    r = bus.call_sync('org.freedesktop.login1', '/org/freedesktop/login1', 'org.freedesktop.login1.Manager',
+                      'GetSession', GLib.Variant('(s)', (sid,)), GLib.VariantType('(o)'), 0, -1, None)
+    return r.unpack()[0]
+
+
+def ontgrendel(*_):
+    uid = str(os.getuid())
+    if subprocess.run(['pgrep', '-u', uid, '-x', 'gtklock|swaylock'], capture_output=True).returncode != 0:
+        return
+    with open(MARKER, 'w'):
+        pass
+    subprocess.run(['pkill', '-USR1', '-u', uid, '-x', 'swaylock'], capture_output=True)  # swaylock: USR1 = unlock
+    subprocess.run(['pkill', '-TERM', '-u', uid, '-x', 'gtklock'], capture_output=True)
+    print('[ontgrendel-wacht] sessie ontgrendeld door logind (na aanmelding in het inlogscherm)', flush=True)
+
+
+def main():
+    bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+    path = session_path(bus)
+    if not path:
+        print('[ontgrendel-wacht] geen logind-sessie; niets te doen', flush=True)
+        return
+    bus.signal_subscribe('org.freedesktop.login1', 'org.freedesktop.login1.Session', 'Unlock', path, None,
+                         Gio.DBusSignalFlags.NONE, ontgrendel)
+    signal.signal(signal.SIGTERM, lambda *a: os._exit(0))
+    GLib.MainLoop().run()
+
+
+if __name__ == '__main__':
+    main()

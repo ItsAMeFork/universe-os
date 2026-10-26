@@ -21,8 +21,19 @@ ANIM=
 if command -v gtklock >/dev/null 2>&1; then
     MOD=$(ls /usr/lib/*/gtklock/userinfo-module.so 2>/dev/null | head -1)
     # Not exec: after unlocking the unlock sound plays (gtklock stays in the foreground until then).
-    gtklock -s /usr/share/universe-os/gtklock/style.css -x /usr/share/universe-os/gtklock/layout.ui ${MOD:+-m "$MOD"} \
-        -t "%H:%M" -D "%A %e %B" -H -T 30 && universe-geluid ontgrendelen
+    # 0.3.0: labwc 0.8.3 unlocks the session when the lock client dies, so a gtklock that crashed or was killed is
+    # started again at once. Only a real unlock (exit 0 after PAM) or the logind Unlock after the greeter
+    # (universe-ontgrendel-wacht, marker below) ends the loop.
+    MARK="${XDG_RUNTIME_DIR:-/tmp}/universe-ontgrendeld"
+    rm -f "$MARK"
+    while :; do
+        gtklock -s /usr/share/universe-os/gtklock/style.css -x /usr/share/universe-os/gtklock/layout.ui ${MOD:+-m "$MOD"} \
+            -t "%H:%M" -D "%A %e %B" -H -T 30 && break
+        [ -e "$MARK" ] && break
+        sleep 0.1
+    done
+    rm -f "$MARK"
+    universe-geluid ontgrendelen
     exit 0
 fi
 IMAGE=/usr/share/universe-os/backgrounds/vergrendeld.png

@@ -17,6 +17,7 @@ swaybg -m fill -c '#050815' -i /usr/share/universe-os/backgrounds/kern.png >/dev
 dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE XKB_DEFAULT_LAYOUT XKB_DEFAULT_VARIANT LANG LANGUAGE >/dev/null 2>&1 &
 xdg-user-dirs-update >/dev/null 2>&1 &
 /usr/libexec/polkit-mate-authentication-agent-1 >/dev/null 2>&1 &
+/usr/lib/universe-os/universe-ontgrendel-wacht >/dev/null 2>&1 &
 mako --config /usr/share/universe-os/mako.conf >/dev/null 2>&1 &
 /usr/lib/universe-os/universe-idle &
 # Windows+V: tekst die je kopieert komt in de klembordgeschiedenis (alleen tekst, max. 25).
