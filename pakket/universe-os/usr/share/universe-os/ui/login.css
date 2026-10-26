@@ -25,3 +25,17 @@ html.reduce-motion .formed form,html.no-motion .formed form,html.reduce-motion .
 #core.fading{animation:core-fade 1.3s ease-in forwards}
 @keyframes core-fade{to{opacity:0}}
 
+
+/* Gebruikersplaneten-rij: vast, onder de grote planeet; nooit versleepbaar (geen drag, geen selectie, alleen klik/tik). */
+#users{position:fixed;left:50%;bottom:96px;width:min(calc(100vw - 40px),1100px);transform:translateX(-50%);z-index:2;pointer-events:none;-webkit-user-select:none;user-select:none}
+#users .gebruiker{position:absolute;left:0;top:0;display:flex;justify-content:center;pointer-events:none}
+#users button{all:unset;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:6px;width:var(--d);cursor:pointer;pointer-events:auto;-webkit-user-select:none;user-select:none;-webkit-user-drag:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+#users .kleinplaneet{display:block;width:var(--d);height:var(--d);border-radius:50%;pointer-events:none;background:radial-gradient(circle at 35% 30%,hsl(var(--tint) 80% 72%),hsl(var(--tint) 60% 40%) 55%,hsl(var(--tint) 55% 14%));box-shadow:0 0 0 1px #ffffff1f,0 4px 14px #0008;transition:transform .35s cubic-bezier(.2,.8,.3,1),box-shadow .35s ease}
+#users .naam{max-width:calc(var(--d) * 1.5);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:max(11px,calc(var(--d) * .2));color:var(--muted);transition:color .35s ease;pointer-events:none}
+#users .gebruiker.gekozen{z-index:1}
+#users .gebruiker.gekozen .kleinplaneet{transform:translateY(-14%) scale(1.3);box-shadow:0 0 0 2px var(--accent),0 0 26px hsl(var(--tint) 90% 65% / .55),0 8px 22px #000a}
+#users .gebruiker.gekozen .naam{color:var(--text);transform:translateY(8px)}
+#users button:focus-visible .kleinplaneet{outline:2px solid var(--text);outline-offset:3px}
+.depart #users{opacity:0;transition:opacity .2s}.forming #users{opacity:0}
+html.reduce-motion #users .kleinplaneet,html.no-motion #users .kleinplaneet,html.reduce-motion #users .naam,html.no-motion #users .naam{transition:none}
+@media(max-height:700px){#users{bottom:150px}}
