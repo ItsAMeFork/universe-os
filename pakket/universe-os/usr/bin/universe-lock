@@ -20,16 +20,24 @@ ANIM=
 # secure lock as well (ext-session-lock: if it crashed, the screen stays locked). swaylock below is the fallback.
 if command -v gtklock >/dev/null 2>&1; then
     MOD=$(ls /usr/lib/*/gtklock/userinfo-module.so 2>/dev/null | head -1)
+    # 0.3.0: the buttons "Andere gebruiker" and "Afmelden" (package universe-os-vergrendelknoppen), when installed.
+    KNOP=$(ls /usr/lib/*/gtklock/universe-knoppen-module.so 2>/dev/null | head -1)
     # Not exec: after unlocking the unlock sound plays (gtklock stays in the foreground until then).
     # 0.3.0: labwc 0.8.3 unlocks the session when the lock client dies, so a gtklock that crashed or was killed is
     # started again at once. Only a real unlock (exit 0 after PAM) or the logind Unlock after the greeter
     # (universe-ontgrendel-wacht, marker below) ends the loop.
     MARK="${XDG_RUNTIME_DIR:-/tmp}/universe-ontgrendeld"
     rm -f "$MARK"
+    SNEL=0
     while :; do
+        T0=$(date +%s)
         gtklock -s /usr/share/universe-os/gtklock/style.css -x /usr/share/universe-os/gtklock/layout.ui ${MOD:+-m "$MOD"} \
-            -t "%H:%M" -D "%A %e %B" -H -T 30 && break
+            ${KNOP:+-m "$KNOP"} -t "%H:%M" -D "%A %e %B" -H -T 30 && break
         [ -e "$MARK" ] && break
+        # A module that crashes gtklock at once must never leave the user locked out: after two quick failures
+        # the lock runs without the button module (the lock itself stays).
+        if [ $(( $(date +%s) - T0 )) -lt 3 ]; then SNEL=$((SNEL + 1)); else SNEL=0; fi
+        [ "$SNEL" -ge 2 ] && KNOP=
         sleep 0.1
     done
     rm -f "$MARK"

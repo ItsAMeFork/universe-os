@@ -37,6 +37,23 @@ def startup_sound():
     play('opstarten')
 
 
+
+TEST_FILTER = '/run/universe-os/greeter-testfilter'
+
+
+def test_filter(lijst):
+    """Test only (1/2-user login screen without deleting accounts): root can put user names, one per line, in a file
+    on /run (tmpfs, gone after reboot). Only those users are shown. Missing or unreadable file: the normal list."""
+    try:
+        st = os.stat(TEST_FILTER)
+        if st.st_uid != 0 or st.st_mode & 0o022:
+            return lijst
+        with open(TEST_FILTER) as f:
+            namen = {r.strip() for r in f if r.strip()}
+    except OSError:
+        return lijst
+    return [g for g in lijst if g['naam'] in namen] or lijst
+
 class PlanetGreeter:
     def __init__(self):
         self.dm = LightDM.Greeter()
@@ -106,10 +123,11 @@ class PlanetGreeter:
         """Name and display name of the users liblightdm knows (for the planet row); nothing else is shared."""
         try:
             users = LightDM.UserList.get_instance().get_users()
-            return [{'naam': u.get_name(), 'weergave': u.get_display_name() or u.get_name()}
-                    for u in users if u.get_name()]
+            lijst = [{'naam': u.get_name(), 'weergave': u.get_display_name() or u.get_name()}
+                     for u in users if u.get_name()]
         except Exception:
             return []
+        return test_filter(lijst)
 
     def power_get(self, _):
         """Which power actions logind allows before signing in (via LightDM; no own privileges)."""

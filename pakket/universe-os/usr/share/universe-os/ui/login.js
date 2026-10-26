@@ -31,7 +31,10 @@ afterPaint().then(async()=>{
 addEventListener('resize',()=>{if(!leaving){scene();rijMaat();}});
 // Gebruikersplaneten-rij: selecteren vult alleen de gebruikersnaam in (het inloggen zelf blijft login.authenticate/respond/start).
 const rij=gebruikersRij($('users'),{onKies:naam=>{if(!leaving&&!cancelling)document.dispatchEvent(new CustomEvent('universe-select-user',{detail:naam}));},onBevestig:()=>{(prompt?$('response'):$('submit')).focus();}});
-function rijMaat(){const box=$('users');if(!box.hidden)rij.grootte(Math.min(innerWidth-40,1100),Math.max(80,Math.min(innerHeight*.3,260)));}
+const RIJ_MARGE=36;
+// The rows must never touch the login card (Jesse, 26 Oct: with 11+ users the top row grazed it): the height is the
+// free space between the card and the row's bottom edge, minus room for the chosen planet's lift and a margin.
+function rijMaat(){const box=$('users');if(box.hidden)return;const kaart=$('login').getBoundingClientRect(),onder=parseFloat(getComputedStyle(box).bottom)||96,vrij=innerHeight-onder-kaart.bottom-RIJ_MARGE;rij.grootte(Math.min(innerWidth-40,1100),Math.max(60,Math.min(innerHeight*.3,260,vrij)));}
 on('login-users',d=>{d=d||{};if(Array.isArray(d.users)&&d.users.length)toonRij(d.users,$('user').value);});
 function toonRij(users,hint){if(!Array.isArray(users)||!users.length)return;$('users').hidden=false;rij.zetGebruikers(users,hint);rijMaat();}
 let prompt=false,busy=false,leaving=false,cancelling=false,attempt=0,animations='full',pendingMessage='';
