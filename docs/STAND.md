@@ -2,6 +2,11 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
+## 26 oktober: versie 0.2.39 (eerst het portaal, dan het venster; GEPUBLICEERD 26 okt 09:25, apt test + stable, apt-commits 78c2474 + b58b4fc, broncommit 2bda01d; geen ISO)
+- Jesse t146u: venster vanuit de onderbalk verscheen zonder animatie. Nu verbergt labwc elk nieuw venster bij het mappen (windowRule Iconify, plaatsing midden); de shell speelt het portaal en zet het venster onder de nog dichte kaart terug. Geen labwc-patch nodig.
+- Veiligheidsnet vensterwacht.py (gestart door universe-shell-supervisor): zonder shell-hartslag (4 s) geen verbergregel en verborgen vensters worden getoond.
+- Live getest licht + vol: onderbalk, sluiten, venster dat een app zelf opent, menu; planeet en Wine in licht. Frames: uitvoer/vm-test/0.2.39-*.png. Niet live: planeet/Wine in vol, echte shell-crash.
+
 ## 25 oktober: versie 0.2.38 (portaal-vensteranimatie, mooiere ruimte, filmische in-/uitlog, lichte modus = zelfde in lagere kwaliteit; GEPUBLICEERD 25 okt 21:47, apt test + stable, commit ebdbbb4; geen ISO)
 Jesse (t129u/t130u): vensters niet meer als bloem maar vanuit de aangeklikte planeet/snelkoppeling; alle animaties en de ruimte mooier; de lichte modus exact hetzelfde maar lichter.
 - `flits.py`: portaal (venster groeit langs een gebogen baan met lichtspoor uit de bron, lichtpunt + lensstreep bij de bron; sluiten terug naar de bron of het midden; minimaliseren naar het dock). Eén tekenpad met `KWALITEIT` vol/licht (licht: minder gloedlagen/spoorpunten/schijfsegmenten, geen vensterinhoud, ~30 fps); ook gat en zwart gat. 'snel' alleen nog voor Animaties verminderd.
@@ -71,7 +76,7 @@ world.html steeds (`free(): invalid pointer`), na 3 keer world-lite (2D).
 - Windows-sneltoetsen (Win+R/S/V/./M, Win+Shift+S, Ctrl+Alt+Del-menu) in `shortcuts.json`; `universe-klembord` (klembordgeschiedenis, emoji, Ctrl+Alt+Del); Ctrl+V plakt in de terminal (sessie zet `~/.config/xfce4/terminal/accels.scm` eenmalig neer). Overzicht: `docs/SNELTOETSEN.md`. Test: `docs/tests/sneltoetsen.py`.
 
 ## 24 oktober: versie 0.2.29 (NVIDIA-pc; ISO gebouwd; gepubliceerd 24 okt 22:20 als onderdeel van 0.2.32)
-Gepubliceerd (apt test + stable): 0.2.24 t/m 0.2.28 (0.2.28 op 24 okt) en 0.2.32 (24 okt 22:20; bevat 0.2.29 t/m 0.2.31, die geen los pakket kregen), 0.2.33 (24 okt 23:29), 0.2.34 (25 okt 14:11), 0.2.35 (25 okt 15:51), 0.2.36 (25 okt 16:58), 0.2.37 (25 okt 17:34) en 0.2.38 (25 okt 21:47).
+Gepubliceerd (apt test + stable): 0.2.24 t/m 0.2.28 (0.2.28 op 24 okt) en 0.2.32 (24 okt 22:20; bevat 0.2.29 t/m 0.2.31, die geen los pakket kregen), 0.2.33 (24 okt 23:29), 0.2.34 (25 okt 14:11), 0.2.35 (25 okt 15:51), 0.2.36 (25 okt 16:58), 0.2.37 (25 okt 17:34) 0.2.38 (25 okt 21:47) en 0.2.39 (26 okt 09:25).
 - Met het eigen NVIDIA-stuurprogramma geen grafische proef meer en nooit processor-tekenen door een proefuitslag; normaal tekenen met gedeeld geheugen (`shell/grafisch.py`). Oorzaak van de 2D-terugval: proef zei 'safe' -> llvmpipe -> wereld te traag -> world-lite.
 - Proefpagina neutraal donker (#050815 / #151828) met "Beeld wordt getest…" in plaats van blauw/paars (`shell/grafisch_proef.py`). Dat was het blauw/paarse beeld na inloggen.
 - `ui/world.js`: frame-/planeetcontrole 25 s in plaats van 12/14 s bij `gfx=soft`.
