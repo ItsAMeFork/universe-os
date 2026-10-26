@@ -517,13 +517,23 @@ function drawBoom(c){
   c.beginPath();c.moveTo(p.x+s.ca*d0,p.y+s.sa*d0*.7);c.lineTo(p.x+s.ca*d,p.y+s.sa*d*.7);c.stroke();
  }
 }
+// 0.3 (g5): the personal user planet of the login row: a small neutral dot (no name, no picture: nothing sensitive on show) that
+// moves from the Earth down to the row position while locking and back out of the row when the desktop returns.
+const userDotEl=h('div',{class:'world-userdot','aria-hidden':'true'});
+function setUserDot(v){ // v: 0 = in the Earth (invisible), 1 = in the row (bottom, centre)
+ if(v<=0){userDotEl.remove();return;}
+ const e=1-Math.pow(1-Math.min(1,v),3);
+ userDotEl.style.opacity=Math.min(1,v*3).toFixed(3);
+ userDotEl.style.transform=`translate(-50%,-50%) translateY(${((1-e)*-38).toFixed(2)}vh) scale(${(.4+.6*e).toFixed(3)})`;
+ if(!userDotEl.isConnected)root.append(userDotEl);
+}
 const flashEl=h('div',{class:'world-flash','aria-hidden':'true'});
 function setFlash(v){flash=v;flashEl.style.opacity=v.toFixed(3);if(v>0&&!flashEl.isConnected)root.append(flashEl);if(v<=0)flashEl.remove();}
 const easeInOut=k=>k<.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2;
 /** 'in': after login/unlock: a point of light becomes the Earth, then everything flies out on spiral paths with light
  *  trails while the camera pulls back and turns into the desktop view `target`. 'out': for logout/lock: everything
  *  spirals into the Earth, which burns brighter, the camera turns in to the login view and ends in a soft flash. */
-function animateWorld(dir,target,{core=false}={}){
+function animateWorld(dir,target,{core=false,rij=false}={}){
  const close=closeView(centre());
  const end=dir==='in'?(target||{...cam}):close,start=dir==='in'?close:{...cam};
  // turn the shortest way round
@@ -535,6 +545,7 @@ function animateWorld(dir,target,{core=false}={}){
  return animate(dir==='in'?2800:2300,k=>{
    if(dir==='in'){
     // 0-0.25: the Earth grows out of light (overshoots a little); 0.15-1: everything flies out, camera pulls back
+    if(rij)setUserDot(1-Math.min(1,k/.35)); // from the row back into the big planet
     const a=Math.min(1,k/.25);earthScale=a<1?Math.sin(a*Math.PI/2)*1.08:1+.08*Math.max(0,1-(k-.25)/.15);
     glow=k<.35?1-k/.35*.4:Math.max(0,.6-(k-.35)/.4);
     if(core){ // the core bursts open: it grows and fades, the shock waves and sparks fly out
@@ -546,6 +557,7 @@ function animateWorld(dir,target,{core=false}={}){
     warp=Math.sin(Math.PI*Math.min(1,m*1.25))*.9; // 0.2.38: the stars stretch into light streaks while flying out
    }else{
     const e=easeInOut(k);
+    if(rij)setUserDot(Math.max(0,(k-.45)/.5)); // the personal planet moves back to the row as the Earth takes everything in
     mix=1-Math.min(1,e*1.1);glow=Math.sin(Math.min(1,k*1.1)*Math.PI)*.9; // brightest while everything falls in, calm at the end
     for(const key of Object.keys(end))cam[key]=start[key]+(end[key]-start[key])*e;
     cam.yaw-=.7*Math.sin(Math.PI*e);
@@ -555,13 +567,13 @@ function animateWorld(dir,target,{core=false}={}){
     }else setFlash(k>.72?Math.sin((k-.72)/.28*Math.PI)*.55:0); // peaks and is gone at the end: the last picture = lock screen
    }
    render();
- }).then(()=>{glow=0;earthScale=1;setFlash(0);boom=0;warp=0;if(core)setCore(dir==='out'?1:0,1);render();});
+ }).then(()=>{glow=0;earthScale=1;setFlash(0);boom=0;warp=0;setUserDot(0);if(core)setCore(dir==='out'?1:0,1);render();});
 }
 // Lock / unlock (universe-lock): the desktop goes into the Earth before the lock screen (which shows the same Earth),
 // and comes out again when it is unlocked.
 let locked=false;
-on('lock-begin',async()=>{if(locked)return;locked=true;closeMenu();if(current)leave();root.inert=true;await animateWorld('out');call('lock.ready').catch(()=>{});});
-on('unlock',async()=>{if(!locked)return;locked=false;const saved=layout.space?.camera?{...DEFAULT_CAM,...layout.space.camera}:{...DEFAULT_CAM};setFlash(0);await animateWorld('in',saved);root.inert=false;call('unlock.done').catch(()=>{});});
+on('lock-begin',async()=>{if(locked)return;locked=true;closeMenu();if(current)leave();root.inert=true;await animateWorld('out',null,{rij:true});call('lock.ready').catch(()=>{});});
+on('unlock',async()=>{if(!locked)return;locked=false;const saved=layout.space?.camera?{...DEFAULT_CAM,...layout.space.camera}:{...DEFAULT_CAM};setFlash(0);await animateWorld('in',saved,{rij:true});root.inert=false;call('unlock.done').catch(()=>{});});
 
 // ----- rename and remove (files on the desktop) -----
 let renaming=false;

@@ -34,6 +34,7 @@ def kwaliteit(anim):
     return KWALITEIT['licht' if anim.get('kwaliteit') == 'licht' else 'vol']
 SNEL = 0.15
 ONTHUL_BIJ = 0.75  # 0.2.39: portal progress at which the hidden window is restored under the (still opaque) card
+MAX_ANIMS = 24  # several windows can close at once, each with its own card in the one overlay
 ONTHUL_FADE = 0.9  # the card fades only after this: the restored window has had time to draw itself
 ZACHT = 28  # px: soft edge of the cover when there is no picture of the background
 ZWARTGAT_MAX = 8.0
@@ -104,6 +105,17 @@ def portaal_bron(anim):
     return (sw / 2, sh / 2) if sw > 1 else (x + w / 2, y + h / 2)
 
 
+def portaal_alfa(tt):
+    """Alpha of the card on its own curve (opening direction, tt 0..1): fades in quickly in the first 40 %."""
+    return clamp(0.3 + 0.7 * ease_out(clamp(tt / 0.4)))
+
+
+def portaal_schaal(p):
+    """How much the glow and the mint edge scale with the card: thin and faint while it is a small square of light,
+    full width when it is the window."""
+    return 0.45 + 0.55 * clamp(p)
+
+
 def portaal_frame(anim, t):
     """Window at time t (0..1): rect (x, y, w, h) on its way between source and real rectangle, p (0 = at the source,
     1 = exactly the window), alpha, flare (light point at the source), dek (dark cover over the real window while
@@ -111,13 +123,18 @@ def portaal_frame(anim, t):
     x, y, w, h = anim['rect']
     bx, by = portaal_bron(anim)
     soort = anim['soort']
-    p = ease_in_out(t) if soort == 'open' else 1 - ease_in_out(t)
+    # 0.3: easing per property. Position ease-out-cubic (quick away from the source, soft landing), size ease-in-out,
+    # alpha on its own curve. Closing: size and alpha are the reverse in time of opening; the position is ease-out in the
+    # direction of travel as well (quick away from the window, soft landing in the source).
+    tt = t if soort == 'open' else 1 - t
+    pos = ease_out(tt) if soort == 'open' else 1 - ease_out(t)
+    p = ease_in_out(tt)
     tx, ty = x + w / 2, y + h / 2
     # quadratic Bezier with the control point beside the straight line (arc)
     mx, my = (bx + tx) / 2, (by + ty) / 2
     dx, dy = tx - bx, ty - by
     cx, cy = mx - dy * 0.18, my + dx * 0.18
-    u = p
+    u = pos
     px = (1 - u) ** 2 * bx + 2 * (1 - u) * u * cx + u ** 2 * tx
     py = (1 - u) ** 2 * by + 2 * (1 - u) * u * cy + u ** 2 * ty
     s = PORTAAL_START
@@ -125,12 +142,12 @@ def portaal_frame(anim, t):
     if soort == 'open':
         flare = math.sin(math.pi * clamp(t / 0.35))
         dek = 1.0 if t < 0.85 else 1 - (t - 0.85) / 0.15
-        alpha = clamp(0.35 + p * 1.2)
+        alpha = portaal_alfa(t)
     else:
         flare = math.sin(math.pi * clamp((t - 0.65) / 0.35))
         dek = 0.0
-        alpha = clamp(p * 1.4 + 0.15) if t < 0.95 else clamp((1 - t) * 20) * 0.5
-    return {'rect': (px - rw / 2, py - rh / 2, rw, rh), 'p': p, 'cx': px, 'cy': py, 'bron': (bx, by),
+        alpha = portaal_alfa(1 - t) if t < 0.95 else clamp((1 - t) * 20) * 0.5
+    return {'rect': (px - rw / 2, py - rh / 2, rw, rh), 'p': p, 'pos': pos, 'schaal': portaal_schaal(p), 'cx': px, 'cy': py, 'bron': (bx, by),
             'ctrl': (cx, cy), 'doel': (tx, ty), 'alpha': alpha, 'flare': flare, 'dek': dek}
 
 
@@ -141,7 +158,7 @@ def portaal_spoor(anim, t, punten):
     (bx, by), (cx, cy), (tx, ty) = f['bron'], f['ctrl'], f['doel']
     out = []
     for j in range(punten):
-        u = f['p'] - 0.4 * j / max(1, punten - 1)
+        u = f['pos'] - 0.4 * j / max(1, punten - 1)
         if u < 0:
             break
         out.append(((1 - u) ** 2 * bx + 2 * (1 - u) * u * cx + u ** 2 * tx,
@@ -269,6 +286,7 @@ class Flits:
         self.window.connect('draw', self.draw)
         self.window.connect('realize', self.no_input)
         self.window.connect('map', self.no_input)
+        self.window.connect('show', self.no_input)
 
     def no_input(self, *args):
         import cairo
@@ -295,7 +313,7 @@ class Flits:
             if a.get('wid'):
                 self.anims = [x for x in self.anims if x.get('wid') != a['wid']]
             self.anims.append(a)
-        self.anims = self.anims[-12:]
+        self.anims = self.anims[-MAX_ANIMS:]
         if not self.window.get_visible():
             self.window.show_all()
             self.no_input()
@@ -344,7 +362,23 @@ class Flits:
             self.bevroren = None
             self.window.queue_draw()
 
+    def klaar(self, now=None):
+        """Drop finished animations (also when no frame was drawn), run a reveal that was missed; returns what is left."""
+        now = time.monotonic() if now is None else now
+        rest = []
+        for a in self.anims:
+            if voortgang(a, now) is None:
+                if a.get('onthul') and not a.get('onthuld'):
+                    a['onthuld'] = True
+                    from gi.repository import GLib
+                    GLib.idle_add(lambda a=a: a['onthul']() and False)
+            else:
+                rest.append(a)
+        self.anims = rest
+        return rest
+
     def step(self):
+        self.klaar()
         self.window.queue_draw()
         if self.bevroren is not None and time.monotonic() > self.bevroren[1]:
             self.bevroren = None
@@ -414,12 +448,13 @@ class Flits:
             GLib.idle_add(lambda: anim['onthul']() and False)
         # 2. light trail from the source along the arc to the window (tapered, fading towards the source)
         spoor = portaal_spoor(anim, t, q['spoor'])
-        zicht = math.sin(math.pi * clamp(f['p'] * 0.98 + 0.02)) if anim['soort'] == 'open' else math.sin(math.pi * f['p'])
+        zicht = math.sin(math.pi * clamp(f['pos'] * 0.98 + 0.02)) if anim['soort'] == 'open' else math.sin(math.pi * f['pos'])
+        sc = f['schaal']
         for j in range(len(spoor) - 1):
             (x0, y0, _), (x1, y1, _) = spoor[j], spoor[j + 1]
             fade = (1 - j / len(spoor)) * zicht
             for width, a in q['gloed']:
-                cr.set_line_width(width * 2.4 * (1 - j / len(spoor)) + 1.0)
+                cr.set_line_width((width * 2.4 * (1 - j / len(spoor)) + 1.0) * sc)
                 cr.set_source_rgba(*MINT, a * fade)
                 cr.move_to(x0, y0)
                 cr.line_to(x1, y1)
@@ -457,13 +492,13 @@ class Flits:
         rand = (0.25 + 0.75 * (1 - f['p'])) * f['alpha']
         rond_pad(cr, rx, ry, rw, rh, radius)
         for width, a in q['gloed']:
-            cr.set_line_width(width)
+            cr.set_line_width(width * sc)  # glow and mint edge scale with the card
             cr.set_source_rgba(*MINT, a * rand)
             cr.stroke_preserve()
         cr.new_path()
         # 5. the flare at the planet / shortcut: the window is born from (or returns into) a point of light
         if f['flare'] > 0.02:
-            r = 26 + 46 * f['flare']
+            r = (26 + 46 * f['flare']) * (0.7 + 0.3 * sc)
             grad = cairo.RadialGradient(bx, by, 0, bx, by, r)
             grad.add_color_stop_rgba(0, 1, 1, 1, 0.95 * f['flare'])
             grad.add_color_stop_rgba(0.35, *MINT, 0.55 * f['flare'])

@@ -210,6 +210,7 @@ svg.sp-icon{color:var(--accent)}
 .sp-obj:focus-visible .sp-planet,.sp-small:focus-visible::before{box-shadow:0 0 0 4px var(--accent)}
 .sp-rename{position:absolute;left:50%;top:100%;transform-origin:50% 0;transform:translateX(-50%) scale(calc(1 / var(--k,1)));width:220px;font-size:13px;padding:3px 6px;text-align:center}
 .logout-note{position:absolute;left:50%;bottom:12%;translate:-50% 0;z-index:20;margin:0;color:var(--accent);font-size:1.1em;text-shadow:0 1px 6px #000}
+.world-userdot{position:absolute;left:50%;top:84vh;width:18px;height:18px;border-radius:50%;z-index:29;pointer-events:none;background:radial-gradient(circle at 35% 30%,#eaf4ff,#85ffe3 55%,#2a6f8f);box-shadow:0 0 14px #85ffe3aa;opacity:0}
 .world-flash{position:absolute;inset:0;z-index:30;pointer-events:none;background:radial-gradient(circle at 50% 50%,#eaf4ff 0%,#9fd0ff 35%,#050815 85%);opacity:0}
 /* Opening a program from space: the planet takes a breath and sends out a ring of light. */
 .sp-obj.launching .sp-planet{animation:launch-pulse .7s cubic-bezier(.2,.9,.3,1.2)}
