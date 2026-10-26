@@ -43,3 +43,10 @@ Punt 11 van Jesse: in/uitloggen admin en normaal, vergrendelen/ontgrendelen, A�
 
 ## 5. Risico en terugdraaien
 Geen nieuwe displaymanager, LightDM-config blijft gelijk. Alles zit in het pakket universe-os en is met de vorige .deb terug te zetten.
+
+## 6. g3 – uitgevoerd
+- `usr/bin/universe-wissel`: vergrendelt direct (`universe-lock --direct`, wacht max 3 s op gtklock/swaylock) en roept dan `dm-tool switch-to-greeter` aan (terugval: `dbus-send` SwitchToGreeter via `XDG_SEAT_PATH`). De sessie blijft op de achtergrond draaien.
+- Knop 'Andere gebruiker' in het aan/uit-menu van Start (`ui/start.js`) en in het zijpaneel (`ui/panel.js`), actie `power: switch` (`backend.py`).
+- 'Afmelden' (bestaande bevestiging + animatie blijft) beëindigt nu echt de sessie: `loginctl terminate-session $XDG_SESSION_ID`, terugval `labwc --exit` (`backend.end_session`).
+- **Niet op het gtklock-scherm**: gtklock koppelt in `layout.ui` alleen zijn eigen ingebouwde handlers (`window_pw_check`, `window_pw_toggle_vis`); een knop kan daar geen eigen commando starten. Een extra module (bv. powerbar) zou nodig zijn en die kent geen 'andere gebruiker'. Wisselen van het vergrendelscherm kan daarom alleen via Ctrl+Alt+F-toets of door te ontgrendelen en het menu te gebruiken.
+- Test: `docs/tests/wisselen-afmelden.py`.

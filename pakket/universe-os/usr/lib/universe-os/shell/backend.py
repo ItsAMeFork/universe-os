@@ -473,11 +473,25 @@ def sound(name):
         pass
 
 
+def end_session():
+    """Really log out: logind ends the whole session, so every program of it stops. Fallback: only the compositor."""
+    sid = os.environ.get('XDG_SESSION_ID')
+    if sid and shutil.which('loginctl'):
+        try:
+            if subprocess.run(['loginctl', 'terminate-session', sid], capture_output=True, timeout=10).returncode == 0:
+                return
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+    return spawn(['labwc', '--exit'])
+
+
 def power(action, sound_first=True):
     if action == 'lock':
         return spawn(['universe-lock'])
+    if action == 'switch':  # "Andere gebruiker": lock at once, then the login screen; this session keeps running
+        return spawn(['universe-wissel'])
     if action == 'logout':
-        return spawn(['labwc', '--exit'])
+        return end_session()
     if action in ('reboot', 'poweroff', 'suspend'):
         if action != 'suspend' and sound_first:
             subprocess.run(['universe-geluid', 'afsluiten', '--wacht'], timeout=10, check=False)  # like Windows: first the sound

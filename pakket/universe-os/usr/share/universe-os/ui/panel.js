@@ -99,7 +99,7 @@ function renderPanel(){
   h('h2',{class:'panel-heading'},'Navigatie'),
   h('div',{class:'quick'},act('Ruimtewereld','planet',()=>{call('desktop.show').catch(e=>toast(e.message));toggle(false);}),act('Overzicht','windows',()=>{call('surface.show',{name:'overview'}).catch(e=>toast(e.message));toggle(false);}),tool('Instellingen','gear','control'),tool('Bestanden','folder','files')),
   h('h2',{class:'panel-heading'},'Sessie en energie'),
-  h('div',{class:'power'},act('Vergrendelen','lock',()=>{toggle(false);call('power',{action:'lock'});}),act('Afmelden','logout',()=>ask('Afmelden','logout')),act('Opnieuw opstarten','restart',()=>ask('Opnieuw opstarten','reboot')),act('Afsluiten','power',()=>ask('Afsluiten','poweroff')),
+  h('div',{class:'power'},act('Vergrendelen','lock',()=>{toggle(false);call('power',{action:'lock'});}),act('Andere gebruiker','user',()=>{toggle(false);call('power',{action:'switch'});}),act('Afmelden','logout',()=>ask('Afmelden','logout')),act('Opnieuw opstarten','restart',()=>ask('Opnieuw opstarten','reboot')),act('Afsluiten','power',()=>ask('Afsluiten','poweroff')),
    status.canSuspend?act('Slaapstand','sleep',()=>{toggle(false);call('power',{action:'suspend'});}):null),
   confirmBox].filter(child=>child!=null));
  for(const details of panel.querySelectorAll('details'))if(expanded.includes(details.querySelector('summary').textContent))details.open=true;
