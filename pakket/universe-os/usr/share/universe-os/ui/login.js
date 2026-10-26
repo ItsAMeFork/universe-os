@@ -4,6 +4,7 @@ import {paintEarths} from './globe.js';
 import {afterPaint,debugFPS} from './performance.js';
 import {DEFAULT_CAM,distFor,drawSky,bigEarth} from './space.js';
 import {chargeToCore,formPlanet} from './explode.js';
+import {gebruikersRij} from './gebruikersrij.js';
 const $=id=>document.getElementById(id);
 // The Earth in space, seen with the camera of the 3D desktop (space.js); after login the desktop starts in this view.
 const planetPx=()=>Math.min(innerWidth*.8,innerHeight*.78,650);
@@ -27,7 +28,11 @@ afterPaint().then(async()=>{
  $('core').remove();document.documentElement.style.background='#050815'; // the core was also the first paint
  document.body.classList.remove('forming');document.body.classList.add('formed');
 });
-addEventListener('resize',()=>{if(!leaving)scene();});
+addEventListener('resize',()=>{if(!leaving){scene();rijMaat();}});
+// Gebruikersplaneten-rij: selecteren vult alleen de gebruikersnaam in (het inloggen zelf blijft login.authenticate/respond/start).
+const rij=gebruikersRij($('users'),{onKies:naam=>{if(!busy&&!prompt&&!leaving)$('user').value=naam;},onBevestig:()=>{(prompt?$('response'):$('submit')).focus();}});
+function rijMaat(){const box=$('users');if(!box.hidden)rij.grootte(Math.min(innerWidth-40,1100),Math.max(80,Math.min(innerHeight*.3,260)));}
+function toonRij(users,hint){if(!Array.isArray(users)||!users.length)return;$('users').hidden=false;rij.zetGebruikers(users,hint);rijMaat();}
 let prompt=false,busy=false,leaving=false,cancelling=false,attempt=0,animations='full';
 function error(text){leaving=false;busy=false;prompt=false;cancelling=false;document.body.classList.remove('depart');$('response').value='';$('prompt-label').hidden=true;$('user').disabled=false;$('submit').disabled=false;$('submit').textContent='Verder';$('other-user').hidden=!text;$('other-user').disabled=false;$('message').textContent=text;$('user').focus();}
 function showPrompt(data){const text=(data.text||'').trim();prompt=true;busy=false;$('message').textContent='';$('other-user').hidden=false;$('prompt-label').hidden=false;$('prompt-text').textContent=({'Password:':'Wachtwoord','Username:':'Gebruikersnaam'}[text]||text||'Wachtwoord');$('response').type=data.secret?'password':'text';$('response').value='';$('submit').disabled=false;$('submit').textContent='Inloggen';$('response').focus();}
@@ -54,7 +59,7 @@ on('login-success',async()=>{
  try{await call('login.start');}catch(e){error(e.message);}
 });
 let settingsReady;const settingsKnown=new Promise(r=>{settingsReady=r;});setTimeout(()=>settingsReady(),3000);
-(async()=>{if(!available){settingsReady();error('Open dit scherm via de Universe OS-inlogomgeving.');$('submit').disabled=true;return;}try{const state=await call('login.ready');animations=state.animations||'full';applySettings({animations});settingsReady();$('user').value=state.user;if(state.prompt)showPrompt(state.prompt);}catch(e){error(e.message);$('submit').disabled=true;}})();
+(async()=>{if(!available){settingsReady();error('Open dit scherm via de Universe OS-inlogomgeving.');$('submit').disabled=true;return;}try{const state=await call('login.ready');animations=state.animations||'full';applySettings({animations});settingsReady();$('user').value=state.user;toonRij(state.users,state.user);if(state.prompt)showPrompt(state.prompt);}catch(e){error(e.message);$('submit').disabled=true;}})();
 // A user name never contains \ or spaces. Some keyboards send an extra key (the one next to left Shift, "\" in the US
 // layout) with the first keystroke after power-on, also in the BIOS (Axel's Gigabyte pc, 13 Oct): drop such characters
 // so the name is not wrong. Letters, digits and . _ - stay; capitals are kept as typed (PAM decides).

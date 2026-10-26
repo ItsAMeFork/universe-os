@@ -87,8 +87,17 @@ class PlanetGreeter:
 
     def ready(self, _):
         startup_sound()  # with the planet forming on the login screen
-        return {'user': self.dm.get_select_user_hint() or '', 'prompt': self.prompt,
+        return {'user': self.dm.get_select_user_hint() or '', 'prompt': self.prompt, 'users': self.user_list(),
                 'animations': config.settings().get('animations', 'full')}
+
+    def user_list(self):
+        """Name and display name of the users liblightdm knows (for the planet row); nothing else is shared."""
+        try:
+            users = LightDM.UserList.get_instance().get_users()
+            return [{'naam': u.get_name(), 'weergave': u.get_display_name() or u.get_name()}
+                    for u in users if u.get_name()]
+        except Exception:
+            return []
 
     def power_get(self, _):
         """Which power actions logind allows before signing in (via LightDM; no own privileges)."""
