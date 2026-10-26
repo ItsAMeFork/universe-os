@@ -47,6 +47,7 @@ class PlanetGreeter:
         self.cancelling = False
         self.cancel_timeout = None
         self.attempt_active = False
+        self.user = ''
         self.dm.connect('show-prompt', self.show_prompt)
         self.dm.connect('show-message', self.show_message)
         self.dm.connect('authentication-complete', self.authentication_complete)
@@ -115,21 +116,49 @@ class PlanetGreeter:
             raise RuntimeError('%s is niet gelukt.' % name) from None
         return True
 
+    def logged_in(self, name):
+        """Whether this user already has a session (LightDM then switches back to it on start_session)."""
+        try:
+            for user in LightDM.UserList.get_instance().get_users():
+                if user.get_name() == name:
+                    return bool(user.get_logged_in())
+        except (GLib.Error, AttributeError):
+            pass
+        return False
+
     def authenticate(self, args):
+        """Selecting a user (or retrying after a wrong password) starts a fresh PAM conversation for that user.
+        A running one, for another planet or the same, is cancelled first."""
         if self.starting:
             raise RuntimeError('De aanmelding wordt al gecontroleerd.')
         user = str(args.get('user', '')).strip()
         if not user or len(user) > 256:
             raise ValueError('Vul je gebruikersnaam in.')
-        self.authorized = False
-        self.prompt = None
+        self.abort_attempt()
         self.attempt_active = True
+        self.user = user
         try:
             self.dm.authenticate(user)
         except GLib.Error:
             self.attempt_active = False
+            self.user = ''
             raise RuntimeError('Aanmelden kon niet worden gestart.') from None
         return True
+
+    def abort_attempt(self):
+        """Drop everything of the previous attempt, including a half-answered PAM conversation."""
+        self.authorized = False
+        self.attempt_active = False
+        self.prompt = None
+        self.user = ''
+        if self.timeout:
+            GLib.source_remove(self.timeout)
+            self.timeout = None
+        if self.dm.get_in_authentication():
+            try:
+                self.dm.cancel_authentication()
+            except GLib.Error:
+                pass  # authenticate() starts a new sequence; liblightdm ignores the old one.
 
     def show_prompt(self, _, text, kind):
         if self.cancelling or not self.attempt_active:
@@ -155,20 +184,9 @@ class PlanetGreeter:
     def cancel(self, _):
         if self.starting:
             raise RuntimeError('Universe OS wordt al gestart.')
-        self.authorized = False
-        self.attempt_active = False
-        self.prompt = None
-        if self.timeout:
-            GLib.source_remove(self.timeout)
-            self.timeout = None
-        # Returning to username must not wait for PAM to finish its old prompt.
-        # The next authenticate() replaces it using liblightdm's sequence number.
         self.cancelling = False
-        if self.dm.get_in_authentication():
-            try:
-                self.dm.cancel_authentication()
-            except GLib.Error:
-                pass  # A fresh authenticate() remains available to recover.
+        # Returning to username must not wait for PAM to finish its old prompt.
+        self.abort_attempt()
         emit(self.view, 'login-cancelled')
         return True
 
@@ -179,9 +197,12 @@ class PlanetGreeter:
         self.attempt_active = False
         self.authorized = bool(self.dm.get_is_authenticated())
         if not self.authorized:
-            emit(self.view, 'login-error', 'Aanmelden mislukt. Controleer je account en wachtwoord.')
+            # Never access. The page clears the field and asks for the same user again.
+            emit(self.view, 'login-failed', {'user': self.user,
+                                             'text': 'Onjuist wachtwoord. Probeer het opnieuw.'})
             return
-        emit(self.view, 'login-success')
+        again = self.logged_in(self.user)
+        emit(self.view, 'login-success', {'logged_in': again})
         # Recover if the page's animation callback fails; never bypass PAM.
         self.timeout = GLib.timeout_add(3000, self.start_after_timeout)
 
@@ -193,7 +214,8 @@ class PlanetGreeter:
     def start_session(self, _):
         if self.starting:
             return False
-        if not self.authorized or not self.dm.get_is_authenticated():
+        if (not self.authorized or not self.dm.get_is_authenticated()
+                or self.dm.get_authentication_user() != self.user):
             raise PermissionError('Je bent niet aangemeld.')
         self.starting = True
         if self.timeout:
