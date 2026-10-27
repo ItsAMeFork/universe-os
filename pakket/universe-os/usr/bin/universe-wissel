@@ -14,14 +14,30 @@ if ! locked; then
     done
     locked || echo "universe-wissel: vergrendelen duurde te lang; toch naar het inlogscherm" >&2
 fi
-if command -v dm-tool >/dev/null 2>&1 && dm-tool switch-to-greeter; then
-    exit 0
-fi
-# Fallback: ask LightDM over D-Bus (the seat path is in XDG_SEAT_PATH, set by LightDM for the session)
-if [ -n "${XDG_SEAT_PATH:-}" ] && command -v dbus-send >/dev/null 2>&1 &&
-    dbus-send --system --type=method_call --dest=org.freedesktop.DisplayManager "$XDG_SEAT_PATH" \
-        org.freedesktop.DisplayManager.Seat.SwitchToGreeter; then
-    exit 0
-fi
+# 0.3.0 (Jesse: "soms alleen vergrendeld, geen greeter"): ask LightDM, then check that the greeter really became
+# the active session of the seat; ask again (up to 5 times) when it did not. A request that LightDM drops (e.g. while
+# the previous greeter is still shutting down) used to leave the user on his own lock screen.
+greeter_actief() {
+    s=$(loginctl show-seat seat0 -p ActiveSession --value 2>/dev/null) || return 1
+    [ -n "$s" ] && [ "$(loginctl show-session "$s" -p Class --value 2>/dev/null)" = greeter ]
+}
+vraag() {
+    if command -v dm-tool >/dev/null 2>&1 && dm-tool switch-to-greeter 2>/dev/null; then return 0; fi
+    [ -n "${XDG_SEAT_PATH:-}" ] && command -v dbus-send >/dev/null 2>&1 &&
+        dbus-send --system --type=method_call --dest=org.freedesktop.DisplayManager "$XDG_SEAT_PATH" \
+            org.freedesktop.DisplayManager.Seat.SwitchToGreeter 2>/dev/null
+}
+poging=1
+while [ "$poging" -le 5 ]; do
+    vraag || echo "universe-wissel: poging $poging: LightDM gaf een fout" >&2
+    i=0
+    while [ "$i" -lt 40 ]; do  # at most 4 s per attempt
+        greeter_actief && exit 0
+        sleep 0.1
+        i=$((i + 1))
+    done
+    echo "universe-wissel: poging $poging: inlogscherm niet actief geworden, opnieuw" >&2
+    poging=$((poging + 1))
+done
 echo "universe-wissel: kon niet naar het inlogscherm wisselen" >&2
 exit 1

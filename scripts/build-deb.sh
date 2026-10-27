@@ -25,6 +25,9 @@ else
     echo "Let op: node ontbreekt, JavaScript niet gecontroleerd (apt install nodejs)." >&2
 fi
 cp -a "$ROOT/pakket/universe-os/." "$STAGE/"
+# 0.3.0: Dutch texts for gtklock ("Login failed" and co.; gtklock has no nl translation). Needs gettext (msgfmt).
+install -d "$STAGE/usr/share/locale/nl/LC_MESSAGES"
+msgfmt -c -o "$STAGE/usr/share/locale/nl/LC_MESSAGES/gtklock.mo" "$ROOT/bron/gtklock-nl/gtklock-nl.po"
 find "$STAGE" -name '__pycache__' -prune -exec rm -rf {} +
 
 # Centrale vormgeving en versie.
