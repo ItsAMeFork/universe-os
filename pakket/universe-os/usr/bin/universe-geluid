@@ -1,9 +1,10 @@
 #!/bin/sh
 # Speelt een systeemgeluid van Universe OS (eigen "chill reggae space"-geluiden, gemaakt met
 # scripts/assets/maak-geluiden.mjs). Niets als de instelling "Systeemgeluiden" uit staat.
+# update-inslag (UOS-ANIM-001, 18.6 s: meteoriet, inslag, breuk, aanzuigen) komt uit scripts/assets/maak-update-inslag.html.
 #   universe-geluid inloggen [--wacht]     --wacht: pas terugkomen als het geluid klaar is (vóór afsluiten)
 case "$1" in
-    opstarten|inloggen|afmelden|afsluiten|melding|fout|apparaat-in|apparaat-uit|vergrendelen|ontgrendelen|prullenbak|schermafbeelding|volume|waarschuwing|aftellen|lancering|meteoor) ;;
+    opstarten|inloggen|afmelden|afsluiten|melding|fout|apparaat-in|apparaat-uit|vergrendelen|ontgrendelen|prullenbak|schermafbeelding|volume|waarschuwing|aftellen|lancering|meteoor|update-inslag) ;;
     *) exit 0 ;;
 esac
 f=/usr/share/sounds/universe/$1.wav
