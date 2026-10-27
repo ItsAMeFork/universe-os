@@ -2,6 +2,14 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
+## 27 oktober: versie 0.3.1 (inlogscherm zonder kaart: inloggen via de kleine gebruikersplaneten; NIET gepubliceerd, geen ISO)
+Jesse (t155u): alleen het inlogscherm. De rechthoekige kaart ('Universe OS', 'Jouw toegang tot het universum', gebruikersnaam, wachtwoord, Inloggen, Andere gebruiker) is weg; de grote planeet, ruimte en de rest zijn ongewijzigd.
+- `ui/login.html/.js/.css`: klik/tik (of pijltjes + Enter) op een kleine planeet: die licht vloeiend op en direct eronder (boven als het knoppenpaneel in de weg zit) verschijnt een klein wachtwoordveld (#kluis) met pijltje; Enter of pijltje logt in, Escape sluit. Fout wachtwoord: rode melding in dat veld, veld leeg en meteen weer klaar. 1 gebruiker: meteen gekozen.
+- Vergrendelde sessie(s) (liblightdm `logged_in`, greeter.py geeft `ingelogd` per gebruiker door): alleen die planeet/planeten met een markeringsstipje en linksonder de kleine knop 'Andere gebruiker'; die toont het overzicht met alle planeten. Zonder vergrendelde sessie geen knop. Terugkeren = één wachtwoord, dezelfde sessie; afmelden beëindigt de sessie echt.
+- Planeten niet versleepbaar (ongewijzigd), focusring rond de planeet in plaats van een rechthoek. Rijhoogte nu t.o.v. de grote planeet (`PLANEET_VRIJ`) in plaats van de kaart.
+- Suite: 62 OK, 0 FOUT. Tests: `docs/tests/inlog-planeten.mjs` (26 controles, Chromium en `ENG=webkit`), `ontgrendelen-030.py` uitgebreid. Live in de test-VM (12, 2 en 1 gebruiker via testfilter; vol en licht via /etc/universe-os/grafisch-licht): goed/fout wachtwoord, terugkeren naar vergrendelde anna, 'Andere gebruiker' zichtbaar/onzichtbaar, overzicht, afmelden, sleeptest. Screenshots: `uitvoer/vm-test/0.3.1-*.png`; `0.3.1-grote-planeet-voor-na.png`: rand van de grote planeet pixel-gelijk, buiten het oude kaartvlak max. 2/255 verschil.
+- Debs (a48cab2): universe-os_0.3.1_all.deb (56c4dabc…), universe-os-vergrendelknoppen_0.3.1_amd64.deb (f1d1f12e…).
+
 ## 26 oktober: versie 0.3.0 (gtklock-vergrendelscherm met eigen knoppenmodule, gtklock in het Nederlands, robuuste 'Andere gebruiker'; GEPUBLICEERD 26 okt 08:25, apt test + stable, apt-commits 6a2cc54 + 24795e8, broncommit 4bdecf0; geen ISO)
 - Twee pakketten: `universe-os_0.3.0_all.deb` (sha256 36e846f5…) en `universe-os-vergrendelknoppen_0.3.0_amd64.deb` (sha256 80f2885c…).
 - `scripts/publiceer-apt.sh` (f123875): neemt bijbehorende pakketten van dezelfde versie (`universe-os-*_VERSIE_*.deb`) mee naar test en stable.
