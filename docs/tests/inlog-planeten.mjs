@@ -1,8 +1,9 @@
 // 0.3.1 (t155u): inlogscherm zonder kaart. Headless Chromium met een nagebootste greeter-bridge (geen LightDM):
 // geen kaart, wachtwoordveld bij de gekozen planeet, goed/fout wachtwoord, toetsenbord, 'Andere gebruiker' alleen bij
 // een vergrendelde sessie, terugkeren naar die sessie, veel gebruikers, en de grote planeet staat op dezelfde plek.
+// ENG=webkit draait hetzelfde in WebKit (zoals de greeter, WebKitGTK).
 import http from 'node:http';import {readFileSync,existsSync} from 'node:fs';import {extname,join,normalize} from 'node:path';import {fileURLToPath} from 'node:url';
-let chromium;try{({chromium}=await import('playwright'));}catch{console.log('OVERGESLAGEN: playwright ontbreekt (npm install in docs/tests)');process.exit(0);}
+let chromium;try{({chromium}=await import('playwright').then(m=>({chromium:process.env.ENG==='webkit'?m.webkit:m.chromium})));}catch{console.log('OVERGESLAGEN: playwright ontbreekt (npm install in docs/tests)');process.exit(0);}
 const ROOT=fileURLToPath(new URL('../../pakket/universe-os/usr/share/universe-os/',import.meta.url));
 const types={'.html':'text/html','.js':'text/javascript','.css':'text/css','.png':'image/png','.svg':'image/svg+xml','.json':'application/json'};
 const srv=http.createServer((q,r)=>{const p=normalize(join(ROOT,decodeURIComponent(q.url.split('?')[0])));if(!p.startsWith(ROOT)||!existsSync(p)){r.writeHead(404);return r.end();}r.writeHead(200,{'content-type':types[extname(p)]||'application/octet-stream'});r.end(readFileSync(p));});
@@ -11,13 +12,13 @@ let browser;try{browser=await chromium.launch();}catch(e){console.log('OVERGESLA
 let fails=0;const check=(n,ok)=>{console.log((ok?'OK   ':'FOUT ')+n);if(!ok)fails++;};
 const mock=(users,hint)=>`(()=>{const U=${JSON.stringify(users)},log=window.__log=[];let wie='';
  const ev=(n,d)=>setTimeout(()=>window.__universeEvent(n,d),20);
- const h={'login.ready':()=>({user:${JSON.stringify(hint||'')},prompt:null,users:U,animations:'off'}),
+ const h={'login.ready':()=>({user:${JSON.stringify(hint||'')},prompt:null,users:U,animations:'full'}),
   'login.authenticate':a=>{wie=a.user;ev('login-prompt',{text:'Password:',secret:true});return true;},
   'login.respond':a=>{log.push(['respond',wie,a.response===wie+'-goed']);if(a.response===wie+'-goed')ev('login-success',{logged_in:!!(U.find(g=>g.naam===wie)||{}).ingelogd});else ev('login-failed',{user:wie,text:'Onjuist wachtwoord. Probeer het opnieuw.'});return true;},
   'login.start':()=>{log.push(['start',wie]);return true;},'login.cancel':()=>{ev('login-cancelled');return true;},
   'power.get':()=>({shutdown:true,suspend:true,restart:true})};
  window.webkit={messageHandlers:{universe:{postMessage:s=>{const m=JSON.parse(s);setTimeout(()=>{try{const f=h[m.cmd];window.__universeReply(m.id,!!f,f?f(m.args):'onbekend');}catch(e){window.__universeReply(m.id,false,e.message);}},5);}}}};
- matchMedia=(q=>()=>({matches:true,addEventListener(){},removeEventListener(){}}))();})()`;
+})()`;
 async function open(users,hint,size={width:1600,height:900}){const p=await browser.newPage({viewport:size});await p.addInitScript(mock(users,hint));await p.goto(URL_);await p.waitForFunction(()=>document.body.classList.contains('formed'),null,{timeout:15000});await p.waitForTimeout(400);return p;}
 const G=n=>Array.from({length:n},(_,i)=>({naam:'gebruiker'+(i+1),weergave:'Gebruiker '+(i+1)}));
 const vis=(p,s)=>p.evaluate(s=>{const e=document.querySelector(s);if(!e)return false;const r=e.getBoundingClientRect(),c=getComputedStyle(e);return !e.hidden&&c.display!=='none'&&r.width>0&&+c.opacity>0;},s);
@@ -35,7 +36,7 @@ const planeet=p=>p.evaluate(()=>{const r=document.getElementById('planet').getBo
  check('wachtwoordveld staat direct bij (onder) die planeet',bij);
  await p.fill('#response','fout');await p.keyboard.press('Enter');await p.waitForTimeout(400);
  check('fout wachtwoord: melding bij de planeet, veld leeg en weer klaar',await p.evaluate(()=>document.getElementById('message').textContent.includes('Onjuist')&&document.getElementById('kluis').classList.contains('fout')&&document.getElementById('response').value===''&&!document.getElementById('kluis').hidden));
- await p.fill('#response','gebruiker2-goed');await p.click('#submit');await p.waitForTimeout(1500);
+ await p.fill('#response','gebruiker2-goed');await p.click('#submit');await p.waitForFunction(()=>window.__log.some(l=>l[0]==='start'),null,{timeout:10000}).catch(()=>{});
  const log=await p.evaluate(()=>window.__log);
  check('goed wachtwoord via het pijltje: sessie start voor gebruiker2',log.some(l=>l[0]==='start'&&l[1]==='gebruiker2'));
  check('wachtwoord nergens in de pagina bewaard',await p.evaluate(()=>!document.body.innerHTML.includes('gebruiker2-goed')&&document.getElementById('response').value===''));
@@ -57,7 +58,7 @@ const planeet=p=>p.evaluate(()=>{const r=document.getElementById('planet').getBo
  check('pijltjes kiezen een planeet en openen het veld daar',await vis(p,'#kluis')&&await p.evaluate(()=>document.querySelector('#users .gekozen .naam').textContent==='Gebruiker 2'));
  await p.keyboard.press('Enter');await p.waitForTimeout(200);
  check('Enter op de planeet zet de focus in het wachtwoordveld',await p.evaluate(()=>document.activeElement.id==='response'));
- await p.keyboard.type('gebruiker2-goed');await p.keyboard.press('Enter');await p.waitForTimeout(1500);
+ await p.keyboard.type('gebruiker2-goed');await p.keyboard.press('Enter');await p.waitForFunction(()=>window.__log.some(l=>l[0]==='start'),null,{timeout:10000}).catch(()=>{});
  check('Enter logt in',(await p.evaluate(()=>window.__log)).some(l=>l[0]==='start'&&l[1]==='gebruiker2'));
  await p.close();
 }
