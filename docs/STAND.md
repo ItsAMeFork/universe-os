@@ -2,13 +2,14 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
-## 27 oktober: versie 0.3.1 (inlogscherm zonder kaart: inloggen via de kleine gebruikersplaneten; NIET gepubliceerd, geen ISO)
+## 27 oktober: versie 0.3.1 (inlogscherm zonder kaart: inloggen via de kleine gebruikersplaneten; GEPUBLICEERD 27 okt 09:57, apt test + stable, beide pakketten, apt-commits d9ca7b5 + 1dd7240, broncommit a48cab2; geen ISO)
 Jesse (t155u): alleen het inlogscherm. De rechthoekige kaart ('Universe OS', 'Jouw toegang tot het universum', gebruikersnaam, wachtwoord, Inloggen, Andere gebruiker) is weg; de grote planeet, ruimte en de rest zijn ongewijzigd.
 - `ui/login.html/.js/.css`: klik/tik (of pijltjes + Enter) op een kleine planeet: die licht vloeiend op en direct eronder (boven als het knoppenpaneel in de weg zit) verschijnt een klein wachtwoordveld (#kluis) met pijltje; Enter of pijltje logt in, Escape sluit. Fout wachtwoord: rode melding in dat veld, veld leeg en meteen weer klaar. 1 gebruiker: meteen gekozen.
 - Vergrendelde sessie(s) (liblightdm `logged_in`, greeter.py geeft `ingelogd` per gebruiker door): alleen die planeet/planeten met een markeringsstipje en linksonder de kleine knop 'Andere gebruiker'; die toont het overzicht met alle planeten. Zonder vergrendelde sessie geen knop. Terugkeren = één wachtwoord, dezelfde sessie; afmelden beëindigt de sessie echt.
 - Planeten niet versleepbaar (ongewijzigd), focusring rond de planeet in plaats van een rechthoek. Rijhoogte nu t.o.v. de grote planeet (`PLANEET_VRIJ`) in plaats van de kaart.
 - Suite: 62 OK, 0 FOUT. Tests: `docs/tests/inlog-planeten.mjs` (26 controles, Chromium en `ENG=webkit`), `ontgrendelen-030.py` uitgebreid. Live in de test-VM (12, 2 en 1 gebruiker via testfilter; vol en licht via /etc/universe-os/grafisch-licht): goed/fout wachtwoord, terugkeren naar vergrendelde anna, 'Andere gebruiker' zichtbaar/onzichtbaar, overzicht, afmelden, sleeptest. Screenshots: `uitvoer/vm-test/0.3.1-*.png`; `0.3.1-grote-planeet-voor-na.png`: rand van de grote planeet pixel-gelijk, buiten het oude kaartvlak max. 2/255 verschil.
 - Debs (a48cab2): universe-os_0.3.1_all.deb (56c4dabc…), universe-os-vergrendelknoppen_0.3.1_amd64.deb (f1d1f12e…).
+- Online gecontroleerd 27 okt 09:58: Packages van test en stable tonen beide pakketten in 0.3.1; beide pool-.debs HTTP 200, hashes kloppen.
 
 ## 26 oktober: versie 0.3.0 (gtklock-vergrendelscherm met eigen knoppenmodule, gtklock in het Nederlands, robuuste 'Andere gebruiker'; GEPUBLICEERD 26 okt 08:25, apt test + stable, apt-commits 6a2cc54 + 24795e8, broncommit 4bdecf0; geen ISO)
 - Twee pakketten: `universe-os_0.3.0_all.deb` (sha256 36e846f5…) en `universe-os-vergrendelknoppen_0.3.0_amd64.deb` (sha256 80f2885c…).
@@ -89,7 +90,7 @@ world.html steeds (`free(): invalid pointer`), na 3 keer world-lite (2D).
 - Windows-sneltoetsen (Win+R/S/V/./M, Win+Shift+S, Ctrl+Alt+Del-menu) in `shortcuts.json`; `universe-klembord` (klembordgeschiedenis, emoji, Ctrl+Alt+Del); Ctrl+V plakt in de terminal (sessie zet `~/.config/xfce4/terminal/accels.scm` eenmalig neer). Overzicht: `docs/SNELTOETSEN.md`. Test: `docs/tests/sneltoetsen.py`.
 
 ## 24 oktober: versie 0.2.29 (NVIDIA-pc; ISO gebouwd; gepubliceerd 24 okt 22:20 als onderdeel van 0.2.32)
-Gepubliceerd (apt test + stable): 0.2.24 t/m 0.2.28 (0.2.28 op 24 okt) en 0.2.32 (24 okt 22:20; bevat 0.2.29 t/m 0.2.31, die geen los pakket kregen), 0.2.33 (24 okt 23:29), 0.2.34 (25 okt 14:11), 0.2.35 (25 okt 15:51), 0.2.36 (25 okt 16:58), 0.2.37 (25 okt 17:34) 0.2.38 (25 okt 21:47), 0.2.39 (26 okt 09:25) en 0.3.0 (26 okt 08:25).
+Gepubliceerd (apt test + stable): 0.2.24 t/m 0.2.28 (0.2.28 op 24 okt) en 0.2.32 (24 okt 22:20; bevat 0.2.29 t/m 0.2.31, die geen los pakket kregen), 0.2.33 (24 okt 23:29), 0.2.34 (25 okt 14:11), 0.2.35 (25 okt 15:51), 0.2.36 (25 okt 16:58), 0.2.37 (25 okt 17:34) 0.2.38 (25 okt 21:47), 0.2.39 (26 okt 09:25), 0.3.0 (26 okt 08:25) en 0.3.1 (27 okt 09:57).
 - Met het eigen NVIDIA-stuurprogramma geen grafische proef meer en nooit processor-tekenen door een proefuitslag; normaal tekenen met gedeeld geheugen (`shell/grafisch.py`). Oorzaak van de 2D-terugval: proef zei 'safe' -> llvmpipe -> wereld te traag -> world-lite.
 - Proefpagina neutraal donker (#050815 / #151828) met "Beeld wordt getest…" in plaats van blauw/paars (`shell/grafisch_proef.py`). Dat was het blauw/paarse beeld na inloggen.
 - `ui/world.js`: frame-/planeetcontrole 25 s in plaats van 12/14 s bij `gfx=soft`.
