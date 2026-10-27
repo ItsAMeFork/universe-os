@@ -20,6 +20,13 @@ class Basis(unittest.TestCase):
         self.bin = Path(self.tmp) / 'bin'
         self.bin.mkdir()
         self.env = {'PATH': '%s:/usr/bin:/bin' % self.bin, 'LOG': str(self.log), 'HOME': self.tmp}
+        # 0.3.0: universe-wissel checks that the greeter became the active session; this logind says so once a
+        # switch was asked (and the file 'negeer' is absent: LightDM dropped the request, see test_opnieuw_vragen)
+        script(self.bin, 'loginctl', f'''case "$*" in
+            *show-seat*) echo c1 ;;
+            *show-session*) if [ ! -e "{self.tmp}/negeer" ] && grep -qi switch "$LOG" 2>/dev/null; then echo greeter; else echo user; fi ;;
+            esac
+            ''')
 
     def tearDown(self):
         subprocess.run(['pkill', '-f', self.tmp], check=False)
@@ -75,6 +82,17 @@ class Wissel(Basis):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn('dbus-send --system --type=method_call --dest=org.freedesktop.DisplayManager '
                       '/org/freedesktop/DisplayManager/Seat0 org.freedesktop.DisplayManager.Seat.SwitchToGreeter', self.regels())
+
+    def test_opnieuw_vragen_als_greeter_niet_komt(self):
+        self.gtklock_nep('0')
+        negeer = Path(self.tmp) / 'negeer'
+        negeer.touch()
+        # the first request is dropped by "LightDM"; dm-tool removes the marker so the second one works
+        script(self.bin, 'dm-tool', f'echo "dm-tool $*" >> "$LOG"\n[ -e "{negeer}.1" ] && rm -f "{negeer}"\ntouch "{negeer}.1"\n')
+        r = self.wissel()
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn('poging 1: inlogscherm niet actief', r.stderr)
+        self.assertEqual(self.regels().count('dm-tool switch-to-greeter'), 2)
 
     def test_mislukt_geeft_fout(self):
         self.gtklock_nep('0')

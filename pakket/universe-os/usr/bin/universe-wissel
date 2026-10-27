@@ -21,22 +21,36 @@ greeter_actief() {
     s=$(loginctl show-seat seat0 -p ActiveSession --value 2>/dev/null) || return 1
     [ -n "$s" ] && [ "$(loginctl show-session "$s" -p Class --value 2>/dev/null)" = greeter ]
 }
-vraag() {
-    if command -v dm-tool >/dev/null 2>&1 && dm-tool switch-to-greeter 2>/dev/null; then return 0; fi
-    [ -n "${XDG_SEAT_PATH:-}" ] && command -v dbus-send >/dev/null 2>&1 &&
+vraag() {  # 0 = asked, 1 = LightDM refused, 2 = no way to ask at all
+    weg=2
+    if command -v dm-tool >/dev/null 2>&1; then
+        dm-tool switch-to-greeter 2>/dev/null && return 0
+        weg=1
+    fi
+    if [ -n "${XDG_SEAT_PATH:-}" ] && command -v dbus-send >/dev/null 2>&1; then
         dbus-send --system --type=method_call --dest=org.freedesktop.DisplayManager "$XDG_SEAT_PATH" \
-            org.freedesktop.DisplayManager.Seat.SwitchToGreeter 2>/dev/null
+            org.freedesktop.DisplayManager.Seat.SwitchToGreeter 2>/dev/null && return 0
+        weg=1
+    fi
+    return "$weg"
 }
 poging=1
 while [ "$poging" -le 5 ]; do
-    vraag || echo "universe-wissel: poging $poging: LightDM gaf een fout" >&2
-    i=0
-    while [ "$i" -lt 40 ]; do  # at most 4 s per attempt
-        greeter_actief && exit 0
-        sleep 0.1
-        i=$((i + 1))
-    done
-    echo "universe-wissel: poging $poging: inlogscherm niet actief geworden, opnieuw" >&2
+    vraag
+    rc=$?
+    [ "$rc" -eq 2 ] && break
+    if [ "$rc" -eq 0 ]; then
+        i=0
+        while [ "$i" -lt 40 ]; do  # at most 4 s per attempt
+            greeter_actief && exit 0
+            sleep 0.1
+            i=$((i + 1))
+        done
+        echo "universe-wissel: poging $poging: inlogscherm niet actief geworden, opnieuw" >&2
+    else
+        echo "universe-wissel: poging $poging: LightDM gaf een fout" >&2
+        sleep 1
+    fi
     poging=$((poging + 1))
 done
 echo "universe-wissel: kon niet naar het inlogscherm wisselen" >&2
