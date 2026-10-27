@@ -55,13 +55,13 @@ export function gebruikersRij(host,{onKies=()=>{},onBevestig=()=>{},doc=globalTh
  }
  return{
   zetGebruikers(nieuw,voorkeur=''){
-   lijst=nieuw.map(g=>typeof g==='string'?{naam:g,weergave:g}:{naam:g.naam,weergave:g.weergave||g.naam});
+   lijst=nieuw.map(g=>typeof g==='string'?{naam:g,weergave:g,ingelogd:false}:{naam:g.naam,weergave:g.weergave||g.naam,ingelogd:!!g.ingelogd});
    knoppen.length=0;host.replaceChildren();gekozen=-1;
    lijst.forEach((g,i)=>{
     const li=doc.createElement('div'),knop=doc.createElement('button'),planeet=doc.createElement('span'),naam=doc.createElement('span');
-    li.className='gebruiker';li.style.setProperty('--tint',tint(g.naam));
+    li.className=g.ingelogd?'gebruiker ingelogd':'gebruiker';li.style.setProperty('--tint',tint(g.naam));
     knop.type='button';knop.draggable=false;knop.setAttribute('draggable','false');knop.setAttribute('role','radio');knop.setAttribute('aria-checked','false');knop.tabIndex=i===0?0:-1;
-    knop.setAttribute('aria-label',g.weergave);
+    knop.setAttribute('aria-label',g.ingelogd?g.weergave+' (sessie vergrendeld)':g.weergave);
     planeet.className='kleinplaneet';planeet.setAttribute('aria-hidden','true');naam.className='naam';naam.textContent=g.weergave;
     knop.addEventListener('click',()=>{kies(i);onBevestig(g.naam);});
     knop.append(planeet,naam);li.append(knop);host.append(li);knoppen.push(knop);
@@ -73,6 +73,7 @@ export function gebruikersRij(host,{onKies=()=>{},onBevestig=()=>{},doc=globalTh
   },
   grootte(w,h){maat={w,h};return lijst.length?plaats():null;},
   kies:i=>kies(i),
+  gekozenKnop:()=>gekozen>=0?knoppen[gekozen]:null,
   gekozenNaam:()=>gekozen>=0?lijst[gekozen].naam:'',
   aantal:()=>lijst.length,
  };

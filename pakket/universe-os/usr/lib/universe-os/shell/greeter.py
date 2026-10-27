@@ -120,10 +120,12 @@ class PlanetGreeter:
         return False
 
     def user_list(self):
-        """Name and display name of the users liblightdm knows (for the planet row); nothing else is shared."""
+        """Name, display name and whether a (locked) session exists (liblightdm logged_in) of the users liblightdm
+        knows, for the planet row; nothing else is shared."""
         try:
             users = LightDM.UserList.get_instance().get_users()
-            lijst = [{'naam': u.get_name(), 'weergave': u.get_display_name() or u.get_name()}
+            lijst = [{'naam': u.get_name(), 'weergave': u.get_display_name() or u.get_name(),
+                      'ingelogd': bool(u.get_logged_in())}
                      for u in users if u.get_name()]
         except Exception:
             return []
