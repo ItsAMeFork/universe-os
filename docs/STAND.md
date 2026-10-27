@@ -2,6 +2,11 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
+## 26 oktober: versie 0.3.0 (gtklock-vergrendelscherm met eigen knoppenmodule, gtklock in het Nederlands, robuuste 'Andere gebruiker'; GEPUBLICEERD 26 okt 08:25, apt test + stable, apt-commits 6a2cc54 + 24795e8, broncommit 4bdecf0; geen ISO)
+- Twee pakketten: `universe-os_0.3.0_all.deb` (sha256 36e846f5…) en `universe-os-vergrendelknoppen_0.3.0_amd64.deb` (sha256 80f2885c…).
+- `scripts/publiceer-apt.sh` (f123875): neemt bijbehorende pakketten van dezelfde versie (`universe-os-*_VERSIE_*.deb`) mee naar test en stable.
+- Online gecontroleerd 26 okt 08:26: Packages van test en stable tonen universe-os 0.3.0 en universe-os-vergrendelknoppen 0.3.0 (amd64); beide pool-.debs HTTP 200, hashes kloppen.
+
 ## 26 oktober: versie 0.2.39 (eerst het portaal, dan het venster; GEPUBLICEERD 26 okt 09:25, apt test + stable, apt-commits 78c2474 + b58b4fc, broncommit 2bda01d; geen ISO)
 - Jesse t146u: venster vanuit de onderbalk verscheen zonder animatie. Nu verbergt labwc elk nieuw venster bij het mappen (windowRule Iconify, plaatsing midden); de shell speelt het portaal en zet het venster onder de nog dichte kaart terug. Geen labwc-patch nodig.
 - Veiligheidsnet vensterwacht.py (gestart door universe-shell-supervisor): zonder shell-hartslag (4 s) geen verbergregel en verborgen vensters worden getoond.
@@ -76,7 +81,7 @@ world.html steeds (`free(): invalid pointer`), na 3 keer world-lite (2D).
 - Windows-sneltoetsen (Win+R/S/V/./M, Win+Shift+S, Ctrl+Alt+Del-menu) in `shortcuts.json`; `universe-klembord` (klembordgeschiedenis, emoji, Ctrl+Alt+Del); Ctrl+V plakt in de terminal (sessie zet `~/.config/xfce4/terminal/accels.scm` eenmalig neer). Overzicht: `docs/SNELTOETSEN.md`. Test: `docs/tests/sneltoetsen.py`.
 
 ## 24 oktober: versie 0.2.29 (NVIDIA-pc; ISO gebouwd; gepubliceerd 24 okt 22:20 als onderdeel van 0.2.32)
-Gepubliceerd (apt test + stable): 0.2.24 t/m 0.2.28 (0.2.28 op 24 okt) en 0.2.32 (24 okt 22:20; bevat 0.2.29 t/m 0.2.31, die geen los pakket kregen), 0.2.33 (24 okt 23:29), 0.2.34 (25 okt 14:11), 0.2.35 (25 okt 15:51), 0.2.36 (25 okt 16:58), 0.2.37 (25 okt 17:34) 0.2.38 (25 okt 21:47) en 0.2.39 (26 okt 09:25).
+Gepubliceerd (apt test + stable): 0.2.24 t/m 0.2.28 (0.2.28 op 24 okt) en 0.2.32 (24 okt 22:20; bevat 0.2.29 t/m 0.2.31, die geen los pakket kregen), 0.2.33 (24 okt 23:29), 0.2.34 (25 okt 14:11), 0.2.35 (25 okt 15:51), 0.2.36 (25 okt 16:58), 0.2.37 (25 okt 17:34) 0.2.38 (25 okt 21:47), 0.2.39 (26 okt 09:25) en 0.3.0 (26 okt 08:25).
 - Met het eigen NVIDIA-stuurprogramma geen grafische proef meer en nooit processor-tekenen door een proefuitslag; normaal tekenen met gedeeld geheugen (`shell/grafisch.py`). Oorzaak van de 2D-terugval: proef zei 'safe' -> llvmpipe -> wereld te traag -> world-lite.
 - Proefpagina neutraal donker (#050815 / #151828) met "Beeld wordt getest…" in plaats van blauw/paars (`shell/grafisch_proef.py`). Dat was het blauw/paarse beeld na inloggen.
 - `ui/world.js`: frame-/planeetcontrole 25 s in plaats van 12/14 s bij `gfx=soft`.
