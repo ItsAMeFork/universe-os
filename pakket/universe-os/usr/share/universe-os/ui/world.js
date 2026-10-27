@@ -43,35 +43,39 @@ let logoutOverlay=null;
 on('logout-begin',async(data)=>{
  if(logoutOverlay)return;
  const action=data?.action||'logout';
- launchPanel?.classList.add('launched');
+ root.inert=true;closeMenu();if(current)leave();select(null,false);document.activeElement?.blur?.();
+ // The restart at zero of the update scene: the scene itself shows 'Opnieuw opstarten…' and pulls everything into
+ // the core; no second animation or note on top of it. The shell waits for the shutdown tune before the power off.
+ if(updateScene&&action==='reboot'&&performance.now()>=updateEnd-1000){
+  logoutOverlay=true;
+  await new Promise(r=>setTimeout(r,Math.max(0,updateEnd+IMPLOSION-performance.now())));
+  call('logout.finish').catch(e=>toast(e.message));
+  return;
+ }
+ stopUpdateScene(); // logged out or restarted by hand during the run-up: the usual animation
  logoutOverlay=h('p',{class:'logout-note',role:'status'},{logout:'Afmelden…',poweroff:'Afsluiten…',reboot:'Opnieuw opstarten…'}[action]||'Afmelden…');
- root.append(logoutOverlay);root.inert=true;closeMenu();if(current)leave();select(null,false);document.activeElement?.blur?.();
+ root.append(logoutOverlay);
  await animateWorld('out',null,{core:true});
  call('logout.finish').catch(e=>toast(e.message));
 });
-// Launch of the new software (Axel, 12 Oct): after an update the computer must restart; the last 10 seconds count
-// down here, above all windows, like a rocket launch. Then the shell starts the restart animation (logout-begin).
-let launchPanel=null;
-on('launch-countdown',({seconds=10,version=''}={})=>{
- if(launchPanel)return;
+// Launch of the new software (Axel, 12 Oct; UOS-ANIM-001, 27 Oct): after an update the computer must restart. Above
+// all windows the update planet flies into the Earth (run-up), then the 10 s countdown while the crust breaks up; at
+// zero the shell starts the restart (logout-begin) and the scene implodes into the glowing core (meteoriet.js).
+const IMPLOSION=1900; // ms after zero: the scene's implosion into the core
+let updateScene=null,updateEnd=0;
+const stopUpdateScene=()=>{updateScene?.stop();updateScene=null;};
+on('launch-countdown',async({seconds=10,runup=0,version=''}={})=>{
+ if(updateScene||logoutOverlay)return;
  closeMenu();if(current)leave();root.inert=true;
- const number=h('div',{class:'launch-number','aria-live':'assertive'},String(seconds));
- const ring=h('div',{class:'launch-ring','aria-hidden':'true'});
- const dial=h('div',{class:'launch-dial'},ring,number); // the number beside the ring: the ring's mask hid it (VM, 12 Oct)
- launchPanel=h('section',{class:'launch-panel',role:'alertdialog','aria-label':'Lancering van de nieuwe software'},
-  h('p',{class:'launch-kicker'},'Lancering'),
-  h('h1',{},version?'Universe OS '+version.replace(/[-+~].*$/,''):'De nieuwe Universe OS'),
-  dial,
-  h('p',{class:'launch-sub'},'De updates zijn geïnstalleerd. De computer start opnieuw op met de nieuwe software.'));
- root.append(launchPanel);
- const end=performance.now()+seconds*1000;
- const tick=()=>{const left=Math.max(0,Math.ceil((end-performance.now())/1000));
-  if(left>0){if(number.textContent!==String(left)){number.textContent=String(left);number.classList.remove('beat');void number.offsetWidth;number.classList.add('beat');}
-   ring.style.setProperty('--p',String(1-(end-performance.now())/(seconds*1000)));requestAnimationFrame(tick);}
-  else{number.textContent='0';ring.style.setProperty('--p','1');}};
- requestAnimationFrame(tick);
+ updateEnd=performance.now()+(runup+seconds)*1000;
+ updateScene={stop(){}}; // claimed at once: a second message while the module loads starts nothing
+ try{
+  const {startUpdateScene}=await import('./meteoriet.js');
+  if(!updateScene)return; // stopped (logout-error) while loading
+  updateScene=startUpdateScene({host:root,seconds,runup,version,reduced:!motionAllowed(settings),planets:config?.world?.planets||[]});
+ }catch(e){updateScene=null;console.error('update-scene',e);toast('Opnieuw opstarten over '+seconds+' seconden.');}
 });
-on('logout-error',message=>{logoutOverlay?.remove();launchPanel?.remove();launchPanel=null;logoutOverlay=null;root.inert=false;mix=1;requestRender();toast('Afmelden mislukt: '+message);});
+on('logout-error',message=>{stopUpdateScene();logoutOverlay?.remove?.();logoutOverlay=null;root.inert=false;mix=1;requestRender();toast('Afmelden mislukt: '+message);});
 document.body.append(root);
 
 async function start(){

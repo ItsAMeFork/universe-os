@@ -1855,10 +1855,15 @@ class Shell:
         return True
 
     # ----- mandatory restart after updates (Axel, 12 Oct) -----
-    # universe-updates-run writes restartRequired + installedAt. From the moment the message is shown the computer
-    # restarts after 2 minutes; the last 10 seconds are a launch countdown on the world, then the shutdown animation.
+    # universe-updates-run writes restartRequired + installedAt (only after a successful install). From the moment the
+    # message is shown the computer restarts after 2 minutes. UOS-ANIM-001 (27 Oct): the last 16 seconds are the update
+    # scene on the world: a 6 s run-up (the update planet flies into the Earth) and a 10 s countdown; at zero the
+    # restart (begin_logout) on the same deadline as before, then the shutdown tune.
     RESTART_AFTER = 120
     LAUNCH_SECONDS = 10
+    LAUNCH_RUNUP = 6
+    SHUTDOWN_SOUND_AT = 1.9  # after 'lancering': the implosion ends, then 'afsluiten' (5.8 s)
+    SHUTDOWN_SOUND_LENGTH = 5.8
 
     def check_restart(self):
         if getattr(self, 'restart_deadline', 0) or self.logout_pending:
@@ -1891,32 +1896,52 @@ class Shell:
         if left <= 60 and not self.restart_reminded:
             self.restart_reminded = True
             self.notify('Nog 1 minuut', 'De computer wordt over 1 minuut opnieuw opgestart. Sla je werk op.')
-        if left <= self.LAUNCH_SECONDS + 0.5:
-            self.begin_launch(max(1, round(left)))
+        if left <= self.LAUNCH_RUNUP + self.LAUNCH_SECONDS + 0.5:
+            self.begin_launch(left)
             return False
         return True
 
-    def begin_launch(self, seconds):
-        """The launch of the new software: the world rises above all windows and counts down from 10."""
+    def begin_launch(self, left):
+        """The launch of the new software: the world rises above all windows; the update planet flies into the Earth
+        (run-up) and the world counts down from 10. Timing from one monotonic clock, so the sounds stay on the beat of
+        the page and the restart stays on the deadline. Started once, whatever the status messages or worlds."""
+        if getattr(self, 'launch_started', 0) or self.logout_pending:
+            return False
+        whole = max(1, round(left))
+        seconds = min(self.LAUNCH_SECONDS, whole)
+        runup = min(self.LAUNCH_RUNUP, whole - seconds)
+        self.launch_started = time.monotonic()
+        self.launch_runup, self.launch_seconds, self.launch_step = runup, seconds, 0
         self.hide_overview()
         if self.panel:
             self.panel.emit('panel-close')
         if self.start:
             self.start_menu(False)
+        data = {'seconds': seconds, 'runup': runup, 'version': self.restart_version}
         for world in self.worlds:
             GtkLayerShell.set_layer(world.window, GtkLayerShell.Layer.OVERLAY)
-            world.emit('launch-countdown', {'seconds': seconds, 'version': self.restart_version})
-        self.launch_left = seconds
-        backend.sound('aftellen')
-        def tick():
-            self.launch_left -= 1
-            if self.launch_left > 0:
-                backend.sound('aftellen')
-                return True
-            self.launch_timer = 0
-            self.begin_logout('reboot', sound='lancering')
+            world.emit('launch-countdown', data)
+        if runup == self.LAUNCH_RUNUP:
+            backend.sound('update-inslag')  # all scene effects on T=0..18.6; only on the full run-up, else off the beat
+        self.schedule_launch_tick()
+        return False
+
+    def schedule_launch_tick(self):
+        due = self.launch_started + self.launch_runup + self.launch_step
+        self.launch_timer = GLib.timeout_add(max(0, int((due - time.monotonic()) * 1000)), self.launch_tick)
+
+    def launch_tick(self):
+        self.launch_timer = 0
+        if self.logout_pending:
             return False
-        self.launch_timer = GLib.timeout_add(1000, tick)
+        if self.launch_step < self.launch_seconds:
+            backend.sound('aftellen')  # T=6..15: one per countdown second
+            self.launch_step += 1
+            self.schedule_launch_tick()
+            return False
+        self.launch_reboot = True
+        self.begin_logout('reboot', sound='lancering')
+        return False
 
     def status_tick(self):
         self.check_restart()
@@ -2037,6 +2062,9 @@ class Shell:
         self.logout_pending = action
         self.logout_started = time.monotonic()
         backend.sound(sound or ('afmelden' if action == 'logout' else 'afsluiten'))
+        if getattr(self, 'launch_reboot', False):
+            # The approved scene: the shutdown tune once, when the implosion into the core has finished.
+            GLib.timeout_add(int(self.SHUTDOWN_SOUND_AT * 1000), lambda: backend.sound('afsluiten') or False)
         if getattr(self, 'launch_timer', 0):
             GLib.source_remove(self.launch_timer)
             self.launch_timer = 0
@@ -2063,8 +2091,9 @@ class Shell:
                 backend.power('logout')
             else:
                 # The shutdown tune (5.8 s, like the startup one) started with the animation (~3-4 s): the computer
-                # only goes off when it has finished.
-                wait = 5.6 - (time.monotonic() - self.logout_started)
+                # only goes off when it has finished. After the update scene it starts 1.9 s after 'lancering'.
+                end = self.SHUTDOWN_SOUND_AT + self.SHUTDOWN_SOUND_LENGTH if getattr(self, 'launch_reboot', False) else 5.6
+                wait = end - (time.monotonic() - self.logout_started)
                 GLib.timeout_add(max(1, int(wait * 1000)), self.power_off_now, action)
         except Exception as error:
             self.power_failed(error)
@@ -2078,6 +2107,7 @@ class Shell:
         return False
 
     def power_failed(self, error):
+        self.launch_reboot = False  # no second restart: the shutdown -r +3 of universe-updates-run stays the safety net
         for world in self.worlds:
             GtkLayerShell.set_layer(world.window, GtkLayerShell.Layer.BACKGROUND)
             GtkLayerShell.set_keyboard_mode(world.window, GtkLayerShell.KeyboardMode.ON_DEMAND)
