@@ -46,9 +46,15 @@ const plekken=p=>p.evaluate(()=>[...document.querySelectorAll('#users .kleinplan
 const foto=async(p,naam)=>{if(FOTO)await p.screenshot({path:join(FOTO,naam+'.png')});};
 
 // 2. Zonder vlucht (na afmelden): referentie voor plek en schaal van de aarde en de rij
-const ref=await open(G(3,[1]),{opstart:false});await klaar(ref);
+const fasen=()=>{window.__fasen=new Set();addEventListener('DOMContentLoaded',()=>new MutationObserver(()=>{
+ const k=document.getElementById('klok'),pl=document.getElementById('planet');
+ if(k&&+k.style.opacity>0&&+k.style.opacity<1)window.__fasen.add('klok');if(pl&&+pl.style.opacity>0&&+pl.style.opacity<1)window.__fasen.add('aarde');
+ for(const b of document.querySelectorAll('#users button'))if(/scale\(0\.[3-9]/.test(b.style.transform))window.__fasen.add('planeten');
+}).observe(document.body,{attributes:true,subtree:true,attributeFilter:['style']}));};
+const ref=await browser.newPage({viewport:SIZE});await ref.addInitScript(mock(G(3,[1]),{opstart:false}));await ref.addInitScript(fasen);await ref.goto(URL_);await klaar(ref);
 const refPlaneet=await planeet(ref),refPlekken=await plekken(ref);
-check('na afmelden geen opstartvlucht (formPlanet uit de kern)',await ref.evaluate(()=>!document.getElementById('opstartvlucht')));
+check('na afmelden/vergrendelen: geen ruimtevlucht, wel planeten die uit de aarde komen ('+[...await ref.evaluate(()=>[...window.__fasen])].join(',')+')',await ref.evaluate(()=>window.__fasen.has('planeten')&&!window.__fasen.has('aarde')&&!window.__fasen.has('klok')));
+check('na afmelden: geen achtergebleven stijlen, profielfoto staat er',await ref.evaluate(()=>[...document.querySelectorAll('#users button')].every(b=>!b.style.transform&&!b.style.opacity)&&document.querySelectorAll('#users .met-foto').length===1));
 await ref.close();
 
 // 3. Opstartvlucht met 3 accounts, één met profielfoto
@@ -95,11 +101,7 @@ await ref.close();
 if(!process.env.ENG){
  const p=await browser.newPage({viewport:SIZE});const cdp=await p.context().newCDPSession(p);await cdp.send('Emulation.setCPUThrottlingRate',{rate:6});
  await p.addInitScript(mock(G(3,[0])));
- await p.addInitScript(()=>{window.__fasen=new Set();addEventListener('DOMContentLoaded',()=>new MutationObserver(()=>{
-  const k=document.getElementById('klok'),pl=document.getElementById('planet');
-  if(k&&+k.style.opacity>0&&+k.style.opacity<1)window.__fasen.add('klok');if(pl&&+pl.style.opacity>0&&+pl.style.opacity<1)window.__fasen.add('aarde');
-  for(const b of document.querySelectorAll('#users button'))if(/scale\(0\.[3-9]/.test(b.style.transform))window.__fasen.add('planeten');
- }).observe(document.body,{attributes:true,subtree:true,attributeFilter:['style']}));});
+ await p.addInitScript(fasen);
  const t0=Date.now();await p.goto(URL_);await klaar(p);
  const f=await p.evaluate(()=>[...window.__fasen].sort().join(','));
  check('trage computer: aarde, klok en uitvliegende planeten allemaal afgespeeld ('+f+', '+((Date.now()-t0)/1000).toFixed(1)+' s)',f==='aarde,klok,planeten');

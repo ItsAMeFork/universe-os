@@ -23,8 +23,10 @@ export function vertrekpunt(i,n,X,Y,R){const stap=n>1?Math.min(.11,1.4/(n-1)):0,
 export function baan(van,naar,p,S=1){return{x:van.x+(naar.x-van.x)*p,y:van.y+(naar.y-van.y)*p-45*S*Math.sin(p*Math.PI),s:(8+27*p)/35};}
 
 /** planeet: #planet (its canvas is the Earth); knoppen(): the user buttons; onStart: after the first picture (remove the
- * core); onUi: once, when buttons and clock may appear. Always cleans up, also after an error or a skip. */
-export async function opstartVlucht(planeet,{knoppen=()=>[],klok=null,onStart=()=>{},onUi=()=>{}}={}){
+ * core); onUi: once, when buttons and clock may appear. Always cleans up, also after an error or a skip.
+ * alleenPlaneten (Axel, 28 Oct: "als een gebruiker uitlogt of vergrendelt ... de planeten uit de aarde ook zo"): after
+ * logging out or locking the Earth has already formed from the core (formPlanet); only the user planets come out of it. */
+export async function opstartVlucht(planeet,{knoppen=()=>[],klok=null,onStart=()=>{},onUi=()=>{},alleenPlaneten=false}={}){
  const W=innerWidth,H=innerHeight,SCHAAL=.5,canvas=document.createElement('canvas');
  canvas.width=Math.round(W*SCHAAL);canvas.height=Math.round(H*SCHAAL);canvas.id='opstartvlucht';canvas.setAttribute('aria-hidden','true');
  canvas.style.cssText='position:fixed;inset:0;width:100%;height:100%;z-index:50;pointer-events:none';document.body.append(canvas);
@@ -46,7 +48,7 @@ export async function opstartVlucht(planeet,{knoppen=()=>[],klok=null,onStart=()
    hue:parseFloat(knop.parentNode?.style.getPropertyValue('--tint'))||200}:null;}).filter(Boolean);
  const {st,eind}=tijden(lijst.length);
  lijst.forEach((u,i)=>{u.van=vertrekpunt(i,lijst.length,X,Y,R);u.knop.style.transformOrigin=`50% ${u.oy}px`;u.knop.style.opacity='0';if(u.naam)u.naam.style.opacity='0';});
- planeet.style.transition='none';planeet.style.opacity='0';if(klok)klok.style.opacity='0';
+ if(!alleenPlaneten){planeet.style.transition='none';planeet.style.opacity='0';if(klok)klok.style.opacity='0';}
  let ui=false;const toonUi=()=>{if(!ui){ui=true;onUi();}};
  let gestart=false;const start=()=>{if(!gestart){gestart=true;onStart();}};
 
@@ -55,7 +57,8 @@ export async function opstartVlucht(planeet,{knoppen=()=>[],klok=null,onStart=()
   c.fillStyle=q;c.fillRect(0,0,W,H);c.restore();}
  function frame(t){
   // Background of the flight: it fades away on arrival, so the real sky of the login screen is underneath.
-  const bg=1-smooth((t-6.6)/1.6);c.clearRect(0,0,W,H);
+  c.clearRect(0,0,W,H);
+  if(!alleenPlaneten){const bg=1-smooth((t-6.6)/1.6);
   if(bg>0){c.save();c.globalAlpha=bg;c.fillStyle='#050815';c.fillRect(0,0,W,H);
    const atmosphere=Math.sin(Math.PI*clamp(t/8.45));c.globalAlpha=bg*atmosphere*.85;
    if(atmosphere>.01)c.drawImage(cloud,-20*atmosphere,-10*atmosphere,W+40*atmosphere,H+20*atmosphere);
@@ -107,8 +110,9 @@ export async function opstartVlucht(planeet,{knoppen=()=>[],klok=null,onStart=()
    c.fillStyle=q;c.fillRect(0,Y-1.5-3*k,W,3+6*k);
    c.save();c.globalAlpha=k*.32;const halo=c.createRadialGradient(X,Y,R*.85,X,Y,R*1.28);halo.addColorStop(0,'rgba(130,200,255,0)');halo.addColorStop(.45,'rgba(130,200,255,.5)');halo.addColorStop(1,'rgba(130,200,255,0)');
    c.fillStyle=halo;c.fillRect(X-R*1.3,Y-R*1.3,R*2.6,R*2.6);c.restore();}
+  if(klok)klok.style.opacity=String(smooth((t-UI)/1.2));}
   // Clock and power buttons; then the user planets come out of the Earth, each with a soft trail.
-  if(t>=UI)toonUi();if(klok)klok.style.opacity=String(smooth((t-UI)/1.2));
+  if(t>=UI)toonUi();
   lijst.forEach((u,i)=>{
    const p=smooth((t-AANKOMST-i*st)/VLIEG);if(p<=0){u.knop.style.opacity='0';return;}
    const {x,y,s}=baan(u.van,u.naar,p,S);
@@ -128,7 +132,7 @@ export async function opstartVlucht(planeet,{knoppen=()=>[],klok=null,onStart=()
  try{
   frame(0);start();
   // Own clock: every frame moves on by the real time, but never more than 0.25 s, so nothing is skipped.
-  const gespeeld=new Promise(klaarMet=>{let t=0,vorige=performance.now();
+  const gespeeld=new Promise(klaarMet=>{let t=alleenPlaneten?AANKOMST:0,vorige=performance.now();
    const stap=nu=>{if(klaar)return klaarMet();t=Math.min(eind,t+Math.min(.25,Math.max(0,(nu-vorige)/1000)));vorige=nu;
     try{frame(t);}catch(e){console.error(e);return klaarMet();}
     if(t>=eind)klaarMet();else requestAnimationFrame(stap);};
@@ -138,7 +142,7 @@ export async function opstartVlucht(planeet,{knoppen=()=>[],klok=null,onStart=()
  finally{
   klaar=true;removeEventListener('keydown',stop,true);removeEventListener('pointerdown',stop,true);
   for(const u of lijst){u.knop.style.transform='';u.knop.style.transformOrigin='';u.knop.style.opacity='';if(u.naam)u.naam.style.opacity='';}
-  planeet.style.opacity='';planeet.style.transition='';if(klok)klok.style.opacity='';
+  if(!alleenPlaneten){planeet.style.opacity='';planeet.style.transition='';if(klok)klok.style.opacity='';}
   try{start();}catch(e){}toonUi();
   canvas.style.transition='opacity .25s ease';canvas.style.opacity='0';setTimeout(()=>canvas.remove(),300);
  }

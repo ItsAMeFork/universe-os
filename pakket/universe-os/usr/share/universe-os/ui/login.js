@@ -36,6 +36,10 @@ afterPaint().then(async()=>{
   document.body.classList.add('forming');
   $('core').classList.add('fading');
   await formPlanet($('planet').getBoundingClientRect());
+  // After logging out or locking (Axel, 28 Oct): the user planets come out of the Earth here too, as at start-up.
+  document.body.classList.add('vlucht');
+  await opstartVlucht($('planet'),{knoppen:()=>[...$('users').querySelectorAll('button')],onStart:kernWeg,onUi:gevormd,alleenPlaneten:true});
+  document.body.classList.remove('vlucht');plaatsKluis();
  }
  gevormd();
 });

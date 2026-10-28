@@ -1,7 +1,8 @@
 // 0.3.1 (t155u): inlogscherm zonder kaart. Headless Chromium met een nagebootste greeter-bridge (geen LightDM):
 // geen kaart, wachtwoordveld bij de gekozen planeet, goed/fout wachtwoord, toetsenbord, 'Andere gebruiker' alleen bij
 // een vergrendelde sessie, terugkeren naar die sessie, veel gebruikers, en de grote planeet staat op dezelfde plek.
-// ENG=webkit draait hetzelfde in WebKit (zoals de greeter, WebKitGTK).
+// ENG=webkit draait hetzelfde in WebKit (zoals de greeter, WebKitGTK). Wacht tot de planeten uit de aarde geland zijn
+// (opstartvlucht.js, ook na afmelden/vergrendelen).
 import http from 'node:http';import {readFileSync,existsSync} from 'node:fs';import {extname,join,normalize} from 'node:path';import {fileURLToPath} from 'node:url';
 let chromium;try{({chromium}=await import('playwright').then(m=>({chromium:process.env.ENG==='webkit'?m.webkit:m.chromium})));}catch{console.log('OVERGESLAGEN: playwright ontbreekt (npm install in docs/tests)');process.exit(0);}
 const ROOT=fileURLToPath(new URL('../../pakket/universe-os/usr/share/universe-os/',import.meta.url));
@@ -19,7 +20,7 @@ const mock=(users,hint)=>`(()=>{const U=${JSON.stringify(users)},log=window.__lo
   'power.get':()=>({shutdown:true,suspend:true,restart:true})};
  window.webkit={messageHandlers:{universe:{postMessage:s=>{const m=JSON.parse(s);setTimeout(()=>{try{const f=h[m.cmd];window.__universeReply(m.id,!!f,f?f(m.args):'onbekend');}catch(e){window.__universeReply(m.id,false,e.message);}},5);}}}};
 })()`;
-async function open(users,hint,size={width:1600,height:900}){const p=await browser.newPage({viewport:size});await p.addInitScript(mock(users,hint));await p.goto(URL_);await p.waitForFunction(()=>document.body.classList.contains('formed'),null,{timeout:15000});await p.waitForTimeout(400);return p;}
+async function open(users,hint,size={width:1600,height:900}){const p=await browser.newPage({viewport:size});await p.addInitScript(mock(users,hint));await p.goto(URL_);await p.waitForFunction(()=>document.body.classList.contains('formed')&&!document.body.classList.contains('vlucht'),null,{timeout:15000});await p.waitForTimeout(400);return p;}
 const G=n=>Array.from({length:n},(_,i)=>({naam:'gebruiker'+(i+1),weergave:'Gebruiker '+(i+1)}));
 const vis=(p,s)=>p.evaluate(s=>{const e=document.querySelector(s);if(!e)return false;const r=e.getBoundingClientRect(),c=getComputedStyle(e);return !e.hidden&&c.display!=='none'&&r.width>0&&+c.opacity>0;},s);
 const planeet=p=>p.evaluate(()=>{const r=document.getElementById('planet').getBoundingClientRect();return [r.x,r.y,r.width,r.height].map(Math.round).join(',');});
