@@ -2,6 +2,15 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
+## 28 oktober: versie 0.3.2 (UOS-ANIM-001: update-scène vóór de verplichte herstart; NOG NIET GEPUBLICEERD; geen ISO)
+Na een geïnstalleerde update: de laatste 16 s vóór de herstart vliegt de update-planeet in de aarde (6 s aanloop),
+dan 10 s aftellen terwijl de korst breekt, bij 0 implodeert alles in de kern en volgt de herstart. Zelfde scène in
+normaal, lichte modus en world-lite; minder beweging = stilstaand met ring en cijfers. Gebouwd door 5 agents (Grok-
+opdracht, klus/a1..a5), ChatGPT repareerde geluid/afbreken, Claude de dubbele CSS-verschuiving, de procesgroep van
+`timeout` en het lazy laden in world-lite. Echt getest in de desktop van de test-VM: `docs/tests/anim-001-vm.md`
+(normaal, licht, minder beweging, afmelden tijdens aanloop, geluid uit, mislukte update; echte herstarts).
+Beperking: in de VM ~3-7 beelden/s (geen 3D); vloeiendheid op echte hardware nog beoordelen.
+
 ## 27 oktober: versie 0.3.1 (inlogscherm zonder kaart: inloggen via de kleine gebruikersplaneten; GEPUBLICEERD 27 okt 09:57, apt test + stable, beide pakketten, apt-commits d9ca7b5 + 1dd7240, broncommit a48cab2; geen ISO)
 Jesse (t155u): alleen het inlogscherm. De rechthoekige kaart ('Universe OS', 'Jouw toegang tot het universum', gebruikersnaam, wachtwoord, Inloggen, Andere gebruiker) is weg; de grote planeet, ruimte en de rest zijn ongewijzigd.
 - `ui/login.html/.js/.css`: klik/tik (of pijltjes + Enter) op een kleine planeet: die licht vloeiend op en direct eronder (boven als het knoppenpaneel in de weg zit) verschijnt een klein wachtwoordveld (#kluis) met pijltje; Enter of pijltje logt in, Escape sluit. Fout wachtwoord: rode melding in dat veld, veld leeg en meteen weer klaar. 1 gebruiker: meteen gekozen.
