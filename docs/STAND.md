@@ -2,7 +2,26 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
-## 28 oktober: versie 0.3.3 (vergrendelen = inlogscherm, klok op de aarde, groene gloed; NOG NIET GEPUBLICEERD; geen ISO)
+## 28 oktober: versie 0.3.4 (eigen profielfoto op je planeet; inlog-/vergrendelscherm blijft aan; NOG NIET GEPUBLICEERD; geen ISO)
+Bevat ook 0.3.3 (hieronder), die niet apart is gepubliceerd.
+- Profielfoto (ontwerp `docs/superpowers/specs/2026-10-28-profielfoto-design.md`): Controlecentrum > Gebruikers >
+  eigen account > Profielfoto. Elk formaat dat GdkPixbuf leest (JPG, PNG, GIF, BMP, TIFF, WebP, HEIC/HEIF/AVIF),
+  EXIF-draaiing, voorbeeld max 1024 px; midden automatisch rond uitgesneden, verschuiven (slepen of pijltjes) en zoomen
+  (schuifbalk, muiswiel, +/-). Opslaan als PNG 512x512 via AccountsService SetIconFile (eigen account, geen
+  beheerder). `greeter.py` geeft de foto als data-URL (alleen PNG/JPEG/GIF/WebP, max 2 MB) aan de planeet.
+  Nieuwe afhankelijkheden: accountsservice, webp-pixbuf-loader, heif-gdk-pixbuf, libheif-plugin-libde265 (iPhone-HEVC).
+- Inlog-/vergrendelscherm (X-server) zette na 10 min het beeld uit; nu standaard altijd aan. Beheerder: Controlecentrum
+  > Energie > "Inlog- en vergrendelscherm", 0 = nooit, max 120 min (`/etc/universe-os/inlogscherm.json`, via
+  `universe-admin-helper set-greeter-screen-off`, alleen beheerders). `greeter.py` past het bij elke start toe (xset).
+- Live in de test-VM: iPhone-HEIC gekozen, met toetsenbord ingezoomd en verschoven, opgeslagen (geen wachtwoordvraag,
+  icons/tester 512x512 PNG), op de planeet in het vergrendelde inlogscherm (gloed + stipje blijven), verwijderd.
+  xset op het inlogscherm: 0 -> screensaver 0 + "DPMS is Disabled"; 30 -> "Off: 1800, DPMS is Enabled".
+  Helper: standaardgebruiker geweigerd (126), 121 geweigerd. Tests: profielfoto-034.py, profielfoto-ui.mjs,
+  inlogscherm-scherm.py (Linux OK). Screenshots `uitvoer/vm-test/0.3.4-*.png`.
+- Niet live getest: slepen met de muis (QMP-muis werkt niet in de VM; rekenwerk wel getest), opslaan van de
+  beheerdersinstelling via het venster (pkexec-vraag; helper zelf wel getest).
+
+## 28 oktober: versie 0.3.3 (vergrendelen = inlogscherm, klok op de aarde, groene gloed; niet apart gepubliceerd, zit in 0.3.4; geen ISO)
 Axel: vergrendelen (Windows+L, menu, inactiviteit, slaapstand, assistent) toont hetzelfde inlogscherm als bij het
 opstarten i.p.v. het oude gtklock-scherm; aarde in het inlogscherm iets uitgezoomd; klok en datum op de aarde;
 vergrendeld: alleen de vergrendelde account(s) tot 'Andere gebruiker', ingelogde/vergrendelde planeten groene gloed.
