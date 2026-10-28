@@ -1,6 +1,7 @@
 // Gebruikers: overzicht (alleen naam + planeet) en accountinstellingen voor wie bevoegd is.
 // Beheerder: iedereen; normale gebruiker: alleen zichzelf. De helper controleert dit zelf nog eens.
 import {call as shellCall, h} from './api.js';
+import {fotoKaart} from './profielfoto-ui.js';
 
 const COLORS={aarde:'#2f7fd8,#1d8f5a',mars:'#e07a4f,#8a2f1c',jupiter:'#e3c08c,#a8643a',saturnus:'#f0dca0,#b89a58',
  neptunus:'#6aa0ff,#2a3d9e',venus:'#f3d88a,#c98a3a',maan:'#e6e6ea,#8a8a94',zon:'#ffe27a,#e8731a'};
@@ -66,6 +67,7 @@ export async function mountUsers(root, api={}){
     picker.append(b);
    }
    cards.push(card('Mijn planeet',note('Je persoonlijke planeet. Die verschijnt in het gebruikersoverzicht.'),picker));
+   cards.push(fotoKaart({call,h,photo:d.photo||null,orb:planetStyle(d.planet),onChange:()=>refresh(d.name)})); // 0.3.4
    cards.push(passwordCard(call,'Eigen wachtwoord',true,d.name));
   }else{
    cards.push(passwordCard(call,`Wachtwoord van ${d.name}`,false,d.name));

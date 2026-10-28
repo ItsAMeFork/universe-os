@@ -18,6 +18,7 @@ from gi.repository import Gio, GLib, Gtk  # noqa: E402
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import backend  # noqa: E402
 import config  # noqa: E402
+import profielfoto  # noqa: E402
 import session  # noqa: E402
 from webview import Bridge, emit, make_view  # noqa: E402
 
@@ -228,7 +229,20 @@ def user_detail(name):
     match = next((u for u in users() if u['name'] == name), None)
     if match is None:
         raise ValueError('Gebruiker bestaat niet.')
-    return dict(match, admin=is_admin(name), planets=list(PLANETS))
+    # 0.3.4: your own profile photo (AccountsService), for the photo card; nobody else's.
+    return dict(match, admin=is_admin(name), planets=list(PLANETS), photo=profielfoto.huidige(me) if name == me else None)
+
+
+# 0.3.4 (Axel, 28 Oct): any kind of photo file. The pattern list only narrows the chooser; GdkPixbuf decides.
+FOTO_SOORTEN = ' '.join('*.%s *.%s' % (e, e.upper()) for e in
+                        ('jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tif', 'tiff', 'heic', 'heif', 'avif', 'ico'))
+
+
+def choose_photo():
+    r = subprocess.run(['zenity', '--file-selection', '--title=Kies een profielfoto',
+                        "--file-filter=Foto's | " + FOTO_SOORTEN, '--file-filter=Alle bestanden | *'],
+                       capture_output=True, text=True)
+    return r.stdout.strip() or None
 
 
 def require_admin():
@@ -487,6 +501,10 @@ def handlers(app):
         'users.admin': lambda a: admin_call(['set-admin', a['name'], 'yes' if a.get('admin') else 'no']),
         'users.password': lambda a: set_user_password(a['name'], a['password']),
         'account.password': lambda a: change_own_password(a['current'], a['new']),
+        'account.photo.choose': lambda a: choose_photo(),
+        'account.photo.preview': lambda a: profielfoto.voorbeeld(str(a['path'])),
+        'account.photo.save': lambda a: profielfoto.opslaan(str(a['path']), float(a['x']), float(a['y']), float(a['size'])),
+        'account.photo.remove': lambda a: profielfoto.verwijderen(),
         'shortcuts.get': lambda a: config.shortcuts(),
         'shortcuts.set': set_shortcuts,
         'displays.list': displays, 'displays.scale': display_scale,
@@ -569,7 +587,8 @@ class ControlCenter(Gtk.Application):
             self.window.present()
             return
         bridge = Bridge(handlers(self), threaded={'updates.channel.set', 'network.status', 'status', 'audio.outputs', 'audio.select', 'wifi.list', 'wifi.connect', 'users.add', 'users.remove', 'users.admin',
-                                                   'users.password', 'users.fullname', 'account.password', 'timezone.set', 'updates.status', 'keyboard.set',
+                                                   'users.password', 'users.fullname', 'account.password', 'account.photo.choose', 'account.photo.preview',
+                                                   'account.photo.save', 'account.photo.remove', 'timezone.set', 'updates.status', 'keyboard.set',
                                                    'locale.set', 'bluetooth.get', 'updates.refresh', 'updates.install', 'claude.status',
                                                    'ai.status', 'ai.set', 'ai.key', 'ai.install', 'ai.leren',
                                                    'ai.compressie', 'ai.omniroute.add', 'ai.omniroute.remove', 'ai.omniroute.router',

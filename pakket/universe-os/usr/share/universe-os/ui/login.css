@@ -64,3 +64,6 @@ html.reduce-motion #kluis,html.no-motion #kluis{transition:none}
 #klok{position:absolute;inset:0;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:calc(var(--p,520px)*.012);pointer-events:none;color:#fff;text-align:center;text-shadow:0 0 calc(var(--p,520px)*.03) #050815,0 2px 6px #000c}
 #klok-tijd{font:300 calc(var(--p,520px)*.2)/1 system-ui,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.02em}
 #klok-datum{font:500 calc(var(--p,520px)*.048)/1.2 system-ui,sans-serif}
+/* 0.3.4 (Axel, 28 Oct): your own profile photo on your planet (AccountsService, greeter.py), with the same gloss and
+   shade as the coloured planets; the glow of a locked session and the choice ring stay (box-shadow rules above). */
+#users .kleinplaneet.met-foto{background:radial-gradient(circle at 35% 30%,#ffffff40,#fff0 42%),radial-gradient(circle at 50% 50%,#0000 55%,#000000a0 100%),var(--foto) center/cover no-repeat}

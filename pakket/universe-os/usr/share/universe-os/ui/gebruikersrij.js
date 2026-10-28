@@ -55,14 +55,15 @@ export function gebruikersRij(host,{onKies=()=>{},onBevestig=()=>{},doc=globalTh
  }
  return{
   zetGebruikers(nieuw,voorkeur=''){
-   lijst=nieuw.map(g=>typeof g==='string'?{naam:g,weergave:g,ingelogd:false}:{naam:g.naam,weergave:g.weergave||g.naam,ingelogd:!!g.ingelogd});
+   lijst=nieuw.map(g=>typeof g==='string'?{naam:g,weergave:g,ingelogd:false}:{naam:g.naam,weergave:g.weergave||g.naam,ingelogd:!!g.ingelogd,foto:typeof g.foto==='string'&&/^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/.test(g.foto)?g.foto:''});
    knoppen.length=0;host.replaceChildren();gekozen=-1;
    lijst.forEach((g,i)=>{
     const li=doc.createElement('div'),knop=doc.createElement('button'),planeet=doc.createElement('span'),naam=doc.createElement('span');
     li.className=g.ingelogd?'gebruiker ingelogd':'gebruiker';li.style.setProperty('--tint',tint(g.naam));
     knop.type='button';knop.draggable=false;knop.setAttribute('draggable','false');knop.setAttribute('role','radio');knop.setAttribute('aria-checked','false');knop.tabIndex=i===0?0:-1;
     knop.setAttribute('aria-label',g.ingelogd?g.weergave+' (sessie vergrendeld)':g.weergave);
-    planeet.className='kleinplaneet';planeet.setAttribute('aria-hidden','true');naam.className='naam';naam.textContent=g.weergave;
+    planeet.className=g.foto?'kleinplaneet met-foto':'kleinplaneet';planeet.setAttribute('aria-hidden','true');if(g.foto)planeet.style.setProperty('--foto',`url("${g.foto}")`); // 0.3.4: own profile photo
+    naam.className='naam';naam.textContent=g.weergave;
     knop.addEventListener('click',()=>{kies(i);onBevestig(g.naam);});
     knop.append(planeet,naam);li.append(knop);host.append(li);knoppen.push(knop);
    });
