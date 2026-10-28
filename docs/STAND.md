@@ -2,7 +2,11 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
-## 28 oktober: versie 0.3.5 (geen flits van het oude slotscherm bij vergrendelen; NIET GETEST, NIET GEPUBLICEERD; branch klus/geen-oud-slotscherm)
+## 28 oktober: versie 0.3.5 (geen flits van het oude slotscherm; animatie loopt af; getest, NOG NIET GEPUBLICEERD)
+- Getest 28 okt ~21:50 in de test-VM (0.3.4 via de echte updater + 0.3.5-bestanden): grim-film binnen de sessie na
+  Windows+L: bureaublad -> lichtstrepen -> aarde gaat op in de kern -> slot; geen oude kaart. universe-lock wacht nu op
+  lock.ready van de wereld (max 6 s, socketcommando lock-klaar) i.p.v. vaste 2,3 s (Axel: "laat de animatie aflopen").
+  Ontgrendelen via het inlogscherm OK. Ctrl+Alt+F-terugweg (kaart na 8 s) niet opnieuw getest.
 Axel: bij Windows+L verscheen heel kort het oude gtklock-scherm (kaart + klok) voor het inlogscherm. Nu toont gtklock
 (blijft de beveiliging) met `gtklock/stil.css` alleen kern.png; kaart pas na 8 s als nooduitweg (wissel mislukt of
 Ctrl+Alt+F terug); geen -H. Vergrendelanimatie eindigt nu in de kern ({core:true}, zoals afmelden), ontgrendelen komt
