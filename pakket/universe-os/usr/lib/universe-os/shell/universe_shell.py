@@ -1529,7 +1529,7 @@ class Shell:
             'desktop.launch': lambda a: backend.desktop_launch(str(a.get('path') or '')),
             'start.toggle': lambda a: self.start_menu(a.get('open')),
             'intro.claim': lambda a: self.claim_intro(),
-            'lock.ready': lambda a: True,
+            'lock.ready': lambda a: setattr(self, 'lock_ready_at', time.monotonic()) or True,  # 0.3.5: animation done
             'unlock.done': lambda a: self.unlock_done(),
             'claude.ask': lambda a: self.claude_ask(a),
             'claude.available': lambda a: bool(self.claude and self.claude.available()),
@@ -1719,6 +1719,11 @@ class Shell:
                 self.start_menu()
             elif cmd == 'lock':
                 return 'ok ' + self.lock_begin()
+            elif cmd == 'lock-klaar':
+                # 0.3.5 (Axel, 28 Oct: "laat de animatie aflopen"): universe-lock waits for the world's own lock.ready
+                # instead of a fixed 2.3 s, so a slow computer shows the whole movement into the core.
+                ready = getattr(self, 'lock_ready_at', 0) >= getattr(self, 'lock_started', 0) > 0
+                return 'ok ' + ('ja' if ready else 'nee')
             elif cmd == 'desktop':
                 return 'ok ' + self.desktop_toggle()
             elif cmd == 'panel' and self.panel:

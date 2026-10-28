@@ -14,7 +14,16 @@ pgrep -u "$(id -u)" -x swaylock >/dev/null && exit 0
 ANIM=
 [ "$1" != "--direct" ] && ANIM=$(universe-ctl lock 2>/dev/null)
 [ "$1" != "--direct" ] && universe-geluid vergrendelen
-[ "$ANIM" = "ok anim" ] && sleep 2.3
+# 0.3.5 (Axel, 28 Oct: "laat de animatie aflopen"): wait until the world reports that the movement into the core is
+# finished (lock.ready), at most 6 s; the shell keeps the keyboard caught meanwhile. Was a fixed 2.3 s, which cut the
+# animation off on a slower computer.
+if [ "$ANIM" = "ok anim" ]; then
+    i=0
+    while [ "$i" -lt 60 ] && [ "$(universe-ctl lock-klaar 2>/dev/null)" != "ok ja" ]; do
+        sleep 0.1
+        i=$((i + 1))
+    done
+fi
 # 0.3.3 (Axel, 28 Oct: "dan moet de gebruiker ook op dezelfde inlogvenster"): every lock (Windows+L, menu, idle,
 # sleep, assistant) shows the login screen with the planets, the same as at start-up. The lock below stays the real
 # protection of this session: once it holds, universe-wissel switches to the greeter, where the user's password
