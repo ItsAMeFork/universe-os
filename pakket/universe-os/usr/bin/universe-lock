@@ -75,6 +75,18 @@ if command -v gtklock >/dev/null 2>&1; then
         sleep 0.1
     done
     rm -f "$MARK"
+    # 0.3.6 (Axel, 29 Oct: "er moet ook een geluidje afspelen"): unlocked from the login screen, LightDM ends this
+    # lock before it switches back to this session, and the sound got lost while the session was not active (the
+    # audio device belongs to the active session). Wait until it is active again, at most 5 s, as the shell does
+    # for the unlock animation; then the sound and the animation start together.
+    if [ -n "${XDG_SESSION_ID:-}" ] && command -v loginctl >/dev/null 2>&1; then
+        i=0
+        while [ "$i" -lt 50 ] && [ "$(loginctl show-session "$XDG_SESSION_ID" -p Active --value 2>/dev/null)" = no ]; do
+            sleep 0.1
+            i=$((i + 1))
+        done
+        [ "$i" -gt 0 ] && sleep 0.3  # the audio device comes back a moment after the switch
+    fi
     universe-geluid ontgrendelen
     exit 0
 fi

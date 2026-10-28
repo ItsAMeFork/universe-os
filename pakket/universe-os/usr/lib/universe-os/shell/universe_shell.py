@@ -635,6 +635,18 @@ class Shell:
         """True when gtklock/swaylock holds the session lock (its process runs; the lock is taken before its UI)."""
         return subprocess.run(['pgrep', '-u', str(os.getuid()), '-x', 'gtklock|swaylock'], stdout=subprocess.DEVNULL).returncode == 0
 
+    def sessie_actief(self):
+        """True when this session is the active one of its seat (logind); also when that cannot be asked."""
+        sid = os.environ.get('XDG_SESSION_ID')
+        if not sid:
+            return True
+        try:
+            uit = subprocess.run(['loginctl', 'show-session', sid, '-p', 'Active', '--value'], capture_output=True,
+                                 text=True, timeout=2).stdout.strip()
+        except (OSError, subprocess.SubprocessError):
+            return True
+        return uit != 'no'
+
     def watch_lock(self):
         running = self.lock_locked()
         if running:
@@ -648,6 +660,15 @@ class Shell:
             return True
         if not self.lock_seen and time.monotonic() - self.lock_started < 12:
             return True
+        # 0.3.6 (Axel, 29 Oct: "de animatie werkt niet goed als de gebruiker uit de lock modus komt"): unlocking from
+        # the login screen, LightDM ends the lock (logind Unlock) before it switches back to this session. Wait until
+        # the session is active again (at most 5 s); otherwise the unlock animation runs while nobody can see it.
+        if self.lock_seen and not self.sessie_actief():
+            weg = getattr(self, 'lock_weg_sinds', 0) or time.monotonic()
+            self.lock_weg_sinds = weg
+            if time.monotonic() - weg < 5:
+                return True
+        self.lock_weg_sinds = 0
         self.lock_watch = 0
         self.lock_catch(False)
         self.lock_focus_terug()

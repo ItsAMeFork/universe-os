@@ -44,3 +44,24 @@ on('logout-begin',async({action='logout'}={})=>{
  if(token===epoch)call('logout.finish').catch(e=>toast(e.message));
 });
 on('logout-error',message=>{epoch++;scene?.stop();scene=null;closing=false;toast('Afmelden mislukt: '+message);});
+
+// Lock / unlock (0.3.6, Axel 29 Oct: "zorg ervoor dat dit altijd werkt, zowel de lichte modus als de normale"): as in
+// the space world (world.js), the screen goes into the glowing core when locking (kern.png, the first picture of the
+// login screen) and comes out of it after unlocking. Before, this page ignored both: universe-lock waited 6 s for
+// lock.ready and the world stayed above the windows for 4 s after unlocking. Loaded only when needed, like the scene.
+let kern=null,locked=false;
+async function kernBeweging(uit){
+ try{
+  const [{drawCore,lensStreak},{animate}]=await Promise.all([import('./explode.js'),import('./motion.js')]);
+  const W=innerWidth,H=innerHeight;
+  if(!kern){kern=document.createElement('canvas');kern.setAttribute('aria-hidden','true');kern.style.cssText='position:fixed;inset:0;width:100%;height:100%;z-index:100;pointer-events:none';document.body.append(kern);}
+  kern.width=Math.round(W/2);kern.height=Math.round(H/2); // soft light: half resolution is enough
+  const c=kern.getContext('2d');c.setTransform(.5,0,0,.5,0,0);
+  const teken=t=>{const k=t*t*(3-2*t);c.clearRect(0,0,W,H);drawCore(c,W,H,.25+.75*k,k);lensStreak(c,W,H/2,Math.sin(Math.PI*t)*.8);};
+  if(motionAllowed(config.settings||{}))await animate(uit?1400:1200,t=>teken(uit?t:1-t));
+  teken(uit?1:0);
+ }catch(e){console.error('vergrendelen',e);}
+ if(!uit){kern?.remove();kern=null;}
+}
+on('lock-begin',async()=>{if(locked)return;locked=true;await kernBeweging(true);call('lock.ready').catch(()=>{});});
+on('unlock',async()=>{if(!locked)return;locked=false;await kernBeweging(false);call('unlock.done').catch(()=>{});});
