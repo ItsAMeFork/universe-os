@@ -2,7 +2,7 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
-## 28 oktober: versie 0.3.4 (eigen profielfoto op je planeet; inlog-/vergrendelscherm blijft aan; NOG NIET GEPUBLICEERD; geen ISO)
+## 28 oktober: versie 0.3.4 (eigen profielfoto op je planeet; inlog-/vergrendelscherm blijft aan; GEPUBLICEERD 28 okt ~20:55, apt test + stable, apt-commits e7bca7d + 11dd36a, broncommit 2d7b533, deb sha256 0a091a87…; geen ISO)
 Bevat ook 0.3.3 (hieronder), die niet apart is gepubliceerd.
 - Profielfoto (ontwerp `docs/superpowers/specs/2026-10-28-profielfoto-design.md`): Controlecentrum > Gebruikers >
   eigen account > Profielfoto. Elk formaat dat GdkPixbuf leest (JPG, PNG, GIF, BMP, TIFF, WebP, HEIC/HEIF/AVIF),
