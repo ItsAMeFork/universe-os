@@ -2,7 +2,7 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
-## 28 oktober: versie 0.3.2 (UOS-ANIM-001: update-scène vóór de verplichte herstart; NOG NIET GEPUBLICEERD; geen ISO)
+## 28 oktober: versie 0.3.2 (UOS-ANIM-001: update-scène vóór de verplichte herstart; GEPUBLICEERD 28 okt 19:10, apt test + stable, apt-commits eed6dbd + 34a617d, broncommit a645bdd; geen ISO)
 Na een geïnstalleerde update: de laatste 16 s vóór de herstart vliegt de update-planeet in de aarde (6 s aanloop),
 dan 10 s aftellen terwijl de korst breekt, bij 0 implodeert alles in de kern en volgt de herstart. Zelfde scène in
 normaal, lichte modus en world-lite; minder beweging = stilstaand met ring en cijfers. Gebouwd door 5 agents (Grok-
@@ -10,6 +10,8 @@ opdracht, klus/a1..a5), ChatGPT repareerde geluid/afbreken, Claude de dubbele CS
 `timeout` en het lazy laden in world-lite. Echt getest in de desktop van de test-VM: `docs/tests/anim-001-vm.md`
 (normaal, licht, minder beweging, afmelden tijdens aanloop, geluid uit, mislukte update; echte herstarts).
 Beperking: in de VM ~3-7 beelden/s (geen 3D); vloeiendheid op echte hardware nog beoordelen.
+- Deb: universe-os_0.3.2_all.deb (5b9d6671…); universe-os-vergrendelknoppen blijft 0.3.1 (alleen Recommends, geen versie).
+- Online gecontroleerd 28 okt: Packages van test en stable tonen universe-os 0.3.2; pool-.deb HTTP 200, hash klopt.
 
 ## 27 oktober: versie 0.3.1 (inlogscherm zonder kaart: inloggen via de kleine gebruikersplaneten; GEPUBLICEERD 27 okt 09:57, apt test + stable, beide pakketten, apt-commits d9ca7b5 + 1dd7240, broncommit a48cab2; geen ISO)
 Jesse (t155u): alleen het inlogscherm. De rechthoekige kaart ('Universe OS', 'Jouw toegang tot het universum', gebruikersnaam, wachtwoord, Inloggen, Andere gebruiker) is weg; de grote planeet, ruimte en de rest zijn ongewijzigd.
