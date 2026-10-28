@@ -1980,7 +1980,21 @@ class Shell:
             raise RuntimeError('De vraag kon niet in het paneel.')
         return {'klaar': True}
 
+    def sync_launch(self):
+        """Newly loaded worlds join the clock without replaying global sound."""
+        started = getattr(self, 'launch_started', 0)
+        if not started or (self.logout_pending and not getattr(self, 'launch_reboot', False)):
+            return
+        elapsed = max(0, time.monotonic() - started)
+        for world in self.worlds:
+            GtkLayerShell.set_layer(world.window, GtkLayerShell.Layer.OVERLAY)
+            world.emit('launch-countdown', {'seconds': self.launch_seconds, 'runup': self.launch_runup,
+                'elapsed': elapsed, 'version': self.restart_version})
+            if getattr(self, 'launch_reboot', False):
+                world.emit('logout-begin', {'action': 'reboot'})
+
     def ready(self, data):
+        self.sync_launch()
         if not self.world_ready:
             self.world_ready = True
             log('ruimtewereld zichtbaar na %.3f s; pagina %.0f ms' %
@@ -2059,6 +2073,8 @@ class Shell:
             return False
         if self.claude:
             self.claude.toggle(False)
+        if not getattr(self, 'launch_reboot', False):
+            backend.stop_sound('update-inslag')
         self.logout_pending = action
         self.logout_started = time.monotonic()
         backend.sound(sound or ('afmelden' if action == 'logout' else 'afsluiten'))
@@ -2107,6 +2123,8 @@ class Shell:
         return False
 
     def power_failed(self, error):
+        backend.stop_sound('update-inslag')
+        self.launch_started = 0
         self.launch_reboot = False  # no second restart: the shutdown -r +3 of universe-updates-run stays the safety net
         for world in self.worlds:
             GtkLayerShell.set_layer(world.window, GtkLayerShell.Layer.BACKGROUND)

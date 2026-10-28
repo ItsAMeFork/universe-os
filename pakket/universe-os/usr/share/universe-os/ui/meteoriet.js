@@ -17,14 +17,15 @@ const IMPACT=4.7,COUNT=6,BURST=15,ZERO=16,CLOSE=1.9,END=ZERO+CLOSE+.7,TAU=Math.P
 const clamp=x=>x<0?0:x>1?1:x,smooth=x=>{x=clamp(x);return x*x*(3-2*x);};
 const ease=k=>k<.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2;
 const GFX=new URLSearchParams(location.search).get('gfx');
-// Fallback layout at zero specificity (:where), so world.css always wins.
-const STYLE=`:where(.update-scene){position:absolute;inset:0;z-index:40;overflow:hidden;background:#02040c;color:#edf7ff;font-family:system-ui,sans-serif}
+// The only layout of the scene, for world.html (normal and gfx=licht) and world-lite.html alike: world.css has no
+// update-scene rules, so every desktop shows the same picture (its translate stacked on this transform, 28 Oct).
+const STYLE=`:where(.update-scene){position:absolute;inset:0;z-index:40;overflow:hidden;background:#02040c;color:#edf7ff;font-family:system-ui,sans-serif;text-align:center;pointer-events:none;user-select:none;contain:strict}
 :where(.update-scene canvas){position:absolute;inset:0;width:100%;height:100%;display:block}
-:where(.update-scene-count){position:absolute;left:var(--x,50%);top:var(--y,50%);transform:translate(-50%,-50%);margin:0;font-size:calc(var(--u,100vw)*.061);font-weight:400;line-height:1;color:#edfcff;text-shadow:0 0 6px #8ceaff;font-variant-numeric:tabular-nums;opacity:0;transition:opacity .7s}
+:where(.update-scene-count){position:absolute;left:var(--x,50%);top:var(--y,50%);transform:translate(-50%,-50%);margin:0;font-size:calc(var(--u,100vw)*.061);font-weight:400;line-height:1;color:#edfcff;text-shadow:0 0 6px #8ceaff,0 1px 3px #000c;font-variant-numeric:tabular-nums;opacity:0;transition:opacity .7s}
 :where(.update-scene.counting .update-scene-count){opacity:1}
 :where(.update-scene.done .update-scene-count){opacity:0;transition-duration:1.9s}
 :where(.update-scene.reduced .update-scene-count){transition:none}
-:where(.update-scene-label,.update-scene-sub){position:absolute;left:4%;right:4%;margin:0;text-align:center;transform:translateY(-50%)}
+:where(.update-scene-label,.update-scene-sub){position:absolute;left:4%;right:4%;margin:0;text-align:center;transform:translateY(-50%);text-shadow:0 1px 4px #000,0 0 12px #02040c}
 :where(.update-scene-label){top:87%;font-size:max(14px,calc(var(--u,100vw)*.024));font-weight:500}
 :where(.update-scene-sub){top:93.5%;font-size:max(11px,calc(var(--u,100vw)*.014));color:#a8bfce}`;
 
@@ -54,7 +55,7 @@ let active=null;
 /** Starts the full-screen update scene in `host`. Returns {stop()}; a second start while one runs returns the same handle.
  * runup: seconds before the countdown (the meteorite leaves 6 s before it; a shorter runup joins the flight later).
  * scale: optional max pixel ratio (number) or (w,h)=>pixel ratio; default the canvas-budget.js budget. */
-export function startUpdateScene({host=document.body,seconds=10,runup=6,reduced=false,planets=[],scale}={}){
+export function startUpdateScene({host=document.body,seconds=10,runup=6,elapsed=0,reduced=false,planets=[],scale}={}){
  if(active)return active;
  seconds=Math.max(1,Number(seconds)||10);runup=Math.max(0,Number.isFinite(+runup)?+runup:6);
  if(!document.getElementById('update-scene-style'))document.head.append(Object.assign(document.createElement('style'),{id:'update-scene-style',textContent:STYLE}));
@@ -203,7 +204,7 @@ export function startUpdateScene({host=document.body,seconds=10,runup=6,reduced=
   if(p!==phase){root.classList.toggle('counting',p==='counting');root.classList.toggle('done',p==='done');phase=p;}
  }
 
- const t0=performance.now()-(COUNT-runup)*1000; // T=COUNT exactly `runup` seconds from now
+ const t0=performance.now()-(COUNT-runup+Math.max(0,Number(elapsed)||0))*1000; // T=COUNT exactly `runup` seconds from now
  function frame(now){
   raf=0;if(stopped)return;
   const start=performance.now();

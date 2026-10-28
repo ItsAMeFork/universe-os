@@ -9,6 +9,7 @@ import threading
 import pwd
 import re
 import shutil
+import signal
 import subprocess
 import time
 
@@ -465,10 +466,43 @@ def toggle_mute():
     sound('volume')
 
 
+_scene_sound = None
+
+
+def stop_sound(name):
+    """Stop only the effect process group owned by this shell."""
+    global _scene_sound
+    if name != 'update-inslag':
+        return
+    process, _scene_sound = _scene_sound, None
+    if process is not None:
+        try:
+            if process.poll() is None:
+                os.killpg(process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+
+
 def sound(name):
-    """A Universe system sound (universe-geluid; silent when Systeemgeluiden is off). Never fails."""
+    """The long effect has an owned lifetime; short sounds remain independent."""
+    global _scene_sound
     try:
-        spawn(['universe-geluid', name])
+        if name == 'update-inslag':
+            stop_sound(name)
+            process = subprocess.Popen(['universe-geluid', name, '--wacht'],
+                start_new_session=True, stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            _scene_sound = process
+            def muted():
+                if _scene_sound is not process or process.poll() is not None:
+                    return False
+                if config.settings().get('sounds') is False:
+                    stop_sound('update-inslag')
+                    return False
+                return True
+            GLib.timeout_add(200, muted)
+        else:
+            spawn(['universe-geluid', name])
     except (OSError, RuntimeError):
         pass
 

@@ -46,7 +46,9 @@ elif command -v paplay >/dev/null 2>&1; then speel=paplay
 elif command -v aplay >/dev/null 2>&1; then speel="aplay -q"
 else exit 0; fi
 if [ "$2" = "--wacht" ]; then
-    timeout 9 $speel "$f" >/dev/null 2>&1
+    # --foreground: timeout and the player stay in our process group, so the shell can stop update-inslag with one
+    # killpg (without it timeout makes its own group and the effect played on after an abort, 28 Oct).
+    timeout --foreground 30 $speel "$f" >/dev/null 2>&1
 else
     $speel "$f" >/dev/null 2>&1 &
 fi

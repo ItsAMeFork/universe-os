@@ -64,15 +64,16 @@ on('logout-begin',async(data)=>{
 const IMPLOSION=1900; // ms after zero: the scene's implosion into the core
 let updateScene=null,updateEnd=0;
 const stopUpdateScene=()=>{updateScene?.stop();updateScene=null;};
-on('launch-countdown',async({seconds=10,runup=0,version=''}={})=>{
+on('launch-countdown',async({seconds=10,runup=0,elapsed=0,version=''}={})=>{
  if(updateScene||logoutOverlay)return;
  closeMenu();if(current)leave();root.inert=true;
- updateEnd=performance.now()+(runup+seconds)*1000;
+ const received=performance.now();
+ updateEnd=received+(runup+seconds-elapsed)*1000;
  updateScene={stop(){}}; // claimed at once: a second message while the module loads starts nothing
  try{
   const {startUpdateScene}=await import('./meteoriet.js');
   if(!updateScene)return; // stopped (logout-error) while loading
-  updateScene=startUpdateScene({host:root,seconds,runup,version,reduced:!motionAllowed(settings),planets:config?.world?.planets||[]});
+  updateScene=startUpdateScene({host:root,seconds,runup,elapsed:elapsed+(performance.now()-received)/1000,version,reduced:!motionAllowed(settings),planets:config?.world?.planets||[]});
  }catch(e){updateScene=null;console.error('update-scene',e);toast('Opnieuw opstarten over '+seconds+' seconden.');}
 });
 on('logout-error',message=>{stopUpdateScene();logoutOverlay?.remove?.();logoutOverlay=null;root.inert=false;mix=1;requestRender();toast('Afmelden mislukt: '+message);});

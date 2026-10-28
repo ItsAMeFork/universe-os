@@ -10,7 +10,7 @@ path = Path(__file__).resolve().parents[2] / 'pakket/universe-os/usr/lib/univers
 tree = ast.parse(path.read_text(encoding='utf-8'))
 shell = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == 'Shell')
 NAMES = ('check_restart', 'restart_tick', 'begin_launch', 'schedule_launch_tick', 'launch_tick', 'begin_logout',
-         'finish_logout', 'power_off_now', 'power_failed')
+         'finish_logout', 'power_off_now', 'power_failed', 'sync_launch')
 shell.body = [n for n in shell.body if (isinstance(n, ast.FunctionDef) and n.name in NAMES) or
               (isinstance(n, ast.Assign) and n.targets[0].id in ('RESTART_AFTER', 'LAUNCH_SECONDS', 'LAUNCH_RUNUP',
                                                                 'SHUTDOWN_SOUND_AT', 'SHUTDOWN_SOUND_LENGTH'))]
@@ -140,3 +140,25 @@ obj.worlds[0].emit.assert_any_call('launch-countdown', {'seconds': 10, 'runup': 
 clock.run_until(clock.now + 12.1)
 assert 'update-inslag' not in [n for t, n in sounds] and obj.logout_pending == 'reboot'
 print('PASS: late start: shorter run-up, no off-beat scene sound, restart on the deadline')
+
+# Aborting the run-up must also stop the long sound, not only future ticks.
+obj, clock, backend, sounds = make(OK)
+obj.check_restart()
+clock.run_until(obj.restart_deadline - 13)
+obj.begin_logout('logout')
+backend.stop_sound.assert_called_once_with('update-inslag')
+print('PASS: abort stops the active impact sound')
+
+# A newly ready screen joins the current scene, without replaying sound or restarting its clock.
+obj, clock, backend, sounds = make(OK)
+obj.check_restart()
+clock.run_until(obj.restart_deadline - 8)
+new = SimpleNamespace(window=Mock(), emit=Mock())
+obj.worlds.append(new)
+old_sounds = list(sounds)
+obj.sync_launch()
+data = new.emit.call_args.args[1]
+assert new.emit.call_args.args[0] == 'launch-countdown'
+assert data['elapsed'] == 8 and data['runup'] == 6 and data['seconds'] == 10, data
+assert sounds == old_sounds
+print('PASS: hotplug joins at elapsed 8 s without replaying audio')

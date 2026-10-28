@@ -223,19 +223,7 @@ html.reduce-motion .sp-obj.launching::after,html.no-motion .sp-obj.launching::af
 /* The glowing core between login screen and desktop: the same picture as kern.png (scripts/assets/maak-kern.mjs). */
 .world-core{position:absolute;inset:0;z-index:31;pointer-events:none;transform-origin:50% 50%;
  background:radial-gradient(circle 55vmin at 50% 50%,rgba(255,247,236,1) 0%,rgba(255,214,160,.95) 10%,rgba(255,138,72,.5) 30%,rgba(120,84,255,.16) 62%,rgba(60,40,160,0) 100%),#050815}
-/* Update scene after an update (world.js launch-countdown, meteoriet.js; UOS-ANIM-001): above everything. The canvas
-   draws space, Earth and ring; the digits and text are DOM, so they stay crisp at any canvas pixel budget. meteoriet.js
-   sets --x/--y (Earth centre, px) on resize only. Sizes follow the approved preview (digits 6.1vw, label 2.4vw). */
-.update-scene{position:absolute;inset:0;z-index:40;overflow:hidden;background:#050815;color:#edf7ff;text-align:center;
- pointer-events:none;user-select:none;contain:strict}
-.update-scene>canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
-.update-scene-count{position:absolute;left:var(--x,50%);top:var(--y,50%);translate:-50% -50%;margin:0;
- font:400 clamp(48px,6.1vw,140px)/1 system-ui,sans-serif;color:#edfcff;font-variant-numeric:tabular-nums;
- text-shadow:0 0 6px #8ceaff,0 1px 3px #000c}
-.update-scene-label,.update-scene-sub{position:absolute;left:50%;translate:-50% -50%;width:92%;margin:0;
- text-shadow:0 1px 4px #000,0 0 12px #02040c}
-.update-scene-label{top:87%;font:500 clamp(18px,2.4vw,46px)/1.2 system-ui,sans-serif;color:#edf7ff}
-.update-scene-sub{top:93.5%;font:400 clamp(13px,1.4vw,27px)/1.3 system-ui,sans-serif;color:#a8bfce}
+/* Update scene (UOS-ANIM-001): its layout lives only in meteoriet.js, so world-lite.html shows the same picture. */
 
 /* Brein-nevel: the planet room becomes the canvas. Clouds and stars are painted, not animated in CSS. */
 .room.room-nebula{inset:0;border-radius:0;display:block;background:#050815;overflow:hidden;border-color:transparent;box-shadow:none}
