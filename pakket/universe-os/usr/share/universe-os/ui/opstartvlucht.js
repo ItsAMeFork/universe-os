@@ -4,10 +4,12 @@
 // have one, come out of the Earth with a soft light trail. Only the first time per boot (greeter.py ready: opstart,
 // together with opstarten.wav); after logging out or locking the login screen still forms from the core (formPlanet).
 // It starts on the glowing core (kern.png, the first picture of the login screen), so there is no jump.
-// Signing in never waits for it: any key or click ends it at once, and motion.js ends it even when frames stall.
+// Axel (28 Oct, first VM test: "loopt vast ... zorg ervoor dat de animatie altijd afspeelt tot het einde"): it does not
+// use motion.js, which jumps to the last picture after one slow frame; it always plays every phase, and on a slow pc it
+// runs a little slower instead of skipping (at most 0.25 s of animation per frame). It draws at half resolution (soft
+// light, a quarter of the pixels), so the computer keeps room for the start-up sound. Signing in never waits for it:
+// any key or click ends it at once.
 import {alpha} from './globe.js';
-import {overlay} from './explode.js';
-import {animate} from './motion.js';
 
 const clamp=x=>Math.max(0,Math.min(1,x)),ease=x=>1-(1-clamp(x))**3;
 const smooth=x=>{x=clamp(x);return x*x*x*(x*(x*6-15)+10);};
@@ -23,7 +25,10 @@ export function baan(van,naar,p,S=1){return{x:van.x+(naar.x-van.x)*p,y:van.y+(na
 /** planeet: #planet (its canvas is the Earth); knoppen(): the user buttons; onStart: after the first picture (remove the
  * core); onUi: once, when buttons and clock may appear. Always cleans up, also after an error or a skip. */
 export async function opstartVlucht(planeet,{knoppen=()=>[],klok=null,onStart=()=>{},onUi=()=>{}}={}){
- const {canvas,c,W,H}=overlay();canvas.id='opstartvlucht';
+ const W=innerWidth,H=innerHeight,SCHAAL=.5,canvas=document.createElement('canvas');
+ canvas.width=Math.round(W*SCHAAL);canvas.height=Math.round(H*SCHAAL);canvas.id='opstartvlucht';canvas.setAttribute('aria-hidden','true');
+ canvas.style.cssText='position:fixed;inset:0;width:100%;height:100%;z-index:50;pointer-events:none';document.body.append(canvas);
+ const c=canvas.getContext('2d');c.setTransform(SCHAAL,0,0,SCHAAL,0,0);
  const rect=planeet.getBoundingClientRect(),earth=planeet.querySelector('canvas');
  const X=rect.left+rect.width/2,Y=rect.top+rect.height/2,R=rect.width*.44,S=Math.hypot(W,H)/Math.hypot(1920,1080),RC=Math.min(W,H)*.55,big=Math.max(W,H);
  const rnd=rand(11);
@@ -122,7 +127,13 @@ export async function opstartVlucht(planeet,{knoppen=()=>[],klok=null,onStart=()
  addEventListener('keydown',stop,true);addEventListener('pointerdown',stop,true);
  try{
   frame(0);start();
-  await Promise.race([animate(eind*1000,k=>{if(!klaar)frame(k*eind);}),overgeslagen]);
+  // Own clock: every frame moves on by the real time, but never more than 0.25 s, so nothing is skipped.
+  const gespeeld=new Promise(klaarMet=>{let t=0,vorige=performance.now();
+   const stap=nu=>{if(klaar)return klaarMet();t=Math.min(eind,t+Math.min(.25,Math.max(0,(nu-vorige)/1000)));vorige=nu;
+    try{frame(t);}catch(e){console.error(e);return klaarMet();}
+    if(t>=eind)klaarMet();else requestAnimationFrame(stap);};
+   requestAnimationFrame(stap);});
+  await Promise.race([gespeeld,overgeslagen]);
  }catch(e){console.error(e);}
  finally{
   klaar=true;removeEventListener('keydown',stop,true);removeEventListener('pointerdown',stop,true);
