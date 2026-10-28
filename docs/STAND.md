@@ -2,7 +2,7 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
-## 28 oktober: versie 0.3.5 (geen flits van het oude slotscherm; animatie loopt af; getest, NOG NIET GEPUBLICEERD)
+## 28 oktober: versie 0.3.5 (geen flits van het oude slotscherm; animatie loopt af; GEPUBLICEERD 28 okt ~22:00, apt test + stable, apt-commits 81c5362 + edd390c, broncommit 962a637, deb sha256 a28646b6…; geen ISO)
 - Getest 28 okt ~21:50 in de test-VM (0.3.4 via de echte updater + 0.3.5-bestanden): grim-film binnen de sessie na
   Windows+L: bureaublad -> lichtstrepen -> aarde gaat op in de kern -> slot; geen oude kaart. universe-lock wacht nu op
   lock.ready van de wereld (max 6 s, socketcommando lock-klaar) i.p.v. vaste 2,3 s (Axel: "laat de animatie aflopen").
