@@ -2,6 +2,15 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
+## 28 oktober: versie 0.3.5 (geen flits van het oude slotscherm bij vergrendelen; NIET GETEST, NIET GEPUBLICEERD; branch klus/geen-oud-slotscherm)
+Axel: bij Windows+L verscheen heel kort het oude gtklock-scherm (kaart + klok) voor het inlogscherm. Nu toont gtklock
+(blijft de beveiliging) met `gtklock/stil.css` alleen kern.png; kaart pas na 8 s als nooduitweg (wissel mislukt of
+Ctrl+Alt+F terug); geen -H. Vergrendelanimatie eindigt nu in de kern ({core:true}, zoals afmelden), ontgrendelen komt
+eruit (zoals inloggen). NOG TE DOEN: live test in de VM (Windows+L, elke ~0,3 s een QMP-schermafbeelding: de kaart mag
+nergens verschijnen; Ctrl+Alt+F8 -> kaart na 8 s; ontgrendelen), daarna mergen naar main en publiceren.
+Test-VM: SSH viel 28 okt ~21:15 weg na een netwerkstoring (updater: "geen internet"); in de VM werkten netwerk en sshd,
+op de host kwam niets binnen; na herstart van QEMU kort weer, daarna opnieuw weg. Console tty2 (Ctrl+Alt+F2) werkt.
+
 ## 28 oktober: versie 0.3.4 (eigen profielfoto op je planeet; inlog-/vergrendelscherm blijft aan; GEPUBLICEERD 28 okt ~20:55, apt test + stable, apt-commits e7bca7d + 11dd36a, broncommit 2d7b533, deb sha256 0a091a87…; geen ISO)
 Bevat ook 0.3.3 (hieronder), die niet apart is gepubliceerd.
 - Profielfoto (ontwerp `docs/superpowers/specs/2026-10-28-profielfoto-design.md`): Controlecentrum > Gebruikers >
