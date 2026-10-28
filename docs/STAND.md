@@ -2,6 +2,24 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
+## 28 oktober: versie 0.3.3 (vergrendelen = inlogscherm, klok op de aarde, groene gloed; NOG NIET GEPUBLICEERD; geen ISO)
+Axel: vergrendelen (Windows+L, menu, inactiviteit, slaapstand, assistent) toont hetzelfde inlogscherm als bij het
+opstarten i.p.v. het oude gtklock-scherm; aarde in het inlogscherm iets uitgezoomd; klok en datum op de aarde;
+vergrendeld: alleen de vergrendelde account(s) tot 'Andere gebruiker', ingelogde/vergrendelde planeten groene gloed.
+- `universe-lock`: na het slot (gtklock blijft de beveiliging) start universe-wissel het inlogscherm; terug met één
+  wachtwoord (LightDM -> logind Unlock -> universe-ontgrendel-wacht). Mislukt de wissel: gewoon het slotscherm.
+  `universe-wissel` geeft `UNIVERSE_LOCK_ZONDER_INLOGSCHERM` mee (niet dubbel wisselen).
+- `space.js loginEarthPx()`: één maat (min(64vw, 62vh, 520 px), was 650) voor inlogscherm en afmeld-/vergrendelanimatie.
+- `klok.js`: tijd + Nederlandse datum, controleert elke seconde (klopt na slaapstand). Test `docs/tests/klok.mjs`.
+- Live in de test-VM (0.3.2 via de echte updatebron + deze bestanden): Windows+L -> inlogscherm met alleen tester
+  (gloed, stipje, veld) + 'Andere gebruiker' -> alle planeten; goed wachtwoord -> zelfde sessie, venster nog open;
+  fout -> melding; Ctrl+Alt+F8 naar de sessie -> slot staat er (geen open bureaublad). Linux-tests:
+  wisselen-afmelden (14), ontgrendelen-030, sneltoetsen, vergrendelscherm, vergrendel-invoer OK.
+  Screenshots `uitvoer/vm-test/0.3.3-*.png`.
+- Niet live getest: slaapstand (QEMU/WHPX pauzeert bij wekken, net als bij herstart); `inlog-planeten.mjs` bijgewerkt
+  maar niet gedraaid (geen Playwright op deze pc).
+- Eerder vandaag bevestigd: de test-VM haalde 0.3.2 zelf van de updatebron, toonde de scène en herstartte.
+
 ## 28 oktober: versie 0.3.2 (UOS-ANIM-001: update-scène vóór de verplichte herstart; GEPUBLICEERD 28 okt 19:10, apt test + stable, apt-commits eed6dbd + 34a617d, broncommit a645bdd; geen ISO)
 Na een geïnstalleerde update: de laatste 16 s vóór de herstart vliegt de update-planeet in de aarde (6 s aanloop),
 dan 10 s aftellen terwijl de korst breekt, bij 0 implodeert alles in de kern en volgt de herstart. Zelfde scène in
