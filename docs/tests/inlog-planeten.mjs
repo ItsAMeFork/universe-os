@@ -1,8 +1,6 @@
 // 0.3.1 (t155u): inlogscherm zonder kaart. Headless Chromium met een nagebootste greeter-bridge (geen LightDM):
-// geen kaart, wachtwoordveld bij de gekozen planeet, goed/fout wachtwoord, toetsenbord, terugkeren naar een
-// vergrendelde sessie, veel gebruikers, en de grote planeet staat op dezelfde plek.
-// 0.3.3: altijd alle planeten (ook met een vergrendelde sessie; die staat al gekozen), geen 'Andere gebruiker' meer,
-// klok en datum op de aarde.
+// geen kaart, wachtwoordveld bij de gekozen planeet, goed/fout wachtwoord, toetsenbord, 'Andere gebruiker' alleen bij
+// een vergrendelde sessie, terugkeren naar die sessie, veel gebruikers, en de grote planeet staat op dezelfde plek.
 // ENG=webkit draait hetzelfde in WebKit (zoals de greeter, WebKitGTK).
 import http from 'node:http';import {readFileSync,existsSync} from 'node:fs';import {extname,join,normalize} from 'node:path';import {fileURLToPath} from 'node:url';
 let chromium;try{({chromium}=await import('playwright').then(m=>({chromium:process.env.ENG==='webkit'?m.webkit:m.chromium})));}catch{console.log('OVERGESLAGEN: playwright ontbreekt (npm install in docs/tests)');process.exit(0);}
@@ -31,8 +29,7 @@ const planeet=p=>p.evaluate(()=>{const r=document.getElementById('planet').getBo
  const p=await open(G(2));
  check('geen inlogkaart: geen #login, geen titel/ondertitel/gebruikersnaamveld',await p.evaluate(()=>!document.getElementById('login')&&!document.getElementById('user')&&!document.body.innerText.includes('Jouw toegang')&&!document.querySelector('h1')));
  check('geen wachtwoordveld vóór een keuze (meerdere gebruikers)',!(await vis(p,'#kluis')));
- check("geen knop 'Andere gebruiker' meer",!(await p.evaluate(()=>!!document.getElementById('other-user'))));
- check('klok op de aarde: tijd (UU:MM) en datum, binnen de planeet',await p.evaluate(()=>{const t=document.getElementById('klok-tijd'),d=document.getElementById('klok-datum'),pl=document.getElementById('planet').getBoundingClientRect(),r=t.getBoundingClientRect();return /^\d\d:\d\d$/.test(t.textContent)&&/^(zondag|maandag|dinsdag|woensdag|donderdag|vrijdag|zaterdag) \d+ [a-z]+$/.test(d.textContent)&&r.left>pl.left&&r.right<pl.right&&r.top>pl.top&&r.bottom<pl.bottom;}));
+ check("'Andere gebruiker' onzichtbaar zonder vergrendelde sessie",!(await vis(p,'#other-user')));
  await p.click('#users .gebruiker:nth-child(2) button');await p.waitForTimeout(600);
  check('klik: planeet uitgelicht en wachtwoordveld zichtbaar met focus',await vis(p,'#kluis')&&await p.evaluate(()=>document.querySelector('#users .gebruiker:nth-child(2)').classList.contains('gekozen')&&document.activeElement.id==='response'));
  const bij=await p.evaluate(()=>{const k=document.getElementById('kluis').getBoundingClientRect(),b=document.querySelector('#users .gekozen button').getBoundingClientRect();return Math.abs((k.left+k.right)/2-(b.left+b.right)/2)<2&&k.top>=b.bottom-1&&k.top-b.bottom<30;});
@@ -65,14 +62,14 @@ const planeet=p=>p.evaluate(()=>{const r=document.getElementById('planet').getBo
  check('Enter logt in',(await p.evaluate(()=>window.__log)).some(l=>l[0]==='start'&&l[1]==='gebruiker2'));
  await p.close();
 }
-// 3. vergrendelde sessie (0.3.3): alle planeten, de vergrendelde al gekozen met markering en veld; één wachtwoord
-for(const hint of ['gebruiker3','']){
- const U=G(4);U[2].ingelogd=true;const p=await open(U,hint);
- check(`vergrendelde sessie (hint '${hint}'): alle 4 planeten, de vergrendelde gekozen met markering en veld`,await p.evaluate(()=>{const l=[...document.querySelectorAll('#users .gebruiker')];return l.length===4&&l[2].classList.contains('gekozen')&&l[2].classList.contains('ingelogd')&&l.filter(g=>g.classList.contains('ingelogd')).length===1;})&&await vis(p,'#kluis'));
- await p.close();
-}
+// 3. vergrendelde sessie: alleen die planeet + 'Andere gebruiker'; terugkeren met één wachtwoord; overzicht
 {
  const U=G(4);U[2].ingelogd=true;const p=await open(U,'gebruiker3');
+ check("vergrendelde sessie: 'Andere gebruiker' zichtbaar",await vis(p,'#other-user'));
+ check('alleen de vergrendelde planeet getoond, gekozen, met markering en veld',await p.evaluate(()=>{const l=[...document.querySelectorAll('#users .gebruiker')];return l.length===1&&l[0].classList.contains('gekozen')&&l[0].classList.contains('ingelogd');})&&await vis(p,'#kluis'));
+ await p.click('#other-user');await p.waitForTimeout(500);
+ check("'Andere gebruiker' toont het overzicht met alle planeten en verdwijnt",await p.evaluate(()=>document.querySelectorAll('#users .gebruiker').length===4)&&!(await vis(p,'#other-user')));
+ await p.click('#users .gebruiker:nth-child(3) button');await p.waitForTimeout(500);
  await p.fill('#response','gebruiker3-goed');await p.keyboard.press('Enter');await p.waitForTimeout(800);
  check('terugkeren naar de vergrendelde sessie met één wachtwoord (login.start, "Welkom terug")',(await p.evaluate(()=>window.__log)).some(l=>l[0]==='start'&&l[1]==='gebruiker3')&&await p.evaluate(()=>document.getElementById('message').textContent.includes('terug')));
  await p.close();
