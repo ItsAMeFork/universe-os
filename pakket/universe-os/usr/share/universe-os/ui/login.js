@@ -38,16 +38,15 @@ addEventListener('resize',()=>{if(!leaving){scene();rijMaat();}});
 const rij=gebruikersRij($('users'),{onKies:naam=>{if(!leaving&&!cancelling&&naam!==gekozen)kiesGebruiker(naam);},onBevestig:()=>{if(prompt)$('response').focus();}});
 const RIJ_MARGE=36,PLANEET_VRIJ=.3; // the row stays below the middle of the screen: never higher than 30% of the big planet below the centre
 function rijMaat(){const box=$('users');if(box.hidden)return;const onder=parseFloat(getComputedStyle(box).bottom)||96,vrij=innerHeight/2-onder-planetPx()*PLANEET_VRIJ-RIJ_MARGE;rij.grootte(Math.min(innerWidth-40,1100),Math.max(60,Math.min(innerHeight*.3,260,vrij)));plaatsKluis();}
-let alleGebruikers=[],overzicht=false; // overzicht: all planets; otherwise, while a locked session exists, only the locked ones
-const vergrendeld=()=>alleGebruikers.filter(g=>g.ingelogd);
 on('login-users',d=>{d=d||{};if(Array.isArray(d.users)&&d.users.length)toonRij(d.users,gekozen||hint);});
+// 0.3.3 (Axel, 28 Oct: "waar zijn de planeten accounts nu"): always every planet, also while a session is locked
+// (locking now shows this screen). The locked one (marker dot) is chosen beforehand, so returning stays one password;
+// no 'Andere gebruiker' button any more.
 function toonRij(users,voorkeur){
- if(!Array.isArray(users)||!users.length)return;alleGebruikers=users;
- const v=vergrendeld();if(!v.length)overzicht=true;
- const zicht=overzicht?users:v;
- $('other-user').hidden=overzicht; // only when a locked session exists, and until the overview is open
+ if(!Array.isArray(users)||!users.length)return;
+ const v=users.filter(g=>g.ingelogd);
  $('users').hidden=false;const vorige=gekozen;gekozen='';
- rij.zetGebruikers(zicht,zicht.some(g=>g.naam===voorkeur)?voorkeur:(zicht.length===1?zicht[0].naam:''));
+ rij.zetGebruikers(users,users.some(g=>g.naam===voorkeur)?voorkeur:v.length===1?v[0].naam:users.length===1?users[0].naam:'');
  if(!rij.gekozenNaam()&&vorige){annuleer();}
  rijMaat();
 }
@@ -75,11 +74,6 @@ $('kluis').addEventListener('submit',async event=>{
 // Escape closes the bubble and goes back to the planet (the attempt is cancelled; nothing is kept).
 $('kluis').addEventListener('keydown',e=>{if(e.key==='Escape'&&!leaving){e.preventDefault();const knop=rij.gekozenKnop();annuleer();knop?.focus();}});
 async function annuleer(){attempt++;prompt=false;busy=false;verbergKluis();try{await call('login.cancel');}catch(e){}}
-// 'Andere gebruiker' (only with a locked session): show the overview with all planets.
-$('other-user').addEventListener('click',()=>{
- if(cancelling||leaving)return;overzicht=true;const wie=gekozen;toonRij(alleGebruikers,wie);
- ($('users').querySelector('button[tabindex="0"]'))?.focus();
-});
 // Wrong password: the message appears at that planet; a fresh PAM conversation for the same user makes the field ready again.
 on('login-failed',async data=>{
  if(leaving)return;prompt=false;busy=true;$('response').value='';$('submit').disabled=true;pendingMessage=data.text;$('message').textContent=data.text;$('kluis').classList.add('fout');

@@ -11,14 +11,13 @@ main::after{content:'';position:absolute;width:min(100vw,900px);aspect-ratio:1;b
 .power-option{display:flex;flex-direction:column;max-width:190px;gap:5px}.power-option button{display:flex;gap:8px;align-items:center;justify-content:center}.power-option small{font-size:.72em;color:var(--muted)}.power-message{flex-basis:100%;margin:0;font-size:.8em}.power-message:empty{display:none}.power-option button:disabled{opacity:.45;cursor:default}.power-confirm{max-width:420px;background:#0b1021;color:var(--text);border:1px solid var(--line);border-radius:24px;padding:24px}.power-confirm::backdrop{background:#050815bb}.power-confirm button{width:auto;margin:8px}.power-confirm h2{color:var(--accent)}
 @media(max-height:700px){main{padding-bottom:140px}#planet{max-height:65vh}.login-power{padding:8px;gap:6px}.power-option small{max-width:140px}}
 /* Appearing (planet forms, then the form slides in) and leaving (the stars dim after the explosion). */
-.forming #planet,.forming #kluis,.forming #other-user,.forming .login-power{opacity:0}
+.forming #planet,.forming #kluis,.forming .login-power{opacity:0}
 .forming #planet{transition:none}
 #planet{transition:opacity .45s ease}
-.formed #other-user{animation:form-in .5s .15s cubic-bezier(.2,.8,.3,1) both}
 .formed .login-power{animation:form-in .5s .15s cubic-bezier(.2,.8,.3,1) both}
 @keyframes form-in{from{opacity:0;transform:translateY(24px) scale(.97)}}
 #stars{transition:opacity .6s ease}#stars.fade{opacity:.35}
-html.reduce-motion .formed #other-user,html.no-motion .formed #other-user,html.reduce-motion .formed .login-power,html.no-motion .formed .login-power{animation:none}
+html.reduce-motion .formed .login-power,html.no-motion .formed .login-power{animation:none}
 
 /* The glowing core (= kern.png, the last picture of logging out and the first of the desktop): the planet forms out of it. */
 #core{position:fixed;inset:0;z-index:2;pointer-events:none;background:#050815 url(../backgrounds/kern.png) center/cover}
@@ -53,7 +52,6 @@ html.reduce-motion #users .kleinplaneet,html.no-motion #users .kleinplaneet,html
 .depart #kluis{transition:opacity .2s}
 #users .gebruiker.ingelogd .kleinplaneet::after{content:'';position:absolute;right:-2px;top:-2px;width:max(8px,calc(var(--d) * .18));height:max(8px,calc(var(--d) * .18));border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px #050815,0 0 8px var(--accent)}
 #users .kleinplaneet{position:relative}
-#other-user{position:fixed;left:18px;bottom:12px;z-index:20;width:auto;padding:10px 16px;border-radius:18px;background:#0b1021e6;border:1px solid var(--line);color:var(--text)}
 html.reduce-motion #kluis,html.no-motion #kluis{transition:none}
 /* 0.3.3 (Axel, 28 Oct): the clock on the Earth (klok.js), time big and the date below; it scales with the planet (--p,
    set by login.js) and goes with it when logging in. White with a soft shadow, readable on clouds, sea and night. */
