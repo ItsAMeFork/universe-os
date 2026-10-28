@@ -275,5 +275,10 @@ class PlanetGreeter:
 
 
 if __name__ == '__main__':
+    try:  # 0.3.4: the screen stays on (unless an administrator chose a time); never keeps the login screen away
+        import inlogscherm
+        inlogscherm.toepassen()
+    except Exception:  # noqa: BLE001
+        pass
     PlanetGreeter()
     Gtk.main()

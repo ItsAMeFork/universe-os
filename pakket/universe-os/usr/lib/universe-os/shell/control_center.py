@@ -18,6 +18,7 @@ from gi.repository import Gio, GLib, Gtk  # noqa: E402
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import backend  # noqa: E402
 import config  # noqa: E402
+import inlogscherm  # noqa: E402
 import profielfoto  # noqa: E402
 import session  # noqa: E402
 from webview import Bridge, emit, make_view  # noqa: E402
@@ -501,6 +502,8 @@ def handlers(app):
         'users.admin': lambda a: admin_call(['set-admin', a['name'], 'yes' if a.get('admin') else 'no']),
         'users.password': lambda a: set_user_password(a['name'], a['password']),
         'account.password': lambda a: change_own_password(a['current'], a['new']),
+        'greeter.screenoff.get': lambda a: inlogscherm.scherm_uit_minuten(),
+        'greeter.screenoff.set': lambda a: admin_call(['set-greeter-screen-off', str(int(a['minutes']))]),
         'account.photo.choose': lambda a: choose_photo(),
         'account.photo.preview': lambda a: profielfoto.voorbeeld(str(a['path'])),
         'account.photo.save': lambda a: profielfoto.opslaan(str(a['path']), float(a['x']), float(a['y']), float(a['size'])),
@@ -588,7 +591,7 @@ class ControlCenter(Gtk.Application):
             return
         bridge = Bridge(handlers(self), threaded={'updates.channel.set', 'network.status', 'status', 'audio.outputs', 'audio.select', 'wifi.list', 'wifi.connect', 'users.add', 'users.remove', 'users.admin',
                                                    'users.password', 'users.fullname', 'account.password', 'account.photo.choose', 'account.photo.preview',
-                                                   'account.photo.save', 'account.photo.remove', 'timezone.set', 'updates.status', 'keyboard.set',
+                                                   'account.photo.save', 'account.photo.remove', 'greeter.screenoff.set', 'timezone.set', 'updates.status', 'keyboard.set',
                                                    'locale.set', 'bluetooth.get', 'updates.refresh', 'updates.install', 'claude.status',
                                                    'ai.status', 'ai.set', 'ai.key', 'ai.install', 'ai.leren',
                                                    'ai.compressie', 'ai.omniroute.add', 'ai.omniroute.remove', 'ai.omniroute.router',

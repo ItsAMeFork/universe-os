@@ -8,6 +8,7 @@ arguments, and are never logged.
   set-admin NAAM yes|no
   set-password NAAM                                   (wachtwoord op stdin)
   set-fullname NAAM "Volledige naam"
+  set-greeter-screen-off MINUTEN                      (0 = nooit, max 120; inlog- en vergrendelscherm)
 
 Rechten (de helper controleert dit zelf, ook al heeft polkit de aanroeper al gevraagd te authenticeren):
   - de aanroeper is PKEXEC_UID; zonder geldige PKEXEC_UID wordt alles geweigerd;
@@ -172,6 +173,18 @@ def main(args=None):
         pw = normal_user(args[1])
         authorize(cmd, pw.pw_name)
         chpasswd(pw.pw_name, read_password())
+        print('ok')
+    elif cmd == 'set-greeter-screen-off' and len(args) == 2:
+        # 0.3.4: when the screen of the login/lock screen goes off (system-wide, administrators only)
+        authorize(cmd)
+        sys.path.insert(0, '/usr/lib/universe-os/shell')
+        import inlogscherm
+        if not re.fullmatch(r'\d{1,3}', args[1]):
+            fail('Kies 0 (nooit) tot en met %d minuten.' % inlogscherm.MAX)
+        try:
+            inlogscherm.zet(int(args[1]))
+        except ValueError as error:
+            fail(str(error))
         print('ok')
     elif cmd == 'set-fullname' and len(args) == 3:
         pw = normal_user(args[1])
