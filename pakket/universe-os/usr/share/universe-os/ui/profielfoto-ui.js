@@ -22,11 +22,11 @@ export function fotoKaart({call,h,photo,orb,onChange}){
  const kies=h('button',{type:'button'},'Foto kiezen…');
  const weg=h('button',{type:'button',hidden:!photo},'Foto verwijderen');
  const D=260,canvas=h('canvas',{class:'profielfoto-editor',width:D*2,height:D*2,style:`width:${D}px;height:${D}px;touch-action:none;cursor:grab`,
-  'aria-label':'Voorbeeld van je profielfoto. Sleep om te verschuiven.'});
+  tabindex:'0','aria-label':'Voorbeeld van je profielfoto. Sleep of gebruik de pijltjes om te verschuiven, plus en min om te zoomen.'});
  const schuif=h('input',{type:'range',min:'1',max:String(MAX_ZOOM),step:'0.01',value:'1','aria-label':'Zoomen'});
  const opslaan=h('button',{type:'button',class:'primary'},'Opslaan'),annuleer=h('button',{type:'button'},'Annuleren');
  const editor=h('div',{class:'profielfoto-bewerk',hidden:true},canvas,
-  h('label',{},'Zoomen',schuif),h('p',{class:'muted'},'Sleep de foto om hem te verschuiven; zoom met de schuifbalk of het muiswiel.'),
+  h('label',{},'Zoomen',schuif),h('p',{class:'muted'},'Sleep de foto (of gebruik de pijltjes) om hem te verschuiven; zoom met de schuifbalk, het muiswiel of + en −.'),
   h('div',{class:'row'},opslaan,annuleer));
  let pad='',s=null,img=null;
  const ctx=canvas.getContext?.('2d');
@@ -57,6 +57,13 @@ export function fotoKaart({call,h,photo,orb,onChange}){
  canvas.addEventListener('pointerup',los);canvas.addEventListener('pointercancel',los);
  canvas.addEventListener('wheel',e=>{if(!s)return;e.preventDefault();s=zoom(s,s.zoom*(e.deltaY<0?1.1:1/1.1));schuif.value=String(s.zoom);teken();},{passive:false});
  schuif.addEventListener('input',()=>{if(!s)return;s=zoom(s,schuif.value);teken();});
+ // Keyboard too: arrows move the photo (as dragging does), + and - zoom.
+ canvas.addEventListener('keydown',e=>{
+  if(!s)return;const stap=(canvas.clientWidth||D)*.05,pijl={ArrowLeft:[-stap,0],ArrowRight:[stap,0],ArrowUp:[0,-stap],ArrowDown:[0,stap]}[e.key];
+  if(pijl)s=verschuif(s,pijl[0],pijl[1],canvas.clientWidth||D);
+  else if(e.key==='+'||e.key==='=')s=zoom(s,s.zoom*1.1);else if(e.key==='-')s=zoom(s,s.zoom/1.1);else return;
+  e.preventDefault();schuif.value=String(s.zoom);teken();
+ });
  const sluit=()=>{editor.hidden=true;s=null;img=null;pad='';};
  annuleer.addEventListener('click',()=>{sluit();say('');});
  opslaan.addEventListener('click',async()=>{
