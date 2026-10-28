@@ -1,4 +1,4 @@
-html,body{background:var(--space);overflow:hidden}main{position:fixed;inset:0;display:grid;place-items:center}#stars{position:absolute;inset:0;pointer-events:none}#stars canvas{position:absolute;inset:0;width:100%;height:100%}#planet{position:absolute;width:min(80vw,650px);aspect-ratio:1}#planet canvas{width:100%;height:100%;display:block}@keyframes float{50%{transform:translateY(-10px) rotate(2deg)}}@keyframes implode{0%{transform:scale(1);opacity:1}60%{transform:scale(.5) rotate(60deg);opacity:1}100%{transform:scale(0) rotate(160deg);opacity:0}}
+html,body{background:var(--space);overflow:hidden}main{position:fixed;inset:0;display:grid;place-items:center}#stars{position:absolute;inset:0;pointer-events:none}#stars canvas{position:absolute;inset:0;width:100%;height:100%}#planet{position:absolute;width:min(64vw,62vh,520px);aspect-ratio:1}#planet canvas{width:100%;height:100%;display:block}@keyframes float{50%{transform:translateY(-10px) rotate(2deg)}}@keyframes implode{0%{transform:scale(1);opacity:1}60%{transform:scale(.5) rotate(60deg);opacity:1}100%{transform:scale(0) rotate(160deg);opacity:0}}
 [hidden]{display:none!important}
 
 /* Nebula like the 3D desktop (world.css .nebula) and a soft blue glow around the Earth. */
@@ -55,3 +55,8 @@ html.reduce-motion #users .kleinplaneet,html.no-motion #users .kleinplaneet,html
 #users .kleinplaneet{position:relative}
 #other-user{position:fixed;left:18px;bottom:12px;z-index:20;width:auto;padding:10px 16px;border-radius:18px;background:#0b1021e6;border:1px solid var(--line);color:var(--text)}
 html.reduce-motion #kluis,html.no-motion #kluis{transition:none}
+/* 0.3.3 (Axel, 28 Oct): the clock on the Earth (klok.js), time big and the date below; it scales with the planet (--p,
+   set by login.js) and goes with it when logging in. White with a soft shadow, readable on clouds, sea and night. */
+#klok{position:absolute;inset:0;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:calc(var(--p,520px)*.012);pointer-events:none;color:#fff;text-align:center;text-shadow:0 0 calc(var(--p,520px)*.03) #050815,0 2px 6px #000c}
+#klok-tijd{font:300 calc(var(--p,520px)*.2)/1 system-ui,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+#klok-datum{font:500 calc(var(--p,520px)*.048)/1.2 system-ui,sans-serif}

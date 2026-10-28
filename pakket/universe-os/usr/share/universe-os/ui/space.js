@@ -8,6 +8,9 @@ export const FOV=900,EARTH_SIZE=380;
 export const DEFAULT_CAM={yaw:-.5,pitch:.42,dist:1650,tx:0,ty:0,tz:0};
 /** Camera distance at which the Earth is `px` screen pixels wide. */
 export const distFor=px=>FOV*EARTH_SIZE/px;
+/** Width of the Earth on the login screen, and so the end picture of logging out and locking (world.js closeView).
+ * 0.3.3 (Axel, 28 Oct: "iets meer uitgezoomd"): 20 % smaller than before (was min(80vw, 78vh, 650 px)). */
+export const loginEarthPx=()=>Math.min(innerWidth*.64,innerHeight*.62,520);
 export function project(cam,[x,y,z],w,h){
  const dx=x-cam.tx,dy=y-cam.ty,dz=z-cam.tz,cy=Math.cos(cam.yaw),sy=Math.sin(cam.yaw),cp=Math.cos(cam.pitch),sp=Math.sin(cam.pitch);
  const x1=dx*cy-dz*sy,z1=dx*sy+dz*cy,y2=dy*cp-z1*sp,depth=dy*sp+z1*cp+cam.dist;

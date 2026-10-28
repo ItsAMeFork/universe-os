@@ -7,7 +7,7 @@ import {sharpenPlanet,sharpenEarth} from './planets-hq.js';
 import {debugFPS,afterPaint,perfMark} from './performance.js';
 import {SETTINGS} from './settings-index.js';
 import {keepTab} from './focus.js';
-import {distFor} from './space.js';
+import {distFor,loginEarthPx} from './space.js';
 import {tekenNevel,tekenSterren,twinkelLaag} from './sterrenhemel.js';
 import {mountNebula} from './brein-nevel.js';
 import {mountClaudeRoute} from './claude-route.js';
@@ -477,7 +477,7 @@ function overview(){flyTo([0,0,0],DEFAULT_CAM.dist,{yaw:DEFAULT_CAM.yaw,pitch:DE
 function pushAlongView(o,amount){const v=unrotate(0,0,amount);o.pos=[o.pos[0]+v[0],o.pos[1]+v[1],o.pos[2]+v[2]];requestRender();savePos(o);}
 
 /** The view of the login screen: the Earth close, in the middle, as big as the login planet. */
-const closeView=c=>({yaw:DEFAULT_CAM.yaw,pitch:DEFAULT_CAM.pitch,dist:distFor(Math.min(innerWidth*.8,innerHeight*.78,650)),tx:c[0],ty:c[1],tz:c[2]});
+const closeView=c=>({yaw:DEFAULT_CAM.yaw,pitch:DEFAULT_CAM.pitch,dist:distFor(loginEarthPx()),tx:c[0],ty:c[1],tz:c[2]});
 /** Light trails behind the planets while they fly in or out (from where they were a moment ago). */
 let trailDir=1;
 function drawTrails(c){

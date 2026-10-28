@@ -145,6 +145,39 @@ class Afmelden(Basis):
         self.assertEqual(self.regels(), ['wissel'])
 
 
+class VergrendelenToontInlogscherm(Basis):
+    """0.3.3: the real universe-lock locks first (gtklock) and then shows the login screen via universe-wissel."""
+    LOCK = ROOT / 'usr/bin/universe-lock'
+
+    def lock(self, **extra):
+        # Fake gtklock: a script named gtklock (pgrep -x sees that name) that 'unlocks' (exit 0) after 1.5 s.
+        script(self.bin, 'gtklock', 'echo gtklock >> "$LOG"\ni=0\nwhile [ "$i" -lt 15 ]; do sleep 0.1; i=$((i + 1)); done\n')
+        script(self.bin, 'universe-wissel', 'echo "wissel ${UNIVERSE_LOCK_ZONDER_INLOGSCHERM:-} '
+                                            '$(pgrep -x gtklock >/dev/null && echo vergrendeld)" >> "$LOG"\n')
+        script(self.bin, 'universe-geluid', 'echo "geluid $*" >> "$LOG"\n')
+        env = {**self.env, 'XDG_RUNTIME_DIR': self.tmp, **extra}
+        return subprocess.run(['sh', str(self.LOCK), '--direct'], env=env, capture_output=True, text=True, timeout=15)
+
+    def test_eerst_slot_dan_inlogscherm(self):
+        r = self.lock()
+        self.assertEqual(r.returncode, 0, r.stderr)
+        regels = self.regels()
+        self.assertEqual(regels[0], 'gtklock')
+        self.assertEqual([x for x in regels if x.startswith('wissel')], ['wissel  vergrendeld'])  # once, while locked
+        self.assertEqual(regels[-1], 'geluid ontgrendelen')
+
+    def test_niet_dubbel_vanuit_universe_wissel(self):
+        r = self.lock(UNIVERSE_LOCK_ZONDER_INLOGSCHERM='1')
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertNotIn('wissel', ' '.join(self.regels()))
+
+    def test_universe_wissel_geeft_de_vlag_mee(self):
+        script(self.bin, 'universe-lock', 'echo "lock $* ${UNIVERSE_LOCK_ZONDER_INLOGSCHERM:-}" >> "$LOG"\n')
+        script(self.bin, 'dm-tool', 'echo "dm-tool $*" >> "$LOG"\n')
+        self.wissel()
+        self.assertEqual(self.regels()[0], 'lock --direct 1')
+
+
 class Menu(unittest.TestCase):
     def test_knoppen_aanwezig(self):
         ui = ROOT / 'usr/share/universe-os/ui'

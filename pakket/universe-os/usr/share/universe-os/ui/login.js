@@ -2,17 +2,20 @@ import './login-power.js';
 import {call,on,available,applySettings} from './api.js';
 import {paintEarths} from './globe.js';
 import {afterPaint,debugFPS} from './performance.js';
-import {DEFAULT_CAM,distFor,drawSky,bigEarth} from './space.js';
+import {DEFAULT_CAM,distFor,drawSky,bigEarth,loginEarthPx} from './space.js';
+import {startKlok} from './klok.js';
 import {chargeToCore,formPlanet} from './explode.js';
 import {gebruikersRij} from './gebruikersrij.js';
 const $=id=>document.getElementById(id);
 // The Earth in space, seen with the camera of the 3D desktop (space.js); after login the desktop starts in this view.
-const planetPx=()=>Math.min(innerWidth*.8,innerHeight*.78,650);
+const planetPx=loginEarthPx;
 function scene(){
  const cam={...DEFAULT_CAM,dist:distFor(planetPx())};
  $('stars').replaceChildren(drawSky(document.createElement('canvas'),cam)); // no other planets: after logout they are all inside the Earth
  $('planet').style.width=planetPx()+'px';
+ $('planet').style.setProperty('--p',planetPx()+'px'); // the clock on the Earth scales with it
 }
+startKlok($('klok-tijd'),$('klok-datum'));
 const reducedMotion=()=>animations!=='full'||matchMedia('(prefers-reduced-motion: reduce)').matches;
 // The login screen appears: light streams together and the planet forms, then the form slides in.
 afterPaint().then(async()=>{

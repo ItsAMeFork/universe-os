@@ -15,6 +15,21 @@ ANIM=
 [ "$1" != "--direct" ] && ANIM=$(universe-ctl lock 2>/dev/null)
 [ "$1" != "--direct" ] && universe-geluid vergrendelen
 [ "$ANIM" = "ok anim" ] && sleep 2.3
+# 0.3.3 (Axel, 28 Oct: "dan moet de gebruiker ook op dezelfde inlogvenster"): every lock (Windows+L, menu, idle,
+# sleep, assistant) shows the login screen with the planets, the same as at start-up. The lock below stays the real
+# protection of this session: once it holds, universe-wissel switches to the greeter, where the user's password
+# brings him back (LightDM -> logind Unlock -> universe-ontgrendel-wacht ends the lock). Should the switch fail, the
+# lock screen itself is still there. universe-wissel sets UNIVERSE_LOCK_ZONDER_INLOGSCHERM: it switches itself.
+if [ -z "${UNIVERSE_LOCK_ZONDER_INLOGSCHERM:-}" ] && command -v universe-wissel >/dev/null 2>&1; then
+    (
+        i=0  # only once the lock really runs, at most 3 s; otherwise stay on the lock screen
+        while [ "$i" -lt 30 ] && ! pgrep -u "$(id -u)" -x 'gtklock|swaylock' >/dev/null; do
+            sleep 0.1
+            i=$((i + 1))
+        done
+        pgrep -u "$(id -u)" -x 'gtklock|swaylock' >/dev/null && exec universe-wissel
+    ) >/dev/null 2>&1 &
+fi
 # gtklock (12 Oct, Axel: "like the login screen, with the user name, and the user types his password"): the Earth in
 # space, a glass card with the picture and name of the user, a real password field and the time (style.css). It is a
 # secure lock as well (ext-session-lock: if it crashed, the screen stays locked). swaylock below is the fallback.

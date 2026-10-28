@@ -5,7 +5,7 @@
 LOCKED='gtklock|swaylock'
 locked() { pgrep -u "$(id -u)" -x "$LOCKED" >/dev/null 2>&1; }
 if ! locked; then
-    universe-lock --direct >/dev/null 2>&1 &
+    UNIVERSE_LOCK_ZONDER_INLOGSCHERM=1 universe-lock --direct >/dev/null 2>&1 &
     # gtklock/swaylock take the session lock before their UI shows: wait for the process, at most 3 s
     i=0
     while [ "$i" -lt 30 ] && ! locked; do
