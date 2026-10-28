@@ -67,3 +67,6 @@ html.reduce-motion #kluis,html.no-motion #kluis{transition:none}
 /* 0.3.4 (Axel, 28 Oct): your own profile photo on your planet (AccountsService, greeter.py), with the same gloss and
    shade as the coloured planets; the glow of a locked session and the choice ring stay (box-shadow rules above). */
 #users .kleinplaneet.met-foto{background:radial-gradient(circle at 35% 30%,#ffffff40,#fff0 42%),radial-gradient(circle at 50% 50%,#0000 55%,#000000a0 100%),var(--foto) center/cover no-repeat}
+/* Start-up flight (opstartvlucht.js, first login screen of a boot): the password bubble already works (focus, typing;
+   any key ends the flight) but only shows once the user planets have landed. */
+body.vlucht #kluis{opacity:0!important;pointer-events:none}

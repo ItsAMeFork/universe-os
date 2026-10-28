@@ -5,6 +5,7 @@ import {afterPaint,debugFPS} from './performance.js';
 import {DEFAULT_CAM,distFor,drawSky,bigEarth,loginEarthPx} from './space.js';
 import {startKlok} from './klok.js';
 import {chargeToCore,formPlanet} from './explode.js';
+import {opstartVlucht} from './opstartvlucht.js';
 import {gebruikersRij} from './gebruikersrij.js';
 const $=id=>document.getElementById(id);
 // The Earth in space, seen with the camera of the 3D desktop (space.js); after login the desktop starts in this view.
@@ -23,13 +24,20 @@ afterPaint().then(async()=>{
  await settingsKnown;
  // The screen starts on the glowing core (where logging out ended, and the same picture as kern.png); light streams
  // together and the planet forms out of it, then the form slides in.
- if(!reducedMotion()){
+ const kernWeg=()=>{$('core')?.remove();document.documentElement.style.background='#050815';}; // the core was also the first paint
+ const gevormd=()=>{kernWeg();document.body.classList.remove('forming');document.body.classList.add('formed');};
+ if(!reducedMotion()&&opstart){
+  // First login screen of this boot: the start-up flight (opstartvlucht.js) from the core to the Earth; the user
+  // planets come out of the Earth. The password bubble stays invisible (but works) until the planets have landed.
+  document.body.classList.add('forming','vlucht');
+  await opstartVlucht($('planet'),{knoppen:()=>[...$('users').querySelectorAll('button')],klok:$('klok'),onStart:kernWeg,onUi:gevormd});
+  document.body.classList.remove('vlucht');plaatsKluis();
+ }else if(!reducedMotion()){
   document.body.classList.add('forming');
   $('core').classList.add('fading');
   await formPlanet($('planet').getBoundingClientRect());
  }
- $('core').remove();document.documentElement.style.background='#050815'; // the core was also the first paint
- document.body.classList.remove('forming');document.body.classList.add('formed');
+ gevormd();
 });
 addEventListener('resize',()=>{if(!leaving){scene();rijMaat();}});
 // 0.3.1 (Jesse, t155u): geen inlogkaart meer. Inloggen gaat alleen via de kleine gebruikersplaneten: kies een planeet,
@@ -62,7 +70,7 @@ function plaatsKluis(){
 }
 if(typeof ResizeObserver==='function')new ResizeObserver(()=>plaatsKluis()).observe($('kluis'));
 $('users').addEventListener('transitionend',()=>plaatsKluis());
-let prompt=false,busy=false,leaving=false,cancelling=false,attempt=0,animations='full',pendingMessage='',gekozen='',hint='';
+let opstart=false,prompt=false,busy=false,leaving=false,cancelling=false,attempt=0,animations='full',pendingMessage='',gekozen='',hint='';
 function toonKluis(veld){const k=$('kluis');k.hidden=false;$('prompt-label').hidden=!veld;$('submit').hidden=!veld;k.classList.toggle('alleen-melding',!veld);plaatsKluis();requestAnimationFrame(()=>{plaatsKluis();k.classList.add('open');});}
 function verbergKluis(){const k=$('kluis');k.classList.remove('open');k.hidden=true;$('response').value='';$('message').textContent='';}
 function error(text){leaving=false;busy=false;prompt=false;cancelling=false;document.body.classList.remove('depart');$('response').value='';$('submit').disabled=false;$('message').textContent=text;$('response').disabled=false;if(text)toonKluis(false);else verbergKluis();}
@@ -106,4 +114,4 @@ on('login-success',async data=>{
  try{await call('login.start');}catch(e){error(e.message);}
 });
 let settingsReady;const settingsKnown=new Promise(r=>{settingsReady=r;});setTimeout(()=>settingsReady(),3000);
-(async()=>{if(!available){settingsReady();error('Open dit scherm via de Universe OS-inlogomgeving.');return;}try{const state=await call('login.ready');animations=state.animations||'full';applySettings({animations});settingsReady();hint=state.user||'';toonRij(state.users,hint);if(state.prompt&&gekozen)showPrompt(state.prompt);if(!gekozen)$('users').querySelector('button[tabindex="0"]')?.focus();}catch(e){error(e.message);}})();
+(async()=>{if(!available){settingsReady();error('Open dit scherm via de Universe OS-inlogomgeving.');return;}try{const state=await call('login.ready');animations=state.animations||'full';opstart=!!state.opstart;applySettings({animations});settingsReady();hint=state.user||'';toonRij(state.users,hint);if(state.prompt&&gekozen)showPrompt(state.prompt);if(!gekozen)$('users').querySelector('button[tabindex="0"]')?.focus();}catch(e){error(e.message);}})();

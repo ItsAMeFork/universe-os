@@ -8,7 +8,7 @@ import {alpha} from './globe.js';
 import {canvasScale} from './canvas-budget.js';
 import {animate,isLight} from './motion.js';
 
-function overlay(){
+export function overlay(){
  // The light version draws at 60 % resolution: the effects are soft glows and trails, so it hardly shows.
  const W=innerWidth,H=innerHeight,dpr=canvasScale(W,H,devicePixelRatio,new URLSearchParams(location.search).get('gfx')==='soft',new URLSearchParams(location.search).get('gfx')==='licht')*(isLight()?.6:1);
  const canvas=document.createElement('canvas');canvas.width=Math.round(W*dpr);canvas.height=Math.round(H*dpr);

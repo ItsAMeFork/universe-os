@@ -26,15 +26,17 @@ def play(name, wait=False):
 
 def startup_sound():
     """The startup sound (Axel, 12 Oct: like Windows, but chill reggae space), once per boot: not again after logging
-    out. The marker carries the boot id, so a /tmp that survives a restart does not silence the next boot."""
+    out. The marker carries the boot id, so a /tmp that survives a restart does not silence the next boot.
+    Returns True on that first time: the login screen then also plays the start-up flight (opstartvlucht.js)."""
     try:
         with open('/proc/sys/kernel/random/boot_id') as f:
             boot = f.read().strip()
         fd = os.open('/tmp/.universe-opstart-' + boot, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
         os.close(fd)
     except OSError:
-        return  # already played this boot (or /tmp unusable)
+        return False  # already played this boot (or /tmp unusable)
     play('opstarten')
+    return True
 
 
 
@@ -111,9 +113,9 @@ class PlanetGreeter:
         window.get_window().set_cursor(cursor)
 
     def ready(self, _):
-        startup_sound()  # with the planet forming on the login screen
+        opstart = startup_sound()  # with the start-up flight (first time this boot) or the planet forming
         return {'user': self.dm.get_select_user_hint() or '', 'prompt': self.prompt, 'users': self.user_list(),
-                'animations': config.settings().get('animations', 'full')}
+                'animations': config.settings().get('animations', 'full'), 'opstart': opstart}
 
     def users_changed(self):
         emit(self.view, 'login-users', {'users': self.user_list()})
