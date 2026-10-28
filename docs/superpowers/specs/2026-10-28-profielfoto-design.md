@@ -12,7 +12,7 @@ Goedgekeurd door Axel op 28 okt 2026 ("ja klopt, ga maar bouwen").
 
 ## Formaten
 Alles wat GdkPixbuf kan lezen: JPG, PNG, GIF (eerste beeld), BMP, TIFF, ICO; WebP via `webp-pixbuf-loader`, HEIC/HEIF/AVIF
-via `heif-gdk-pixbuf` (pakket-afhankelijkheden). EXIF-draaiing wordt toegepast. Onleesbaar: melding "Dit bestand is
+via `heif-gdk-pixbuf` + `libheif-plugin-libde265` (HEVC, iPhone) (pakket-afhankelijkheden). EXIF-draaiing wordt toegepast. Onleesbaar: melding "Dit bestand is
 geen foto die Universe OS kan lezen." en niets verandert. Het voorbeeld is hooguit 1024 px (grote foto's blijven vlot);
 het opslaan snijdt uit het origineel.
 

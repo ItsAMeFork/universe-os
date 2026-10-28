@@ -40,10 +40,16 @@ def data_url_bestand(pad):
     return 'data:%s;base64,%s' % (soort, base64.b64encode(data).decode()) if soort else None
 
 
-def _laad(pad):
+def _gdk():
     import gi
     gi.require_version('GdkPixbuf', '2.0')
-    from gi.repository import GdkPixbuf, GLib
+    from gi.repository import GdkPixbuf
+    return GdkPixbuf
+
+
+def _laad(pad):
+    from gi.repository import GLib
+    GdkPixbuf = _gdk()
     try:
         pb = GdkPixbuf.Pixbuf.new_from_file(pad)
     except GLib.Error:
@@ -60,7 +66,7 @@ def _bytes(pb, soort):
 
 def voorbeeld(pad):
     """The photo for the editor (at most VOORBEELD px) and the real size of the original."""
-    from gi.repository import GdkPixbuf
+    GdkPixbuf = _gdk()
     pb = _laad(pad)
     w, h = pb.get_width(), pb.get_height()
     k = min(1.0, VOORBEELD / max(w, h))
@@ -72,7 +78,7 @@ def voorbeeld(pad):
 
 def maak(pad, x, y, maat):
     """The stored picture: the square (x, y, maat) of the original, as a MAAT x MAAT PNG."""
-    from gi.repository import GdkPixbuf
+    GdkPixbuf = _gdk()
     pb = _laad(pad)
     x, y, maat = vierkant(x, y, maat, pb.get_width(), pb.get_height())
     stuk = pb.new_subpixbuf(x, y, maat, maat).scale_simple(MAAT, MAAT, GdkPixbuf.InterpType.HYPER)
