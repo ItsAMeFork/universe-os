@@ -53,6 +53,10 @@ html.reduce-motion #users .kleinplaneet,html.no-motion #users .kleinplaneet,html
 .depart #kluis{transition:opacity .2s}
 #users .gebruiker.ingelogd .kleinplaneet::after{content:'';position:absolute;right:-2px;top:-2px;width:max(8px,calc(var(--d) * .18));height:max(8px,calc(var(--d) * .18));border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px #050815,0 0 8px var(--accent)}
 #users .kleinplaneet{position:relative}
+/* 0.3.3 (Axel, 28 Oct): a green glow around the planet of every user who is logged in and locked, in the locked view
+   and in the overview after 'Andere gebruiker'; extra shadow layers, so the choice ring of .gekozen stays. */
+#users .gebruiker.ingelogd .kleinplaneet{box-shadow:0 0 0 1px #ffffff1f,0 0 calc(var(--d) * .22) calc(var(--d) * .05) #38f59a99,0 0 calc(var(--d) * .55) #38f59a40,0 4px 14px #0008}
+#users .gebruiker.ingelogd.gekozen .kleinplaneet{box-shadow:0 0 0 2px var(--accent),0 0 calc(var(--d) * .22) calc(var(--d) * .05) #38f59aaa,0 0 calc(var(--d) * .6) #38f59a55,0 8px 22px #000a}
 #other-user{position:fixed;left:18px;bottom:12px;z-index:20;width:auto;padding:10px 16px;border-radius:18px;background:#0b1021e6;border:1px solid var(--line);color:var(--text)}
 html.reduce-motion #kluis,html.no-motion #kluis{transition:none}
 /* 0.3.3 (Axel, 28 Oct): the clock on the Earth (klok.js), time big and the date below; it scales with the planet (--p,

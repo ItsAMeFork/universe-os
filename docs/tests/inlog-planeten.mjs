@@ -66,6 +66,7 @@ const planeet=p=>p.evaluate(()=>{const r=document.getElementById('planet').getBo
 {
  const U=G(4);U[2].ingelogd=true;const p=await open(U,'gebruiker3');
  check("vergrendelde sessie: 'Andere gebruiker' zichtbaar",await vis(p,'#other-user'));
+ check('vergrendelde planeet heeft een groene gloed',await p.evaluate(()=>getComputedStyle(document.querySelector('#users .gebruiker.ingelogd .kleinplaneet')).boxShadow.includes('56, 245, 154')));
  check('alleen de vergrendelde planeet getoond, gekozen, met markering en veld',await p.evaluate(()=>{const l=[...document.querySelectorAll('#users .gebruiker')];return l.length===1&&l[0].classList.contains('gekozen')&&l[0].classList.contains('ingelogd');})&&await vis(p,'#kluis'));
  await p.click('#other-user');await p.waitForTimeout(500);
  check("'Andere gebruiker' toont het overzicht met alle planeten en verdwijnt",await p.evaluate(()=>document.querySelectorAll('#users .gebruiker').length===4)&&!(await vis(p,'#other-user')));
