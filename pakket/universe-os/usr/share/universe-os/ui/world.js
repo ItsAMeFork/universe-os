@@ -574,11 +574,12 @@ function animateWorld(dir,target,{core=false,rij=false}={}){
    render();
  }).then(()=>{glow=0;earthScale=1;setFlash(0);boom=0;warp=0;setUserDot(0);if(core)setCore(dir==='out'?1:0,1);render();});
 }
-// Lock / unlock (universe-lock): the desktop goes into the Earth before the lock screen (which shows the same Earth),
-// and comes out again when it is unlocked.
+// Lock / unlock (universe-lock). 0.3.5 (Axel, 28 Oct): locking shows the login screen (0.3.3), so it moves like
+// logging out and in: the desktop goes into the glowing core (kern.png, also gtklock's only picture, stil.css, and the
+// first picture of the login screen, out of which its planet forms) and comes out of it again when unlocked.
 let locked=false;
-on('lock-begin',async()=>{if(locked)return;locked=true;closeMenu();if(current)leave();root.inert=true;await animateWorld('out',null,{rij:true});call('lock.ready').catch(()=>{});});
-on('unlock',async()=>{if(!locked)return;locked=false;const saved=layout.space?.camera?{...DEFAULT_CAM,...layout.space.camera}:{...DEFAULT_CAM};setFlash(0);await animateWorld('in',saved,{rij:true});root.inert=false;call('unlock.done').catch(()=>{});});
+on('lock-begin',async()=>{if(locked)return;locked=true;closeMenu();if(current)leave();root.inert=true;await animateWorld('out',null,{core:true});call('lock.ready').catch(()=>{});});
+on('unlock',async()=>{if(!locked)return;locked=false;const saved=layout.space?.camera?{...DEFAULT_CAM,...layout.space.camera}:{...DEFAULT_CAM};setFlash(0);await animateWorld('in',saved,{core:true});root.inert=false;call('unlock.done').catch(()=>{});});
 
 // ----- rename and remove (files on the desktop) -----
 let renaming=false;

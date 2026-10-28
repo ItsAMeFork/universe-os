@@ -1,0 +1,18 @@
+/* 0.3.5 (Axel, 28 Oct: "heel kort de oude inlog interface, haal die weg"): since 0.3.3 locking shows the login screen;
+   gtklock only keeps the session locked behind it. While universe-wissel switches to the login screen, gtklock shows
+   nothing of its own: only the glowing core (kern.png), the last picture of the lock animation and the first one of
+   the login screen, so the three are one movement. Its card appears only as an emergency way back, when the login
+   screen did not come within 8 s, or when someone switches back to this session with Ctrl+Alt+F. */
+@import url("file:///usr/share/universe-os/gtklock/style.css");
+
+window {
+  background-color: #050815;
+  background-image: url("file:///usr/share/universe-os/backgrounds/kern.png");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+}
+@keyframes universe-nood-in { from { opacity: 0; } to { opacity: 1; } }
+#window-box, #clock-label, #date-label, #universe-knoppen, #error-label {
+  animation: universe-nood-in 400ms ease-out 8s both;
+}
