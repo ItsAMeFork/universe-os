@@ -49,7 +49,11 @@ $stappen = switch ($Kanaal) {
     'beide'  { "sh scripts/publiceer-apt.sh test && sh scripts/publiceer-apt.sh stable $versie --push" }
 }
 Write-Host '== Ondertekenen en publiceren. Typ de wachtwoordzin van de updatesleutel (je ziet niet wat je typt).' -ForegroundColor Cyan
-$opdracht = 'umask 077; trap "rm -f /tmp/ww" EXIT; read -rs -p "Wachtwoordzin updatesleutel: " P; echo; printf %s "$P" > /tmp/ww; unset P; ' +
+# 29 Oct (two "Bad passphrase" after pasting): bracketed paste off, and characters a paste can add removed (paste
+# markers ESC[200~/ESC[201~, Enter as CR, a literal Ctrl+V); the number of characters received is shown, never the text.
+$opdracht = 'umask 077; trap "rm -f /tmp/ww" EXIT; printf "\033[?2004l"; read -rs -p "Wachtwoordzin updatesleutel: " P; echo; ' +
+            'P=$(printf %s "$P" | tr -d "\r\026" | sed "s/\x1b\[20[01]~//g"); echo "($(printf %s "$P" | wc -m) tekens ontvangen)"; ' +
+            'printf %s "$P" > /tmp/ww; unset P; ' +
             'export UNIVERSE_SLEUTEL_WACHTWOORDBESTAND=/tmp/ww; cd ~/universe-os-claude && { ' + $stappen + '; } || ' +
             # A typo in the passphrase left the new package half-added to the local source; the next attempt then refused
             # it as "already published with different contents" (12 Oct). Undo everything that was not pushed.
