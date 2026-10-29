@@ -14,7 +14,10 @@ document.body.append(menu);
 
 const act=fn=>Promise.resolve().then(fn).catch(e=>toast(e.message));
 const hide=()=>call('surface.hide',{name:'start'}).catch(()=>{});
-const launch=id=>{hide();act(()=>call('apps.launch',{id}));};
+// 0.2.38: the window comes out of the shortcut that was clicked (CSS px of the start surface; the shell converts).
+let lastPointer=null;
+addEventListener('pointerdown',e=>{lastPointer={x:e.clientX,y:e.clientY,at:performance.now()};},true);
+const launch=id=>{const from=lastPointer&&performance.now()-lastPointer.at<4000?{x:lastPointer.x,y:lastPointer.y}:{};hide();act(()=>call('apps.launch',{id,bron:'start',...from}));};
 function saveLayout(){return call('layout.set',{layout}).then(l=>{layout=l;}).catch(e=>toast('Opslaan mislukt: '+e.message));}
 
 // ----- small popup menu (right click on a program, power button) -----
@@ -54,6 +57,7 @@ function powerMenu(anchor){
  const ask=(label,action)=>openPopup(x,y+90,[{label:`Ja, ${label.toLowerCase()} (niet-opgeslagen werk kan verloren gaan)`,run:()=>{hide();return call('power',{action});}},{label:'Annuleren',run:()=>{}}]);
  openPopup(x,y,[
   {label:'Vergrendelen',run:()=>{hide();return call('power',{action:'lock'});}},
+  {label:'Andere gebruiker',run:()=>{hide();return call('power',{action:'switch'});}},
   {label:'Afmelden',run:()=>ask('Afmelden','logout')},
   {label:'Opnieuw opstarten',run:()=>ask('Opnieuw opstarten','reboot')},
   {label:'Afsluiten',run:()=>ask('Afsluiten','poweroff')},

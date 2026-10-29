@@ -10,7 +10,7 @@ import {animate,isLight} from './motion.js';
 
 function overlay(){
  // The light version draws at 60 % resolution: the effects are soft glows and trails, so it hardly shows.
- const W=innerWidth,H=innerHeight,dpr=canvasScale(W,H,devicePixelRatio,new URLSearchParams(location.search).get('gfx')==='soft')*(isLight()?.6:1);
+ const W=innerWidth,H=innerHeight,dpr=canvasScale(W,H,devicePixelRatio,new URLSearchParams(location.search).get('gfx')==='soft',new URLSearchParams(location.search).get('gfx')==='licht')*(isLight()?.6:1);
  const canvas=document.createElement('canvas');canvas.width=Math.round(W*dpr);canvas.height=Math.round(H*dpr);
  canvas.setAttribute('aria-hidden','true');
  canvas.style.cssText='position:fixed;inset:0;width:100%;height:100%;z-index:50;pointer-events:none';
@@ -26,6 +26,12 @@ export function drawCore(c,W,H,scale=1,opacity=1){
  const g=c.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.min(W,H)*.55*scale);
  for(const [o,rgb,a] of CORE)g.addColorStop(o,`rgba(${rgb},${alpha(a*opacity)})`);
  c.fillStyle=g;c.fillRect(0,0,W,H);
+}
+/** 0.2.38 filmic: a thin horizontal lens streak (anamorphic flare) through y, strength 0..1. One gradient: also light. */
+export function lensStreak(c,W,y,k){
+ if(k<=.01)return;const g=c.createLinearGradient(0,y,W,y);
+ g.addColorStop(0,'rgba(120,180,255,0)');g.addColorStop(.5,`rgba(255,244,230,${alpha(.75*k)})`);g.addColorStop(1,'rgba(120,180,255,0)');
+ c.fillStyle=g;c.fillRect(0,y-1.5-5*k,W,3+10*k);
 }
 const rand=seed=>()=>(seed=(seed*16807)%2147483647)/2147483647;
 const ease=t=>1-Math.pow(1-t,3);
@@ -51,7 +57,7 @@ export async function explodePlanet(source,rect,{reduced=false,onStart}={}){
  onStart?.();
  // 1. charge up (0.7 s): the planet swells a little, glows hotter, cracks of light spread, it shakes harder
  const drawCracks=cracks(c,cx,cy,R,0,rnd);
- await run(700,t=>{
+ await run(900,t=>{
   const e=t*t,shake=e*6,sx=(rnd()-.5)*shake,sy=(rnd()-.5)*shake,s=1+e*.06;
   c.clearRect(0,0,W,H);
   const g=c.createRadialGradient(cx,cy,R*.8,cx,cy,R*(1.5+e));g.addColorStop(0,`rgba(255,170,90,${alpha(.5*e)})`);g.addColorStop(1,'rgba(255,120,40,0)');
@@ -117,7 +123,7 @@ export async function chargeToCore(source,rect,{reduced=false,onStart}={}){
  const cx=rect.left+rect.width/2,cy=rect.top+rect.height/2,R=rect.width*.44;
  onStart?.();
  const drawCracks=cracks(c,cx,cy,R,0,rnd);
- await run(700,t=>{
+ await run(900,t=>{
   const e=t*t,shake=e*6,sx=(rnd()-.5)*shake,sy=(rnd()-.5)*shake,s=1+e*.06;
   c.clearRect(0,0,W,H);
   const g=c.createRadialGradient(cx,cy,R*.8,cx,cy,R*(1.5+e));g.addColorStop(0,`rgba(255,170,90,${alpha(.5*e)})`);g.addColorStop(1,'rgba(255,120,40,0)');
@@ -127,11 +133,12 @@ export async function chargeToCore(source,rect,{reduced=false,onStart}={}){
   c.fillStyle=`rgba(255,200,140,${alpha(e*.35)})`;c.beginPath();c.arc(cx+sx,cy+sy,R*s,0,Math.PI*2);c.fill();
  });
  // collapse: the planet shrinks into a point of light while the core grows over the whole screen
- await run(420,t=>{
+ await run(620,t=>{
   const e=ease(t);c.clearRect(0,0,W,H);
   drawCore(c,W,H,.25+.75*e,e);
   const s=1-e;if(s>.02){c.save();c.globalAlpha=s;c.translate(cx,cy);c.scale(s,s);c.drawImage(source,-rect.width/2,-rect.height/2,rect.width,rect.height);c.restore();}
   if(t<.4){c.fillStyle=`rgba(255,250,240,${alpha(.7*(1-t/.4))})`;c.fillRect(0,0,W,H);}
+  lensStreak(c,W,H/2,1-t);
  });
  c.clearRect(0,0,W,H);drawCore(c,W,H);
  return canvas; // stays on screen until the session takes over
@@ -143,7 +150,7 @@ export async function formPlanet(rect,{reduced=false}={}){
  const cx=rect.left+rect.width/2,cy=rect.top+rect.height/2,R=rect.width*.44,big=Math.max(W,H);
  const motes=Array.from({length:isLight()?70:220},()=>{const a=rnd()*Math.PI*2,d=(.5+rnd())*big*.7,end=rnd()*R;
   return {a,d,end,spin:(rnd()-.5)*2.5,r:.8+rnd()*2,blue:rnd()<.6};});
- await run(1300,t=>{
+ await run(1700,t=>{
   const e=ease(t),back=1-ease(Math.max(0,t-.07)),blueColor=`rgba(140,210,255,${alpha(.9*e)})`,warmColor=`rgba(255,200,140,${alpha(.9*e)})`;c.clearRect(0,0,W,H);
   for(const m of motes){
    const a=m.a+m.spin*(1-e),d=m.end+(m.d-m.end)*(1-e),a0=m.a+m.spin*back,d0=m.end+(m.d-m.end)*back;
@@ -155,7 +162,7 @@ export async function formPlanet(rect,{reduced=false}={}){
  });
  // final flash while the real planet appears underneath
  await run(450,t=>{
-  c.clearRect(0,0,W,H);const g=c.createRadialGradient(cx,cy,0,cx,cy,R*1.6);
+  c.clearRect(0,0,W,H);lensStreak(c,W,cy,1-t);const g=c.createRadialGradient(cx,cy,0,cx,cy,R*1.6);
   g.addColorStop(0,`rgba(220,240,255,${alpha(.75*(1-t))})`);g.addColorStop(1,'rgba(110,180,255,0)');c.fillStyle=g;c.fillRect(0,0,W,H);
  });
  canvas.remove();

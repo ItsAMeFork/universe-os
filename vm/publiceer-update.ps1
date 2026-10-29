@@ -1,10 +1,12 @@
-# Zet een nieuwe Universe OS-update online in één keer (zie docs/UPDATES-VOORSTEL.md).
+﻿# Zet een nieuwe Universe OS-update online in één keer (zie docs/UPDATES-VOORSTEL.md).
 #   vm\publiceer-update.ps1                  bouwen + test + stable + publiceren (standaard)
 #   vm\publiceer-update.ps1 -Kanaal test     alleen naar het testkanaal
 # Stappen: bouw-VM starten als hij uit staat -> gecommitte code erheen -> pakket bouwen -> wachtwoordzin vragen
 # (alleen in de VM, wordt daarna gewist) -> ondertekenen en publiceren -> online controleren.
 # Vooraf: versienummer verhoogd in branding/universe.json en alles gecommit.
-param([ValidateSet('beide', 'test', 'stable')][string]$Kanaal = 'beide')
+#   vm\publiceer-update.ps1 -Bestand <pad>   wachtwoordzin uit dat bestand; zonder -Bestand: wachtwoordzin.txt op de
+#                                            sleutel-stick (map "sleutel universe os") als die erin zit, anders typen
+param([ValidateSet('beide', 'test', 'stable')][string]$Kanaal = 'beide', [string]$Bestand)
 $ErrorActionPreference = 'Stop'
 # ssh -n (stdin from nothing) for the calls without input: in a terminal tab Windows OpenSSH otherwise waited for
 # keyboard input after "true" and the script hung at the first step (12 Oct).
@@ -48,14 +50,41 @@ $stappen = switch ($Kanaal) {
     'stable' { "sh scripts/publiceer-apt.sh stable $versie --push" }
     'beide'  { "sh scripts/publiceer-apt.sh test && sh scripts/publiceer-apt.sh stable $versie --push" }
 }
-Write-Host '== Ondertekenen en publiceren. Typ de wachtwoordzin van de updatesleutel (je ziet niet wat je typt).' -ForegroundColor Cyan
-$opdracht = 'umask 077; trap "rm -f /tmp/ww" EXIT; read -rs -p "Wachtwoordzin updatesleutel: " P; echo; printf %s "$P" > /tmp/ww; unset P; ' +
-            'export UNIVERSE_SLEUTEL_WACHTWOORDBESTAND=/tmp/ww; cd ~/universe-os-claude && { ' + $stappen + '; } || ' +
-            # A typo in the passphrase left the new package half-added to the local source; the next attempt then refused
-            # it as "already published with different contents" (12 Oct). Undo everything that was not pushed.
-            '{ cd ~/universe-os-apt && git checkout -q -- . && git clean -fq -- pool; exit 1; }'
-& ssh @opts -t bouwer@127.0.0.1 $opdracht
-if ($LASTEXITCODE -ne 0) { throw 'Publiceren mislukt (verkeerde wachtwoordzin of versie al gepubliceerd? Zie hierboven).' }
+Write-Host '== Ondertekenen en publiceren' -ForegroundColor Cyan
+# Read locally: terminal paste markers never enter the remote passphrase.
+# Preserve password characters; only remove the CR added by Windows pipeline framing.
+# 29 Oct: typing it over from wachtwoordzin.txt kept giving 37 characters instead of 36 ("Bad passphrase"); the file
+# itself signed fine, so it is read directly when the stick is in.
+if (-not $Bestand) {
+    $Bestand = Get-PSDrive -PSProvider FileSystem | ForEach-Object { Join-Path $_.Root 'sleutel universe os\wachtwoordzin.txt' } |
+        Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+}
+if ($Bestand) {
+    Write-Host "Wachtwoordzin uit $Bestand"
+    # Only the line break at the end goes; gpg --passphrase-file reads the first line the same way.
+    $geheim = ConvertTo-SecureString ((Get-Content -LiteralPath $Bestand -Raw -Encoding utf8).TrimEnd("`r", "`n")) -AsPlainText -Force
+} else {
+    $geheim = Read-Host 'Wachtwoordzin updatesleutel' -AsSecureString
+}
+$adres = [IntPtr]::Zero
+$oudeEncoding = $OutputEncoding
+$opdracht = 'set -eu; umask 077; PWFILE=$(mktemp); PROOF=$(mktemp -d); trap ''rm -f "$PWFILE"; rm -rf "$PROOF"'' EXIT; ' +
+            'IFS= read -r P; P=$(printf %s "$P" | sed "s/\r$//"); printf %s "$P" > "$PWFILE"; unset P; ' +
+            'export UNIVERSE_SLEUTEL_WACHTWOORDBESTAND="$PWFILE"; cd ~/universe-os-claude; ' +
+            'FPR=$(cat scripts/apt/vingerafdruk); printf "Universe OS signing check\n" > "$PROOF/input"; ' +
+            'gpg --batch --yes --pinentry-mode loopback --passphrase-file "$PWFILE" -u "$FPR" --detach-sign -o "$PROOF/input.sig" "$PROOF/input" || { echo "Ondertekening geweigerd. Updatebron niet aangepast." >&2; exit 1; }; ' +
+            'gpg --batch --verify "$PROOF/input.sig" "$PROOF/input"; ' +
+            '{ ' + $stappen + '; }'
+try {
+    $OutputEncoding = New-Object System.Text.UTF8Encoding($false)
+    $adres = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($geheim)
+    [Runtime.InteropServices.Marshal]::PtrToStringBSTR($adres) | & ssh @opts -o BatchMode=yes -T bouwer@127.0.0.1 $opdracht
+    if ($LASTEXITCODE -ne 0) { throw 'Publiceren mislukt. Zie de specifieke fout hierboven; er is niets automatisch teruggedraaid.' }
+} finally {
+    $OutputEncoding = $oudeEncoding
+    if ($adres -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($adres) }
+    $geheim.Dispose()
+}
 
 Write-Host '== Online controleren (GitHub Pages kan een paar minuten nodig hebben)'
 $kanalen = if ($Kanaal -eq 'beide') { 'test', 'stable' } else { , $Kanaal }

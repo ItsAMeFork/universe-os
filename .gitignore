@@ -16,6 +16,27 @@ live/binary.modified_timestamps
 live/cache/
 live/chroot*
 live/build.log
+live/*.contents
+live/*.files
+live/*.packages
+
+# Gegenereerd door lb config (live/auto/config): opnieuw aan te maken, niet bewerken
+live/config/binary
+live/config/bootstrap
+live/config/chroot
+live/config/common
+live/config/source
+live/config/package-lists/live.list.chroot
+live/config/hooks/live/0010-disable-kexec-tools.hook.chroot
+live/config/hooks/live/0050-disable-sysvinit-tmpfs.hook.chroot
+live/config/hooks/normal/
+
+# Gegenereerd door scripts/build-iso.sh (rsvg-convert uit scripts/assets/*.svg)
+live/config/includes.chroot_after_packages/etc/calamares/branding/universe/logo.png
+live/config/includes.chroot_after_packages/etc/calamares/branding/universe/welcome.png
+
+# Schermafbeelding van docs/tests/ai-assistent-preview.py (internet-scherm)
+docs/tests/screenshots/internet.png
 
 # Lokale bestanden die niet in de repo horen
 extern/
@@ -35,3 +56,6 @@ __pycache__/
 
 # Screenshots en logboeken van de Playwright-plugin
 .playwright-mcp/
+
+# Lokale npm-installatie voor docs/tests (playwright)
+docs/tests/node_modules/

@@ -2,7 +2,182 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
-## 23 oktober: versies 0.2.24 en 0.2.25 (in deze branch, nog NIET gepubliceerd)
+## 29 oktober: versie 0.3.6 (opstartvlucht naar de aarde; planeten komen uit de aarde; ontgrendelgeluid + -animatie; getest, wordt gepubliceerd)
+- Opstartvlucht (goedgekeurd voorbeeld `opstart-gebruikersplaneten.html`, Codex): eerste inlogscherm per boot (zelfde
+  merkteken als opstarten.wav, `greeter.py` ready -> `opstart`) vliegt vanaf de kern door het universum (sterrenstrepen,
+  nevels, lichtstromen), remt af bij de bestaande aarde (zelfde plek/schaal), daarna vliegen de echte
+  gebruikersplaneten (met profielfoto) met een lichtspoor uit de aarde naar hun plek in de rij. `ui/opstartvlucht.js`.
+  Eigen klok: speelt altijd tot het einde (max 0,25 s per beeld, Axel: "zorg ervoor dat de animatie altijd afspeelt tot
+  het einde"), halve resolutie. Toets/klik beeindigt hem meteen (aanmelden wacht nooit); minder beweging: geen vlucht.
+  Geen plymouth: tot het inlogscherm is het beeld zwart; de vlucht begint op het eerste beeld daarvan (kern).
+- Na afmelden/vergrendelen: aarde vormt zich uit de kern (formPlanet), daarna komen de planeten ook uit de aarde (Axel).
+- Ontgrendelen via het inlogscherm: LightDM beeindigt het slot voor hij terugschakelt; geluid en animatie liepen in een
+  niet-actieve sessie. `universe-lock` en de shell wachten nu op Active=yes (max 5 s). Gemeten: geluid 0,5 s na actief.
+- `world-lite.js` (eenvoudige wereld) had geen lock-begin/unlock (universe-lock wachtte 6 s, wereld bleef 4 s boven de
+  vensters): nu dezelfde kernbeweging (Axel: "zowel de lichte modus als de normale").
+- Getest 28/29 okt in de test-VM (1920x1080, 0.3.5 + bestanden): koude start 12 accounts (3 met foto); 1 account met
+  en zonder foto; geluid uit/aan; minder beweging; fout + goed wachtwoord; vergrendelen/ontgrendelen en afmelden met
+  lichte grafische modus aan en uit. VM haalt ~6 beelden/s (geen GPU): schokkerig maar volledig. Chrome:
+  docs/tests/opstartvlucht.mjs (23 OK), lite-vergrendelen.mjs (6 OK), inlog-planeten.mjs OK. Niet getest: slaapstand,
+  eenvoudige wereld in de VM (alleen via opstartoptie universe.world=lite), echte pc met GPU.
+
+## 28 oktober: versie 0.3.5 (geen flits van het oude slotscherm; animatie loopt af; GEPUBLICEERD 28 okt ~22:00, apt test + stable, apt-commits 81c5362 + edd390c, broncommit 962a637, deb sha256 a28646b6…; geen ISO)
+- Getest 28 okt ~21:50 in de test-VM (0.3.4 via de echte updater + 0.3.5-bestanden): grim-film binnen de sessie na
+  Windows+L: bureaublad -> lichtstrepen -> aarde gaat op in de kern -> slot; geen oude kaart. universe-lock wacht nu op
+  lock.ready van de wereld (max 6 s, socketcommando lock-klaar) i.p.v. vaste 2,3 s (Axel: "laat de animatie aflopen").
+  Ontgrendelen via het inlogscherm OK. Ctrl+Alt+F-terugweg (kaart na 8 s) niet opnieuw getest.
+Axel: bij Windows+L verscheen heel kort het oude gtklock-scherm (kaart + klok) voor het inlogscherm. Nu toont gtklock
+(blijft de beveiliging) met `gtklock/stil.css` alleen kern.png; kaart pas na 8 s als nooduitweg (wissel mislukt of
+Ctrl+Alt+F terug); geen -H. Vergrendelanimatie eindigt nu in de kern ({core:true}, zoals afmelden), ontgrendelen komt
+eruit (zoals inloggen). NOG TE DOEN: live test in de VM (Windows+L, elke ~0,3 s een QMP-schermafbeelding: de kaart mag
+nergens verschijnen; Ctrl+Alt+F8 -> kaart na 8 s; ontgrendelen), daarna mergen naar main en publiceren.
+Test-VM: SSH viel 28 okt ~21:15 weg na een netwerkstoring (updater: "geen internet"); in de VM werkten netwerk en sshd,
+op de host kwam niets binnen; na herstart van QEMU kort weer, daarna opnieuw weg. Console tty2 (Ctrl+Alt+F2) werkt.
+
+## 28 oktober: versie 0.3.4 (eigen profielfoto op je planeet; inlog-/vergrendelscherm blijft aan; GEPUBLICEERD 28 okt ~20:55, apt test + stable, apt-commits e7bca7d + 11dd36a, broncommit 2d7b533, deb sha256 0a091a87…; geen ISO)
+Bevat ook 0.3.3 (hieronder), die niet apart is gepubliceerd.
+- Profielfoto (ontwerp `docs/superpowers/specs/2026-10-28-profielfoto-design.md`): Controlecentrum > Gebruikers >
+  eigen account > Profielfoto. Elk formaat dat GdkPixbuf leest (JPG, PNG, GIF, BMP, TIFF, WebP, HEIC/HEIF/AVIF),
+  EXIF-draaiing, voorbeeld max 1024 px; midden automatisch rond uitgesneden, verschuiven (slepen of pijltjes) en zoomen
+  (schuifbalk, muiswiel, +/-). Opslaan als PNG 512x512 via AccountsService SetIconFile (eigen account, geen
+  beheerder). `greeter.py` geeft de foto als data-URL (alleen PNG/JPEG/GIF/WebP, max 2 MB) aan de planeet.
+  Nieuwe afhankelijkheden: accountsservice, webp-pixbuf-loader, heif-gdk-pixbuf, libheif-plugin-libde265 (iPhone-HEVC).
+- Inlog-/vergrendelscherm (X-server) zette na 10 min het beeld uit; nu standaard altijd aan. Beheerder: Controlecentrum
+  > Energie > "Inlog- en vergrendelscherm", 0 = nooit, max 120 min (`/etc/universe-os/inlogscherm.json`, via
+  `universe-admin-helper set-greeter-screen-off`, alleen beheerders). `greeter.py` past het bij elke start toe (xset).
+- Live in de test-VM: iPhone-HEIC gekozen, met toetsenbord ingezoomd en verschoven, opgeslagen (geen wachtwoordvraag,
+  icons/tester 512x512 PNG), op de planeet in het vergrendelde inlogscherm (gloed + stipje blijven), verwijderd.
+  xset op het inlogscherm: 0 -> screensaver 0 + "DPMS is Disabled"; 30 -> "Off: 1800, DPMS is Enabled".
+  Helper: standaardgebruiker geweigerd (126), 121 geweigerd. Tests: profielfoto-034.py, profielfoto-ui.mjs,
+  inlogscherm-scherm.py (Linux OK). Screenshots `uitvoer/vm-test/0.3.4-*.png`.
+- Niet live getest: slepen met de muis (QMP-muis werkt niet in de VM; rekenwerk wel getest), opslaan van de
+  beheerdersinstelling via het venster (pkexec-vraag; helper zelf wel getest).
+
+## 28 oktober: versie 0.3.3 (vergrendelen = inlogscherm, klok op de aarde, groene gloed; niet apart gepubliceerd, zit in 0.3.4; geen ISO)
+Axel: vergrendelen (Windows+L, menu, inactiviteit, slaapstand, assistent) toont hetzelfde inlogscherm als bij het
+opstarten i.p.v. het oude gtklock-scherm; aarde in het inlogscherm iets uitgezoomd; klok en datum op de aarde;
+vergrendeld: alleen de vergrendelde account(s) tot 'Andere gebruiker', ingelogde/vergrendelde planeten groene gloed.
+- `universe-lock`: na het slot (gtklock blijft de beveiliging) start universe-wissel het inlogscherm; terug met één
+  wachtwoord (LightDM -> logind Unlock -> universe-ontgrendel-wacht). Mislukt de wissel: gewoon het slotscherm.
+  `universe-wissel` geeft `UNIVERSE_LOCK_ZONDER_INLOGSCHERM` mee (niet dubbel wisselen).
+- `space.js loginEarthPx()`: één maat (min(64vw, 62vh, 520 px), was 650) voor inlogscherm en afmeld-/vergrendelanimatie.
+- `klok.js`: tijd + Nederlandse datum, controleert elke seconde (klopt na slaapstand). Test `docs/tests/klok.mjs`.
+- Live in de test-VM (0.3.2 via de echte updatebron + deze bestanden): Windows+L -> inlogscherm met alleen tester
+  (gloed, stipje, veld) + 'Andere gebruiker' -> alle planeten; goed wachtwoord -> zelfde sessie, venster nog open;
+  fout -> melding; Ctrl+Alt+F8 naar de sessie -> slot staat er (geen open bureaublad). Linux-tests:
+  wisselen-afmelden (14), ontgrendelen-030, sneltoetsen, vergrendelscherm, vergrendel-invoer OK.
+  Screenshots `uitvoer/vm-test/0.3.3-*.png`.
+- Niet live getest: slaapstand (QEMU/WHPX pauzeert bij wekken, net als bij herstart); `inlog-planeten.mjs` bijgewerkt
+  maar niet gedraaid (geen Playwright op deze pc).
+- Eerder vandaag bevestigd: de test-VM haalde 0.3.2 zelf van de updatebron, toonde de scène en herstartte.
+
+## 28 oktober: versie 0.3.2 (UOS-ANIM-001: update-scène vóór de verplichte herstart; GEPUBLICEERD 28 okt 19:10, apt test + stable, apt-commits eed6dbd + 34a617d, broncommit a645bdd; geen ISO)
+Na een geïnstalleerde update: de laatste 16 s vóór de herstart vliegt de update-planeet in de aarde (6 s aanloop),
+dan 10 s aftellen terwijl de korst breekt, bij 0 implodeert alles in de kern en volgt de herstart. Zelfde scène in
+normaal, lichte modus en world-lite; minder beweging = stilstaand met ring en cijfers. Gebouwd door 5 agents (Grok-
+opdracht, klus/a1..a5), ChatGPT repareerde geluid/afbreken, Claude de dubbele CSS-verschuiving, de procesgroep van
+`timeout` en het lazy laden in world-lite. Echt getest in de desktop van de test-VM: `docs/tests/anim-001-vm.md`
+(normaal, licht, minder beweging, afmelden tijdens aanloop, geluid uit, mislukte update; echte herstarts).
+Beperking: in de VM ~3-7 beelden/s (geen 3D); vloeiendheid op echte hardware nog beoordelen.
+- Deb: universe-os_0.3.2_all.deb (5b9d6671…); universe-os-vergrendelknoppen blijft 0.3.1 (alleen Recommends, geen versie).
+- Online gecontroleerd 28 okt: Packages van test en stable tonen universe-os 0.3.2; pool-.deb HTTP 200, hash klopt.
+
+## 27 oktober: versie 0.3.1 (inlogscherm zonder kaart: inloggen via de kleine gebruikersplaneten; GEPUBLICEERD 27 okt 09:57, apt test + stable, beide pakketten, apt-commits d9ca7b5 + 1dd7240, broncommit a48cab2; geen ISO)
+Jesse (t155u): alleen het inlogscherm. De rechthoekige kaart ('Universe OS', 'Jouw toegang tot het universum', gebruikersnaam, wachtwoord, Inloggen, Andere gebruiker) is weg; de grote planeet, ruimte en de rest zijn ongewijzigd.
+- `ui/login.html/.js/.css`: klik/tik (of pijltjes + Enter) op een kleine planeet: die licht vloeiend op en direct eronder (boven als het knoppenpaneel in de weg zit) verschijnt een klein wachtwoordveld (#kluis) met pijltje; Enter of pijltje logt in, Escape sluit. Fout wachtwoord: rode melding in dat veld, veld leeg en meteen weer klaar. 1 gebruiker: meteen gekozen.
+- Vergrendelde sessie(s) (liblightdm `logged_in`, greeter.py geeft `ingelogd` per gebruiker door): alleen die planeet/planeten met een markeringsstipje en linksonder de kleine knop 'Andere gebruiker'; die toont het overzicht met alle planeten. Zonder vergrendelde sessie geen knop. Terugkeren = één wachtwoord, dezelfde sessie; afmelden beëindigt de sessie echt.
+- Planeten niet versleepbaar (ongewijzigd), focusring rond de planeet in plaats van een rechthoek. Rijhoogte nu t.o.v. de grote planeet (`PLANEET_VRIJ`) in plaats van de kaart.
+- Suite: 62 OK, 0 FOUT. Tests: `docs/tests/inlog-planeten.mjs` (26 controles, Chromium en `ENG=webkit`), `ontgrendelen-030.py` uitgebreid. Live in de test-VM (12, 2 en 1 gebruiker via testfilter; vol en licht via /etc/universe-os/grafisch-licht): goed/fout wachtwoord, terugkeren naar vergrendelde anna, 'Andere gebruiker' zichtbaar/onzichtbaar, overzicht, afmelden, sleeptest. Screenshots: `uitvoer/vm-test/0.3.1-*.png`; `0.3.1-grote-planeet-voor-na.png`: rand van de grote planeet pixel-gelijk, buiten het oude kaartvlak max. 2/255 verschil.
+- Debs (a48cab2): universe-os_0.3.1_all.deb (56c4dabc…), universe-os-vergrendelknoppen_0.3.1_amd64.deb (f1d1f12e…).
+- Online gecontroleerd 27 okt 09:58: Packages van test en stable tonen beide pakketten in 0.3.1; beide pool-.debs HTTP 200, hashes kloppen.
+
+## 26 oktober: versie 0.3.0 (gtklock-vergrendelscherm met eigen knoppenmodule, gtklock in het Nederlands, robuuste 'Andere gebruiker'; GEPUBLICEERD 26 okt 08:25, apt test + stable, apt-commits 6a2cc54 + 24795e8, broncommit 4bdecf0; geen ISO)
+- Twee pakketten: `universe-os_0.3.0_all.deb` (sha256 36e846f5…) en `universe-os-vergrendelknoppen_0.3.0_amd64.deb` (sha256 80f2885c…).
+- `scripts/publiceer-apt.sh` (f123875): neemt bijbehorende pakketten van dezelfde versie (`universe-os-*_VERSIE_*.deb`) mee naar test en stable.
+- Online gecontroleerd 26 okt 08:26: Packages van test en stable tonen universe-os 0.3.0 en universe-os-vergrendelknoppen 0.3.0 (amd64); beide pool-.debs HTTP 200, hashes kloppen.
+
+## 26 oktober: versie 0.2.39 (eerst het portaal, dan het venster; GEPUBLICEERD 26 okt 09:25, apt test + stable, apt-commits 78c2474 + b58b4fc, broncommit 2bda01d; geen ISO)
+- Jesse t146u: venster vanuit de onderbalk verscheen zonder animatie. Nu verbergt labwc elk nieuw venster bij het mappen (windowRule Iconify, plaatsing midden); de shell speelt het portaal en zet het venster onder de nog dichte kaart terug. Geen labwc-patch nodig.
+- Veiligheidsnet vensterwacht.py (gestart door universe-shell-supervisor): zonder shell-hartslag (4 s) geen verbergregel en verborgen vensters worden getoond.
+- Live getest licht + vol: onderbalk, sluiten, venster dat een app zelf opent, menu; planeet en Wine in licht. Frames: uitvoer/vm-test/0.2.39-*.png. Niet live: planeet/Wine in vol, echte shell-crash.
+
+## 25 oktober: versie 0.2.38 (portaal-vensteranimatie, mooiere ruimte, filmische in-/uitlog, lichte modus = zelfde in lagere kwaliteit; GEPUBLICEERD 25 okt 21:47, apt test + stable, commit ebdbbb4; geen ISO)
+Jesse (t129u/t130u): vensters niet meer als bloem maar vanuit de aangeklikte planeet/snelkoppeling; alle animaties en de ruimte mooier; de lichte modus exact hetzelfde maar lichter.
+- `flits.py`: portaal (venster groeit langs een gebogen baan met lichtspoor uit de bron, lichtpunt + lensstreep bij de bron; sluiten terug naar de bron of het midden; minimaliseren naar het dock). Eén tekenpad met `KWALITEIT` vol/licht (licht: minder gloedlagen/spoorpunten/schijfsegmenten, geen vensterinhoud, ~30 fps); ook gat en zwart gat. 'snel' alleen nog voor Animaties verminderd.
+- `universe_shell.py`: flits_mode geeft 'licht' bij oude/zwakke videokaart of eenvoudige wereld; `launch_bron` (klikpunt van world/start naar schermpixels); bron per venster onthouden voor sluiten.
+- `world.js`/`start.js`: klikpunt (planeetmidden of laatste aanwijzer) mee met apps.launch.
+- `sterrenhemel.js` (nieuw): 9000 sterren in 3 dieptelagen met parallax, temperatuurkleuren, twinkeling (eigen canvas, 24/8 fps), melkwegband met nevels en stofbanen, warp-strepen. Licht = elke 3e ster, kleinere nevel, minder twinkel. Gebruikt in de wereld en op het inlogscherm (`space.js`).
+- In-/uitloggen/opstarten (`animateWorld`): 2.8/2.3 s, sterren worden lichtstrepen, lensstreep bij de kern. Inlogscherm (`explode.js`): langer opladen/inklappen, planeet vormen 1.7 s, lensstreep.
+- Planeten (`world.css`): atmosfeerrand + belichte kant, alleen gradients (geen blur).
+- Vergrendelscherm: vergrendel-/ontgrendelanimatie met warp-sterren (zelfde als uitloggen), universe-lock wacht 2.3 s, gtklock-kaart en klok schuiven in beeld (keyframes), sterren.png en vergrendeld.png opnieuw gemaakt met de nieuwe ruimte.
+- Samengevoegd (Jesse t134u): klus/1 (pyflakes-opruiming), klus/3 (build-scripts: versie via argv, build-iso stopt als build-deb faalt), klus/4 (config.read_json robuust + test), klus/5 (docs). klus/2 blijft staan.
+- Tests: venster-animatie.py (portaal, bron, kwaliteit), lichte-hardware.py, nieuw sterrenhemel.mjs en vergrendelscherm.py. Frames: uitvoer/vm-test/0.2.38-*.png (cairo offscreen + headless Chrome harnas, geen echte sessie).
+- Live getest in de laptop-VM, licht en vol (4aa64e1): zwart gat midden i.p.v. linksboven, eerste programma na inloggen krijgt portaal, menubron klopt, bron 30 s geldig. Screenshots: uitvoer/vm-test/0.2.38-live-*.png.
+- Live2 (ebdbbb4, Jesse t142u): toetsen direct na Super+L kwamen in de app ('tes' in de rekenmachine). Nu labwc `Unfocus` vóór universe-lock + onzichtbare invoervanger in de shell tot gtklock het toetsenbord heeft; focus terug na ontgrendelen (test vergrendel-invoer.py; live: 36-42 toetsen tijdens de animatie, rekenmachine leeg). Nieuw venster: na de grim-opname het scherm van vóór het venster erover (flits_voor/bevries), afdekking = echte achtergrond (zachte rand als terugval); wek-timer brak het portaal en gaf zwarte beelden (opgelost). Afmeld-animatie vastgelegd. Screenshots: uitvoer/vm-test/0.2.38-live2-*.png. Rest: venster nog ~1 grim-opname zichtbaar (labwc 0.8.3 geeft geen vensterpositie).
+
+## 25 oktober: versie 0.2.37 (animaties trager en zichtbaar, realistisch zwart gat; GEPUBLICEERD 25 okt 17:34, apt test + stable; geen ISO)
+Jesse (t126u): animaties te snel, zwart gat moet echt lijken op een ster die wordt opgeslokt.
+- `flits.py`: bloem openen 1.0 s, sluiten 0.9 s, minimaliseren 1.0 s, lichtflits + gat 1.1 s, met ease-in-out (geldt ook voor Wine/.exe-vensters: zelfde pad).
+- Zwart gat (tidal disruption): zwarte horizon, gekantelde draaiende accretieschijf met Doppler-helderheid, gelensde achterkant van de schijf boven/onder het gat, fotonring met gloed; per bestand 1.8 s: uitrekken (spaghettificatie), spiraal als lichtstroom, roodverschoven uitdoven bij de horizon; schijf licht op bij elke 'maaltijd'; gat zakt in 1.2 s in. Totaal max 8 s (18 groepen, dichter op elkaar).
+- Lichte modus/verminderd ongewijzigd (korte vervaging). Geen WebKit.
+- Tests: venster-animatie.py, bestand-verwijderen.py, prullenbak-zwartgat.py bijgewerkt; lichte-hardware.py groen. Frames (offscreen cairo-render): uitvoer/vm-test/0.2.37-*.png.
+
+## 25 oktober: versie 0.2.36 (bloem-animatie op echte venstergrootte, lichtflits + gat, zwart gat bij prullenbak legen; GEPUBLICEERD 25 okt 16:58, apt test + stable; geen ISO)
+Jesse vond de 0.2.35-animatie een 'vierkante lichtflits'.
+- Vensters (ook Wine/.exe via Xwayland): openen = bloem die vanuit het midden uitvouwt tot precies de rechthoek van het venster, met de echte inhoud; sluiten = dezelfde bloem andersom; minimaliseren vouwt dicht richting het dock. Open ~350 ms, sluiten ~250 ms.
+- Geometrie: labwc 0.8.3 heeft geen IPC en geeft via wlr-foreign-toplevel geen positie; ext-image-copy-capture per venster pas in labwc 0.9. Daarom `shell/venstermeting.py`: één grim-opname (wlr-screencopy) en de actieve vensterrand (#85ffe3, 2 px, titelbalk #162335) terugzoeken = exacte rechthoek + inhoud. Gemaximaliseerd zonder rand: scherm min dock. Geen rand gevonden (splash, launcher, volledig scherm) = geen animatie.
+- Geen dubbele animaties: Wine/X11-vensters die opnieuw mappen (zelfde app+titel binnen 1 s) en vensters die weg zijn voor de meting krijgen niets; sluiten alleen als het venster ooit gemeten is.
+- Bestand naar de prullenbak: lichtflits op de plek (bureaublad: positie van het icoon; Thunar/gio: midden van het actieve venster) en een klein zwart gat. Via een Gio-monitor op trash:///. Windows-programma verwijderen (wine.remove) roept `universe-ctl flits verwijder <naam>`.
+- Prullenbak legen (Thunar, gio, nieuw menu 'Prullenbak leegmaken' op het bureaublad-icoon): groot zwart gat met accretieschijf en lens-gloed slokt de bestanden één voor één op met lichtsporen; max ~3 s, boven 18 bestanden gegroepeerd ('+N').
+- Verminderd/lichte modus/eenvoudige wereld: alleen een korte omlijning/vervaging (150 ms); Uit: niets. Elk kapot frame wordt overgeslagen.
+- Bekend: de meting komt na het verschijnen van het venster (grim-opname), dus het venster is heel even zichtbaar voordat de bloem het afdekt (in de VM duidelijk, op echte hardware ~50-100 ms). Positie bij sluiten = laatst gemeten (bij activeren/maximaliseren), een venster dat daarna versleept is sluit op zijn oude plek.
+- Tests: venster-animatie.py (herschreven), bestand-verwijderen.py, prullenbak-zwartgat.py. Screenshots: uitvoer/vm-test/0.2.36-*.png (0.2.33-demo in QEMU TCG, vertraagd x12).
+
+## 24 oktober: versie 0.2.33 (opstartmenu in home-wereld-stijl; ISO gebouwd; GEPUBLICEERD 24 okt 23:29, apt test + stable)
+- BIOS (syslinux) en UEFI (GRUB) tonen de ingelogde 'home'-wereld (aarde + sterren, zonder dock/bovenbalk) als achtergrond.
+- Geen menutitel meer over het logo; één optie 'Universe OS' in een pil zoals de dock, aftelling en hint in shell-kleuren.
+- GRUB: eigen thema (1920x1080, schaalt mee), Noto Sans als pf2 (grub-mkfont), geen piep meer. Geïnstalleerde GRUB ongewijzigd.
+- Test: docs/tests/opstartmenu-thema.py.
+
+## 24 oktober: versie 0.2.32 (lichte modus volledig automatisch, geen keuzescherm; ISO gebouwd; GEPUBLICEERD 24 okt 22:20, apt test + stable)
+Jesse testte 0.2.31 op de GT 710: werkt. Wens: de gebruiker kiest niets.
+- Installer: zichtbare stap 'Beeld' weg. Stille `shellprocess@beeld` (dontChroot) draait `universe-beeld-keuze ${ROOT}`: zelfde detectie als de live-sessie (plus de live-noodoptie `universe.gfx=licht`) en zet `grafisch-licht` of `grafisch-normaal` op de doelschijf. Handmatig wijzigen alleen in Controlecentrum > Vormgeving.
+- Detectie robuuster (`grafisch.py`): bleef afhangen van de drm-driver op dat moment. Was nouveau nog niet gebonden (universe-gpu laadt hem laat, firmware), dan zag de shell alleen simpledrm en bleef normaal. Nu: wachten (max 10 s) tot elke PCI-videokaart een driver heeft, drivers ook via de PCI-apparaten, PCI-id-tabel (NVIDIA voor Maxwell <0x1340 zoals GT 710 10de:128b, NVIDIA zonder nvidia-driver, oude AMD/radeon, oude Intel), en als laatste de renderer-string (eglinfo/glxinfo: NVxx, GK/GF, Ivybridge/Haswell, radeon-families).
+- Opstartmenu (aanvulling Jesse): nog maar één optie 'Universe OS' (grub en syslinux, eigen `menu.cfg` zonder Utilities/installer-submenu), start na 3 s vanzelf. Geen NVIDIA-, veilig-, nomodeset- of lichte-noodoptie meer; met 'e'/Tab blijven `universe.gfx=licht`, `universe.world=lite`, `universe.gpu=...` en `nomodeset` werken.
+- Wat de demo zelf leerde gaat mee bij installeren: `universe-beeld-keuze` kopieert `grafisch.json` (kleurproef) en `grafisch-crash.json` (crash-terugval) naar `/etc/skel` en de nieuwe home; een crash-terugval of 'aan' in de demo geeft `grafisch-licht`.
+- Test: `docs/tests/lichte-hardware.py` (GT 710 uit de diagnose, ook met alleen simpledrm of zonder driver).
+
+## 24 oktober: versie 0.2.31 (lichte hardware-modus voor oude/zwakke videokaarten; ISO gebouwd; gepubliceerd 24 okt 22:20 als onderdeel van 0.2.32)
+Oorzaak crash GT 710 (nouveau): WebKitGTK 2.54 tekent met Skia op de GPU in werkthreads; nouveau is niet thread-safe
+(`free(): invalid pointer`). Lichte modus = Skia tekent tegels met de processor (`WEBKIT_SKIA_ENABLE_CPU_RENDERING=1`,
+`WEBKIT_SKIA_GPU_PAINTING_THREADS=0`), de videokaart voegt alleen samen; plus gedeeld geheugen en `mesa_glthread=false`.
+- Automatisch aan (`shell/grafisch.py`, `choose_light`): nouveau, radeon (r600/GCN1-2), ast/mgag200/gma500, oude Intel Gen3-7.5 (PCI-id), zwakke pc (<=2 kernen en <=4 GB), en na een eerdere world-crash (onthouden per driver+kernel). Niet bij nvidia/amdgpu/nieuwe Intel.
+- Handmatig: opstartoptie `universe.gfx=licht` (nieuw item in GRUB/syslinux: "oude/zwakke videokaart (lichte modus)"), Controlecentrum > Vormgeving > Lichte grafische modus (auto/aan/uit), of `/etc/universe-os/grafisch-licht`. `universe.gfx=normal` of "uit" zet de automaat uit.
+- Na een world-crash: eerst lichte modus, dan processor-tekenen (nouveau), dan 2D (`webview.py`).
+- Wereld (`gfx=licht`): canvas max 1280x720 en dpr 1, 300 i.p.v. 900 sterren, max 30 fps, planeetplaatjes max 512 px, geen filter/schaduw/backdrop (`world.css`), lichte animaties (`motion.js`, `explode.js`).
+- NVIDIA 470 legacy niet in de ISO: zit niet in trixie (alleen sid), DKMS-build breekt bij trixie-kernelupdates, EOL. Zie `docs/stuurprogrammas.md`.
+- Installer (Calamares): nieuwe stap 'Beeld' (`packagechooser@beeld`) met 'Lichte modus voor oudere videokaarten' / 'Normale weergave'; `universe-install` laat `universe-beeld-keuze` vooraf de videokaart detecteren (zelfde `choose_light`) en vult de keuze in. `contextualprocess@beeld` schrijft `/etc/universe-os/grafisch-licht` of `grafisch-normaal` op de doelschijf. Controlecentrum wint per gebruiker.
+- Elke world-crash (ook op een onbekende kaart) gaat eerst naar de lichte modus en onthoudt dat (`~/.local/state/universe-os/grafisch-crash.json`).
+- Samengevoegd (Haiku): test-ai-preview, test-ai-switch, gitignore-live, sneltoetsen-help (Win+F1, overzicht in Controlecentrum).
+- Test: `docs/tests/lichte-hardware.py`.
+
+## 24 oktober: versie 0.2.30 (pc beneden: GT 710; Windows-sneltoetsen; ISO gebouwd; gepubliceerd 24 okt 22:20 als onderdeel van 0.2.32)
+Diagnose pc beneden: GeForce GT 710 (GK208B, Kepler, id 128B). nvidia 550 kent Kepler niet, maar Debian's module heeft een
+joker-alias, dus `universe-gpu` koos nvidia -> modprobe 'No such device' -> nouveau. Op nouveau crashte het WebKit-proces van
+world.html steeds (`free(): invalid pointer`), na 3 keer world-lite (2D).
+- `universe-gpu`: kaarten ouder dan Maxwell (PCI-id < 0x1340) krijgen meteen nouveau. Test: `docs/tests/nouveau-crash.py`.
+- `shell/grafisch.py`: op nouveau gedeeld geheugen en `mesa_glthread=false`; na de eerste world-crash op nouveau tekent de processor (gfx=soft) vóór de 2D-terugval (`webview.py`). Test: `docs/tests/pagina-herstart.py`.
+- Windows-sneltoetsen (Win+R/S/V/./M, Win+Shift+S, Ctrl+Alt+Del-menu) in `shortcuts.json`; `universe-klembord` (klembordgeschiedenis, emoji, Ctrl+Alt+Del); Ctrl+V plakt in de terminal (sessie zet `~/.config/xfce4/terminal/accels.scm` eenmalig neer). Overzicht: `docs/SNELTOETSEN.md`. Test: `docs/tests/sneltoetsen.py`.
+
+## 24 oktober: versie 0.2.29 (NVIDIA-pc; ISO gebouwd; gepubliceerd 24 okt 22:20 als onderdeel van 0.2.32)
+Gepubliceerd (apt test + stable): 0.2.24 t/m 0.2.28 (0.2.28 op 24 okt) en 0.2.32 (24 okt 22:20; bevat 0.2.29 t/m 0.2.31, die geen los pakket kregen), 0.2.33 (24 okt 23:29), 0.2.34 (25 okt 14:11), 0.2.35 (25 okt 15:51), 0.2.36 (25 okt 16:58), 0.2.37 (25 okt 17:34) 0.2.38 (25 okt 21:47), 0.2.39 (26 okt 09:25), 0.3.0 (26 okt 08:25) en 0.3.1 (27 okt 09:57).
+- Met het eigen NVIDIA-stuurprogramma geen grafische proef meer en nooit processor-tekenen door een proefuitslag; normaal tekenen met gedeeld geheugen (`shell/grafisch.py`). Oorzaak van de 2D-terugval: proef zei 'safe' -> llvmpipe -> wereld te traag -> world-lite.
+- Proefpagina neutraal donker (#050815 / #151828) met "Beeld wordt getest…" in plaats van blauw/paars (`shell/grafisch_proef.py`). Dat was het blauw/paarse beeld na inloggen.
+- `ui/world.js`: frame-/planeetcontrole 25 s in plaats van 12/14 s bij `gfx=soft`.
+- Test: `docs/tests/nvidia-proef.py`.
+- Samengevoegd (Haiku-agents): playwright als devDependency in `docs/tests/package.json` (animation-layout.cjs meldt SKIP zonder), Nederlandse GRUB-teksten (`hooks/live/0400-grub-nl.hook.binary`, grub-common), Universe-splash i.p.v. Debian-logo (grub-pc/isolinux `splash.png`), Calamares bootloader-timeout 8 s en branding 0.2.29.
+
+## 23 oktober: versies 0.2.24 en 0.2.25 (inmiddels gepubliceerd)
 **0.2.24** (H310M en andere grote beeldschermen):
 - Donkere, bijna ondoorzichtige taakbalk: de lichte glazen balk werd op de H310M een witte balk, met onzichtbare iconen (`ui/dock.html`).
 - Eigen iconen voor de vaste knoppen (`ui/dock.js`).
@@ -23,7 +198,7 @@ Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laats
 
 **Nog niet gecontroleerd:**
 - Startmenu op 1920x1080: horizontaal gecentreerd door layer-shell (geen links/rechts-anker), onderaan verankerd boven de taakbalk, schaalt via `ui_zoom`. Geen CSS-wijziging gedaan: de layout kon hier niet op een echt scherm bekeken worden.
-- `docs/tests/animation-layout.cjs` vraagt het pakket `playwright`, dat hier niet staat.
+- `docs/tests/animation-layout.cjs` vraagt het pakket `playwright` (sinds 0.2.29 devDependency in `docs/tests/package.json`: `cd docs/tests && npm install`; zonder meldt de test SKIP).
 
 ## 14 oktober: alles in main, ISO 0.2.15 klaar (update NIET gepubliceerd; online 0.2.12)
 - PR #39-#44 (GitHub-assistent Henk: tests, Claude-harness, brein-nevel, AI-assistent, AI wisselen, Claude in Chrome) nagekeken
@@ -157,3 +332,11 @@ het concept (eventueel als achtergrond of onderdelen van het startmenu).
 3. Oorzaak van het oorspronkelijke zwarte scherm op de echte pc: niet nagebootst; bij een fout nu melding + `shell.log`.
 4. Chrome-beeldcorruptie: PR #34 (B) is een diagnosetool, nog niet samengevoegd; hardwaregegevens van Axel nodig.
 5. PR #28 en #30 kunnen dicht (vervangen).
+
+## 0.2.34 (GEPUBLICEERD 25 okt 14:11, apt test + stable; geen ISO)
+- Bovenbalk (pil) op de BOTTOM-laag: gemaximaliseerde/fullscreen vensters en vensters die erover staan bedekken hem; vervaagt zacht; komt terug bij herstellen/sluiten. Open paneel (klik/Win+A) gaat naar TOP.
+- Tests: bovenbalk-bedekt.py, bovenbalk-gedrag.py, alle-tests.sh; tests werken vanuit elke map; sneltoetsen-docs compleet.
+
+## 0.2.35 (GEPUBLICEERD 25 okt 15:51, apt test + stable; netwerkupdate, Jesse test zelf)
+- Venster-animatie als ruimtebericht: overlay (flits.html/js, OVERLAY-laag, geen invoer) met mint-hologram vanuit het dock; sluiten/minimaliseren terug. Lichte modus, eenvoudige wereld, Animaties 'Verminderd': alleen vervagen; 'Uit': niets.
+- Nog niet visueel bevestigd: in de QEMU-demo (TCG) was het hologram niet te zien; moet op echte hardware gecontroleerd worden.

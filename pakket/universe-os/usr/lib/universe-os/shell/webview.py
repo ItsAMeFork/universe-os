@@ -153,7 +153,9 @@ def page_uri(page):
     if os.environ.get('UNIVERSE_DEBUG_FPS') == '1':
         params.append('fps=1')
     if os.environ.get('LIBGL_ALWAYS_SOFTWARE') == '1':
-        params.append('gfx=soft')  # the processor draws (grafisch.py safe mode): the pages keep their work light
+        params.append('gfx=soft')
+    elif grafisch.light_active():
+        params.append('gfx=licht')  # 0.2.31: oude/zwakke videokaart: lichtere wereld (grafisch.py lichte modus)  # the processor draws (grafisch.py safe mode): the pages keep their work light
     if MEMORY_GB:
         params.append('mem=%d' % MEMORY_GB)  # little memory: smaller planet pictures and picture cache (globe.js)
     if params:
@@ -192,6 +194,10 @@ if cpu_lacks_jit_features():
     no_jit('processor zonder SSE4.2')
 
 
+def surface_of(view):
+    return getattr(view, 'surface', None)
+
+
 def _restart_page(view, reason, page, uri):
     """23 Oct: on the H310M and in the VM the world page's process stopped (the desktop froze in the intro or turned
     into the plain GTK grey when the start menu opened) and nothing brought it back. Log it and load the page again;
@@ -204,6 +210,22 @@ def _restart_page(view, reason, page, uri):
     _restarts[page] = recent
     print('[universe-shell] paginaproces %s gestopt (%s); opnieuw laden (%d keer deze minuut)' % (page, name, len(recent)),
           file=sys.stderr, flush=True)
+    if page in FALLBACK and not getattr(surface_of(view), 'uri', None) and grafisch.to_light(WEBKIT_GRAPHICS[0]):
+        # 0.2.31: first step after a crash: the light hardware mode (processor paints, GPU only composites, lighter
+        # world), remembered for the next login. Only if that crashes too: processor drawing, then 2D.
+        print('[universe-shell] %s gecrasht: verder in de lichte hardware-modus' % page, file=sys.stderr, flush=True)
+        _restarts[page] = []
+        light_uri = page_uri(page)
+        GLib.timeout_add(500, lambda: view.load_uri(light_uri) and False)
+        return
+    if page in FALLBACK and not getattr(surface_of(view), 'uri', None) and grafisch.to_processor(WEBKIT_GRAPHICS[0]):
+        # 0.2.30 (GT 710 on nouveau): GPU drawing crashes the world; the processor draws it instead (gfx=soft), before
+        # the 2D fallback. The count starts again for the processor-drawn page.
+        print('[universe-shell] %s gecrasht op nouveau: verder met processor-tekenen' % page, file=sys.stderr, flush=True)
+        _restarts[page] = []
+        soft_uri = page_uri(page)
+        GLib.timeout_add(500, lambda: view.load_uri(soft_uri) and False)
+        return
     if len(recent) >= 2:
         no_jit('%s stopte %d keer binnen een minuut' % (page, len(recent)))  # the next process starts without JIT
     surface = getattr(view, 'surface', None)

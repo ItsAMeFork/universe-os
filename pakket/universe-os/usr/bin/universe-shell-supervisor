@@ -5,6 +5,9 @@ STATE="${XDG_STATE_HOME:-$HOME/.local/state}/universe-os"
 mkdir -p "$STATE"
 LOG="$STATE/shell.log"
 crashes=0
+# 0.2.39: new windows start hidden until the shell plays their portal. The watchdog shows them again (and stops hiding
+# new ones) as soon as the shell heartbeat stops: crash, hang or a stopped shell never leaves windows hidden.
+python3 /usr/lib/universe-os/shell/vensterwacht.py >>"$LOG" 2>&1 &
 window_start=$(date +%s)
 # Started from the labwc autostart: when labwc is gone (logged out) there is nothing to restart the shell for.
 COMPOSITOR=$(pgrep -nu "$(id -u)" -x labwc || echo 0)
@@ -17,6 +20,7 @@ while :; do
     universe-shell >>"$LOG" 2>&1
     code=$?
     echo "--- shell gestopt met code $code ($(date))" >>"$LOG"
+    python3 /usr/lib/universe-os/shell/vensterwacht.py vrijgeven >>"$LOG" 2>&1
     now=$(date +%s)
     if [ $((now - window_start)) -gt 120 ]; then crashes=0; window_start=$now; fi
     crashes=$((crashes + 1))

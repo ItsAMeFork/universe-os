@@ -1,0 +1,6 @@
+#!/bin/sh
+# "Afmelden" on the lock screen (gtklock module universe-knoppen, after a second click): end this session. logind
+# stops every process of the session, the lock included, so the screen is never unlocked on the way out.
+# The session owner may do this without polkit.
+universe-geluid afmelden >/dev/null 2>&1 &
+exec loginctl terminate-session "${XDG_SESSION_ID:-self}"

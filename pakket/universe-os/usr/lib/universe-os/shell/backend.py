@@ -5,9 +5,11 @@ import collections
 import grp
 import json
 import os
+import threading
 import pwd
 import re
 import shutil
+import signal
 import subprocess
 import time
 
@@ -17,8 +19,8 @@ from gi.repository import Gio, GLib, Gtk  # noqa: E402
 
 import config  # noqa: E402
 import updates  # noqa: E402
-import update_channel  # noqa: E402
-import audio  # noqa: E402
+import update_channel  # noqa: E402,F401  re-exported: control_center uses backend.update_channel
+import audio  # noqa: E402,F401  re-exported: control_center/universe_shell use backend.audio
 import app_planets  # noqa: E402
 import network_status  # noqa: E402
 import chrome_status  # noqa: E402
@@ -464,19 +466,66 @@ def toggle_mute():
     sound('volume')
 
 
+_scene_sound = None
+
+
+def stop_sound(name):
+    """Stop only the effect process group owned by this shell."""
+    global _scene_sound
+    if name != 'update-inslag':
+        return
+    process, _scene_sound = _scene_sound, None
+    if process is not None:
+        try:
+            if process.poll() is None:
+                os.killpg(process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+
+
 def sound(name):
-    """A Universe system sound (universe-geluid; silent when Systeemgeluiden is off). Never fails."""
+    """The long effect has an owned lifetime; short sounds remain independent."""
+    global _scene_sound
     try:
-        spawn(['universe-geluid', name])
+        if name == 'update-inslag':
+            stop_sound(name)
+            process = subprocess.Popen(['universe-geluid', name, '--wacht'],
+                start_new_session=True, stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            _scene_sound = process
+            def muted():
+                if _scene_sound is not process or process.poll() is not None:
+                    return False
+                if config.settings().get('sounds') is False:
+                    stop_sound('update-inslag')
+                    return False
+                return True
+            GLib.timeout_add(200, muted)
+        else:
+            spawn(['universe-geluid', name])
     except (OSError, RuntimeError):
         pass
+
+
+def end_session():
+    """Really log out: logind ends the whole session, so every program of it stops. Fallback: only the compositor."""
+    sid = os.environ.get('XDG_SESSION_ID')
+    if sid and shutil.which('loginctl'):
+        try:
+            if subprocess.run(['loginctl', 'terminate-session', sid], capture_output=True, timeout=10).returncode == 0:
+                return
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+    return spawn(['labwc', '--exit'])
 
 
 def power(action, sound_first=True):
     if action == 'lock':
         return spawn(['universe-lock'])
+    if action == 'switch':  # "Andere gebruiker": lock at once, then the login screen; this session keeps running
+        return spawn(['universe-wissel'])
     if action == 'logout':
-        return spawn(['labwc', '--exit'])
+        return end_session()
     if action in ('reboot', 'poweroff', 'suspend'):
         if action != 'suspend' and sound_first:
             subprocess.run(['universe-geluid', 'afsluiten', '--wacht'], timeout=10, check=False)  # like Windows: first the sound
@@ -647,6 +696,24 @@ def desktop_rename(path, name):
 
 def desktop_trash(path):
     Gio.File.new_for_path(_in_desktop(path)).trash(None)
+    sound('prullenbak')
+    return True
+
+
+def trash_empty():
+    """Empty the trash (desktop menu 'Prullenbak leegmaken'). In a thread: the shell sees the trash become empty
+    through its monitor and plays the black hole."""
+    def work():
+        trash = Gio.File.new_for_uri('trash:///')
+        try:
+            for info in trash.enumerate_children('standard::name', Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS, None):
+                try:
+                    trash.get_child(info.get_name()).delete(None)
+                except GLib.Error:
+                    pass
+        except GLib.Error:
+            pass
+    threading.Thread(target=work, daemon=True).start()
     sound('prullenbak')
     return True
 

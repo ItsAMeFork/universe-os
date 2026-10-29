@@ -5,7 +5,7 @@
 set -eu
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 OUT="$ROOT/uitvoer"
-VERSION=$(python3 -c "import json;print(json.load(open('$ROOT/branding/universe.json'))['version'])")
+VERSION=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["version"])' "$ROOT/branding/universe.json")
 STAGE=$(mktemp -d)
 trap 'rm -rf "$STAGE"' EXIT
 mkdir -p "$OUT"
@@ -25,6 +25,9 @@ else
     echo "Let op: node ontbreekt, JavaScript niet gecontroleerd (apt install nodejs)." >&2
 fi
 cp -a "$ROOT/pakket/universe-os/." "$STAGE/"
+# 0.3.0: Dutch texts for gtklock ("Login failed" and co.; gtklock has no nl translation). Needs gettext (msgfmt).
+install -d "$STAGE/usr/share/locale/nl/LC_MESSAGES"
+msgfmt -c -o "$STAGE/usr/share/locale/nl/LC_MESSAGES/gtklock.mo" "$ROOT/bron/gtklock-nl/gtklock-nl.po"
 find "$STAGE" -name '__pycache__' -prune -exec rm -rf {} +
 
 # Centrale vormgeving en versie.

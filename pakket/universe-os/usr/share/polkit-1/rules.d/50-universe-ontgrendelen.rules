@@ -1,0 +1,7 @@
+// Universe OS 0.3.0: a logged-in user may not lock/unlock the sessions of OTHER users without administrator
+// authentication. (The owner of a session never needs this action for his own session; LightDM runs as root.)
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.login1.lock-sessions") {
+        return polkit.Result.AUTH_ADMIN;
+    }
+});

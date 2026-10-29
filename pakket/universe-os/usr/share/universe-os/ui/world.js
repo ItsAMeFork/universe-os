@@ -7,7 +7,8 @@ import {sharpenPlanet,sharpenEarth} from './planets-hq.js';
 import {debugFPS,afterPaint,perfMark} from './performance.js';
 import {SETTINGS} from './settings-index.js';
 import {keepTab} from './focus.js';
-import {distFor} from './space.js';
+import {distFor,loginEarthPx} from './space.js';
+import {tekenNevel,tekenSterren,twinkelLaag} from './sterrenhemel.js';
 import {mountNebula} from './brein-nevel.js';
 import {mountClaudeRoute} from './claude-route.js';
 // The 3D desktop (Axel, 10 Oct: "the desktop in 3D, every program a planet somewhere that you arrange yourself,
@@ -42,35 +43,40 @@ let logoutOverlay=null;
 on('logout-begin',async(data)=>{
  if(logoutOverlay)return;
  const action=data?.action||'logout';
- launchPanel?.classList.add('launched');
+ root.inert=true;closeMenu();if(current)leave();select(null,false);document.activeElement?.blur?.();
+ // The restart at zero of the update scene: the scene itself shows 'Opnieuw opstarten…' and pulls everything into
+ // the core; no second animation or note on top of it. The shell waits for the shutdown tune before the power off.
+ if(updateScene&&action==='reboot'&&performance.now()>=updateEnd-1000){
+  logoutOverlay=true;
+  await new Promise(r=>setTimeout(r,Math.max(0,updateEnd+IMPLOSION-performance.now())));
+  call('logout.finish').catch(e=>toast(e.message));
+  return;
+ }
+ stopUpdateScene(); // logged out or restarted by hand during the run-up: the usual animation
  logoutOverlay=h('p',{class:'logout-note',role:'status'},{logout:'Afmelden…',poweroff:'Afsluiten…',reboot:'Opnieuw opstarten…'}[action]||'Afmelden…');
- root.append(logoutOverlay);root.inert=true;closeMenu();if(current)leave();select(null,false);document.activeElement?.blur?.();
+ root.append(logoutOverlay);
  await animateWorld('out',null,{core:true});
  call('logout.finish').catch(e=>toast(e.message));
 });
-// Launch of the new software (Axel, 12 Oct): after an update the computer must restart; the last 10 seconds count
-// down here, above all windows, like a rocket launch. Then the shell starts the restart animation (logout-begin).
-let launchPanel=null;
-on('launch-countdown',({seconds=10,version=''}={})=>{
- if(launchPanel)return;
+// Launch of the new software (Axel, 12 Oct; UOS-ANIM-001, 27 Oct): after an update the computer must restart. Above
+// all windows the update planet flies into the Earth (run-up), then the 10 s countdown while the crust breaks up; at
+// zero the shell starts the restart (logout-begin) and the scene implodes into the glowing core (meteoriet.js).
+const IMPLOSION=1900; // ms after zero: the scene's implosion into the core
+let updateScene=null,updateEnd=0;
+const stopUpdateScene=()=>{updateScene?.stop();updateScene=null;};
+on('launch-countdown',async({seconds=10,runup=0,elapsed=0,version=''}={})=>{
+ if(updateScene||logoutOverlay)return;
  closeMenu();if(current)leave();root.inert=true;
- const number=h('div',{class:'launch-number','aria-live':'assertive'},String(seconds));
- const ring=h('div',{class:'launch-ring','aria-hidden':'true'});
- const dial=h('div',{class:'launch-dial'},ring,number); // the number beside the ring: the ring's mask hid it (VM, 12 Oct)
- launchPanel=h('section',{class:'launch-panel',role:'alertdialog','aria-label':'Lancering van de nieuwe software'},
-  h('p',{class:'launch-kicker'},'Lancering'),
-  h('h1',{},version?'Universe OS '+version.replace(/[-+~].*$/,''):'De nieuwe Universe OS'),
-  dial,
-  h('p',{class:'launch-sub'},'De updates zijn geïnstalleerd. De computer start opnieuw op met de nieuwe software.'));
- root.append(launchPanel);
- const end=performance.now()+seconds*1000;
- const tick=()=>{const left=Math.max(0,Math.ceil((end-performance.now())/1000));
-  if(left>0){if(number.textContent!==String(left)){number.textContent=String(left);number.classList.remove('beat');void number.offsetWidth;number.classList.add('beat');}
-   ring.style.setProperty('--p',String(1-(end-performance.now())/(seconds*1000)));requestAnimationFrame(tick);}
-  else{number.textContent='0';ring.style.setProperty('--p','1');}};
- requestAnimationFrame(tick);
+ const received=performance.now();
+ updateEnd=received+(runup+seconds-elapsed)*1000;
+ updateScene={stop(){}}; // claimed at once: a second message while the module loads starts nothing
+ try{
+  const {startUpdateScene}=await import('./meteoriet.js');
+  if(!updateScene)return; // stopped (logout-error) while loading
+  updateScene=startUpdateScene({host:root,seconds,runup,elapsed:elapsed+(performance.now()-received)/1000,version,reduced:!motionAllowed(settings),planets:config?.world?.planets||[]});
+ }catch(e){updateScene=null;console.error('update-scene',e);toast('Opnieuw opstarten over '+seconds+' seconden.');}
 });
-on('logout-error',message=>{logoutOverlay?.remove();launchPanel?.remove();launchPanel=null;logoutOverlay=null;root.inert=false;mix=1;requestRender();toast('Afmelden mislukt: '+message);});
+on('logout-error',message=>{stopUpdateScene();logoutOverlay?.remove?.();logoutOverlay=null;root.inert=false;mix=1;requestRender();toast('Afmelden mislukt: '+message);});
 document.body.append(root);
 
 async function start(){
@@ -91,7 +97,7 @@ async function start(){
  // 0.2.28 (photo H310M 23 Oct: only the glowing core, no Earth and no planets, while dock and top bar were there):
  // the intro had left mix=0 with the core on top. 14 s after the start the end state is forced; when still nothing
  // shows, the shell gets world.failed and switches to the simple world with plain icons.
- setTimeout(()=>checkVisible(saved),14000);
+ setTimeout(()=>checkVisible(saved),(SOFT_GFX||LIGHT_GFX)?25000:14000); // 0.2.29: the processor draws (gfx=soft): more time
  setTimeout(paintEarths,1500);
 }
 const visibleCount=()=>objects.filter(o=>o.el&&o.el.isConnected&&o.el._d!=='none').length;
@@ -103,7 +109,7 @@ function checkVisible(saved){
    mix=1;earthScale=1;glow=0;boom=0;setFlash(0);setCore(0,1);if(saved)cam={...saved};render();
   }
   const n=visibleCount();
-  if(!n)failed('geen planeten zichtbaar na 14 s');else call('world.ok',{visible:n}).catch(()=>{});
+  if(!n)failed('geen planeten zichtbaar na '+((SOFT_GFX||LIGHT_GFX)?25:14)+' s');else call('world.ok',{visible:n}).catch(()=>{});
  }catch(e){failed('controle mislukt: '+(e?.message||e));}
 }
 // Planets of the rooms (Applicaties, Softwarewinkel, ...): the quick picture at once, the sharp one right after.
@@ -114,7 +120,7 @@ const planetGlobe=(p,diameter)=>{
  return g;
 };
 function build(){
- root.replaceChildren(h('div',{class:'nebula','aria-hidden':'true'}),sky,layer,room,zenForm);
+ root.replaceChildren(h('div',{class:'nebula','aria-hidden':'true'}),sky,twinkleCanvas,layer,room,zenForm);twinkle.start();
  return refreshSpace();
 }
 
@@ -147,29 +153,28 @@ function worldAt(sx,sy){
 }
 
 // ----- stars and orbits on one canvas (redrawn only when the view changes) -----
-const STARS=Array.from({length:900},(_,i)=>{let s=(i*9301+49297)%233280;const r=()=>(s=(s*9301+49297)%233280)/233280;
- const u=r()*2-1,t=r()*Math.PI*2,q=Math.sqrt(1-u*u);return [q*Math.cos(t),u,q*Math.sin(t),.25+r()*.75,r()<.06];});
-// Stars grouped by brightness: one path and one fill per group instead of a fill (and a colour string) per star.
-// 24 steps between .25 and 1: the difference with the exact brightness is invisible.
-const STAR_GROUPS=Array.from({length:24},(_,i)=>({style:`rgba(208,224,255,${alpha(.25+.75*(i+.5)/24)})`,stars:[]}));
-for(const s of STARS)STAR_GROUPS[Math.min(23,Math.floor((s[3]-.25)/.75*24))].stars.push(s);
-let skyShown=false;
+// 0.2.31 lichte hardware-modus (gfx=licht, grafisch.py: oude/zwakke videokaart): kleiner canvas, 1/3 van de sterren,
+// geen schaduw/vervaging, hooguit 30 beelden per seconde en kleinere planeetplaatjes.
+const LIGHT_GFX=new URLSearchParams(location.search).get('gfx')==='licht';
 const SOFT_GFX=new URLSearchParams(location.search).get('gfx')==='soft';
+if(LIGHT_GFX)document.documentElement.classList.add('licht');
+let lastFrameAt=0;
+// 0.2.38: sterrenhemel.js (diepere sterrenvelden met parallax, kleur, nevels, twinkeling). Eén pad: de lichte modus
+// tekent dezelfde hemel met minder sterren, een kleinere nevel en 8 twinkelbeelden per seconde.
+const SKY_LIGHT=()=>LIGHT_GFX||isLight();
+let warp=0; // light streaks of the stars during login/logout/start (animateWorld)
+const twinkleCanvas=h('canvas',{class:'space-canvas twinkle-canvas','aria-hidden':'true'});
+const twinkle=twinkelLaag(twinkleCanvas,()=>cam,{licht:SKY_LIGHT(),scale:(w,hh)=>canvasScale(w,hh,LIGHT_GFX?1:devicePixelRatio,SOFT_GFX,LIGHT_GFX),actief:()=>!root.inert||warp>0});
+let skyShown=false;
 function drawSky(){
- const w=innerWidth,hgt=innerHeight,dpr=canvasScale(w,hgt,devicePixelRatio,SOFT_GFX);
+ const w=innerWidth,hgt=innerHeight,dpr=canvasScale(w,hgt,LIGHT_GFX?1:devicePixelRatio,SOFT_GFX,LIGHT_GFX);
  if(sky.width!==Math.round(w*dpr)||sky.height!==Math.round(hgt*dpr)){sky.width=Math.round(w*dpr);sky.height=Math.round(hgt*dpr);}
  const c=sky.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,hgt);
  if(!skyShown){skyShown=true;document.body.style.backgroundImage='none';} // the login picture of world.html, until the first real sky
  const cy=Math.cos(cam.yaw),sy=Math.sin(cam.yaw),cp=Math.cos(cam.pitch),sp=Math.sin(cam.pitch);
- for(const group of STAR_GROUPS){ // stars are far away: they only turn with the camera
-  c.beginPath();
-  for(const [x,y,z,,big] of group.stars){
-   const x1=x*cy-z*sy,z1=x*sy+z*cy,y2=y*cp-z1*sp,z2=y*sp+z1*cp;if(z2<=.05)continue;
-   const px=w/2+x1/z2*FOV,py=hgt/2+y2/z2*FOV;if(px<0||py<0||px>w||py>hgt)continue;
-   const r=big?1.5:.7;c.moveTo(px+r,py);c.arc(px,py,r,0,7);
-  }
-  c.fillStyle=group.style;c.fill();
- }
+ tekenNevel(c,cam,w,hgt,SKY_LIGHT(),.9);
+ tekenSterren(c,cam,w,hgt,{licht:SKY_LIGHT(),warp,zonderHelder:true});
+ twinkle.setWarp(warp);twinkle.draw();
  // Orbits around the Earth (folders) and the galaxy ring of the programs, as real 3D circles.
  const ringAlpha=Math.min(1,mix*1.4);
  if(ringAlpha>0){c.globalAlpha=ringAlpha;ring(c,420,'rgba(255,165,82,.55)',1.5);ring(c,1350,'rgba(133,255,227,.10)',1);ring(c,1900,'rgba(133,255,227,.06)',1);c.globalAlpha=1;}
@@ -285,6 +290,7 @@ function render(){
  // Animation loops also render directly. Cancel a queued input render to avoid
  // drawing twice in the same frame and losing the queued callback's handle.
  if(frame)cancelAnimationFrame(frame);frame=0;
+ if(LIGHT_GFX){const now=performance.now();if(now-lastFrameAt<32){frame=requestAnimationFrame(render);return;}lastFrameAt=now;}
  const t0=performance.now();drawSky();const t1=performance.now();perfMark('sky',t1-t0);
  for(const o of objects){
   const el=o.el;if(!el)continue;
@@ -313,7 +319,7 @@ function render(){
 }
 // ----- sharp planets: once the view rests, every visible planet is painted at the size it is shown (planets-hq.js) -----
 // Weak: few cores, the processor draws (gfx=soft) or 4 GB memory or less: planet pictures up to 512 px instead of 1024.
-const WEAK=(navigator.hardwareConcurrency||2)<=2||new URLSearchParams(location.search).get('gfx')==='soft'||(MEMORY_GB>0&&MEMORY_GB<=4),MAX_TIER=WEAK?512:1024;
+const WEAK=(navigator.hardwareConcurrency||2)<=2||new URLSearchParams(location.search).get('gfx')==='soft'||LIGHT_GFX||(MEMORY_GB>0&&MEMORY_GB<=4),MAX_TIER=WEAK?512:1024;
 let sharpenTimer=0;
 function sharpenSoon(){clearTimeout(sharpenTimer);sharpenTimer=setTimeout(sharpen,220);}
 function sharpen(){
@@ -360,7 +366,7 @@ function launchEffect(o){
 }
 function openObj(o){
  const fail=e=>toast(e.message);
- if(o.kind==='app'){launchEffect(o);return launch(o.target);}
+ if(o.kind==='app'){launchEffect(o);const r=o.el?.getBoundingClientRect();return launch(o.target,r&&r.width?{x:r.left+r.width/2,y:r.top+r.height/2}:undefined);}
  if(o.kind==='launcher')return call('desktop.launch',{path:o.target}).catch(fail);
  if(o.kind==='install')return call('run',{tool:'installer'}).catch(fail);
  return call('open.path',{path:o.target}).catch(fail);
@@ -471,7 +477,7 @@ function overview(){flyTo([0,0,0],DEFAULT_CAM.dist,{yaw:DEFAULT_CAM.yaw,pitch:DE
 function pushAlongView(o,amount){const v=unrotate(0,0,amount);o.pos=[o.pos[0]+v[0],o.pos[1]+v[1],o.pos[2]+v[2]];requestRender();savePos(o);}
 
 /** The view of the login screen: the Earth close, in the middle, as big as the login planet. */
-const closeView=c=>({yaw:DEFAULT_CAM.yaw,pitch:DEFAULT_CAM.pitch,dist:distFor(Math.min(innerWidth*.8,innerHeight*.78,650)),tx:c[0],ty:c[1],tz:c[2]});
+const closeView=c=>({yaw:DEFAULT_CAM.yaw,pitch:DEFAULT_CAM.pitch,dist:distFor(loginEarthPx()),tx:c[0],ty:c[1],tz:c[2]});
 /** Light trails behind the planets while they fly in or out (from where they were a moment ago). */
 let trailDir=1;
 function drawTrails(c){
@@ -504,6 +510,8 @@ function drawBoom(c){
   const k=Math.max(0,(t-delay)/(1-delay));if(!k)continue;const r=R0*(.6+(1-Math.pow(1-k,3))*7);
   c.strokeStyle=`rgba(${col},${alpha(.85*(1-k))})`;c.lineWidth=1.5+7*(1-k);c.beginPath();c.ellipse(p.x,p.y,r,r*.38,-.17,0,Math.PI*2);c.stroke();
  }
+ // 0.2.38 filmic: a horizontal lens streak through the core while it bursts (one gradient, also in the light version)
+ const fl=Math.max(0,1-t*1.6);if(fl>0){const g=c.createLinearGradient(0,p.y,innerWidth,p.y);g.addColorStop(0,'rgba(120,180,255,0)');g.addColorStop(.5,`rgba(255,240,220,${alpha(.7*fl)})`);g.addColorStop(1,'rgba(120,180,255,0)');c.fillStyle=g;c.fillRect(0,p.y-2-4*fl,innerWidth,4+8*fl);}
  c.lineCap='round';
  const every=isLight()?3:1; // the light version draws a third of the sparks
  // Per-frame constants and the two colour strings are computed once, not per spark (same values, same order).
@@ -514,13 +522,23 @@ function drawBoom(c){
   c.beginPath();c.moveTo(p.x+s.ca*d0,p.y+s.sa*d0*.7);c.lineTo(p.x+s.ca*d,p.y+s.sa*d*.7);c.stroke();
  }
 }
+// 0.3 (g5): the personal user planet of the login row: a small neutral dot (no name, no picture: nothing sensitive on show) that
+// moves from the Earth down to the row position while locking and back out of the row when the desktop returns.
+const userDotEl=h('div',{class:'world-userdot','aria-hidden':'true'});
+function setUserDot(v){ // v: 0 = in the Earth (invisible), 1 = in the row (bottom, centre)
+ if(v<=0){userDotEl.remove();return;}
+ const e=1-Math.pow(1-Math.min(1,v),3);
+ userDotEl.style.opacity=Math.min(1,v*3).toFixed(3);
+ userDotEl.style.transform=`translate(-50%,-50%) translateY(${((1-e)*-38).toFixed(2)}vh) scale(${(.4+.6*e).toFixed(3)})`;
+ if(!userDotEl.isConnected)root.append(userDotEl);
+}
 const flashEl=h('div',{class:'world-flash','aria-hidden':'true'});
 function setFlash(v){flash=v;flashEl.style.opacity=v.toFixed(3);if(v>0&&!flashEl.isConnected)root.append(flashEl);if(v<=0)flashEl.remove();}
 const easeInOut=k=>k<.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2;
 /** 'in': after login/unlock: a point of light becomes the Earth, then everything flies out on spiral paths with light
  *  trails while the camera pulls back and turns into the desktop view `target`. 'out': for logout/lock: everything
  *  spirals into the Earth, which burns brighter, the camera turns in to the login view and ends in a soft flash. */
-function animateWorld(dir,target,{core=false}={}){
+function animateWorld(dir,target,{core=false,rij=false}={}){
  const close=closeView(centre());
  const end=dir==='in'?(target||{...cam}):close,start=dir==='in'?close:{...cam};
  // turn the shortest way round
@@ -529,9 +547,10 @@ function animateWorld(dir,target,{core=false}={}){
  trailDir=dir==='in'?1:-1;
  cam={...start};mix=dir==='in'?0:1;earthScale=dir==='in'?0:1;requestRender();
  // motion.js keeps the clock: the animation always ends, also when frames stall, and turns light on slow pcs.
- return animate(dir==='in'?2300:1900,k=>{
+ return animate(dir==='in'?2800:2300,k=>{
    if(dir==='in'){
     // 0-0.25: the Earth grows out of light (overshoots a little); 0.15-1: everything flies out, camera pulls back
+    if(rij)setUserDot(1-Math.min(1,k/.35)); // from the row back into the big planet
     const a=Math.min(1,k/.25);earthScale=a<1?Math.sin(a*Math.PI/2)*1.08:1+.08*Math.max(0,1-(k-.25)/.15);
     glow=k<.35?1-k/.35*.4:Math.max(0,.6-(k-.35)/.4);
     if(core){ // the core bursts open: it grows and fades, the shock waves and sparks fly out
@@ -540,23 +559,27 @@ function animateWorld(dir,target,{core=false}={}){
     const m=Math.max(0,Math.min(1,(k-.15)/.85)),e=easeInOut(m);
     mix=e;for(const key of Object.keys(end))cam[key]=start[key]+(end[key]-start[key])*e;
     cam.yaw+=.7*Math.sin(Math.PI*e); // a swirl that ends exactly in the target view
+    warp=Math.sin(Math.PI*Math.min(1,m*1.25))*.9; // 0.2.38: the stars stretch into light streaks while flying out
    }else{
     const e=easeInOut(k);
+    if(rij)setUserDot(Math.max(0,(k-.45)/.5)); // the personal planet moves back to the row as the Earth takes everything in
     mix=1-Math.min(1,e*1.1);glow=Math.sin(Math.min(1,k*1.1)*Math.PI)*.9; // brightest while everything falls in, calm at the end
     for(const key of Object.keys(end))cam[key]=start[key]+(end[key]-start[key])*e;
     cam.yaw-=.7*Math.sin(Math.PI*e);
+    warp=Math.sin(Math.PI*e)*.8; // 0.2.38: falling into the Earth: stars stretch into streaks
     if(core){ // everything gathers into the core: it ends exactly on kern.png, the first picture of the login screen
      const c=Math.max(0,(k-.62)/.38);setCore(c*c*(3-2*c),2.4-1.4*(1-Math.pow(1-c,2)));
     }else setFlash(k>.72?Math.sin((k-.72)/.28*Math.PI)*.55:0); // peaks and is gone at the end: the last picture = lock screen
    }
    render();
- }).then(()=>{glow=0;earthScale=1;setFlash(0);boom=0;if(core)setCore(dir==='out'?1:0,1);render();});
+ }).then(()=>{glow=0;earthScale=1;setFlash(0);boom=0;warp=0;setUserDot(0);if(core)setCore(dir==='out'?1:0,1);render();});
 }
-// Lock / unlock (universe-lock): the desktop goes into the Earth before the lock screen (which shows the same Earth),
-// and comes out again when it is unlocked.
+// Lock / unlock (universe-lock). 0.3.5 (Axel, 28 Oct): locking shows the login screen (0.3.3), so it moves like
+// logging out and in: the desktop goes into the glowing core (kern.png, also gtklock's only picture, stil.css, and the
+// first picture of the login screen, out of which its planet forms) and comes out of it again when unlocked.
 let locked=false;
-on('lock-begin',async()=>{if(locked)return;locked=true;closeMenu();if(current)leave();root.inert=true;await animateWorld('out');call('lock.ready').catch(()=>{});});
-on('unlock',async()=>{if(!locked)return;locked=false;const saved=layout.space?.camera?{...DEFAULT_CAM,...layout.space.camera}:{...DEFAULT_CAM};setFlash(0);await animateWorld('in',saved);root.inert=false;call('unlock.done').catch(()=>{});});
+on('lock-begin',async()=>{if(locked)return;locked=true;closeMenu();if(current)leave();root.inert=true;await animateWorld('out',null,{core:true});call('lock.ready').catch(()=>{});});
+on('unlock',async()=>{if(!locked)return;locked=false;const saved=layout.space?.camera?{...DEFAULT_CAM,...layout.space.camera}:{...DEFAULT_CAM};setFlash(0);await animateWorld('in',saved,{core:true});root.inert=false;call('unlock.done').catch(()=>{});});
 
 // ----- rename and remove (files on the desktop) -----
 let renaming=false;
@@ -582,7 +605,7 @@ function rename(o){
  input.addEventListener('pointerdown',ev=>ev.stopPropagation());
 }
 async function removeObj(o){
- if(o.source==='desktop'){await call('desktop.trash',{path:o.target});toast(o.name+' staat in de prullenbak.');return;}
+ if(o.source==='desktop'){const r=o.el?.getBoundingClientRect();await call('desktop.trash',{path:o.target,...(r&&r.width?{x:r.left+r.width/2,y:r.top+r.height/2}:{})});toast(o.name+' staat in de prullenbak.');return;}
  if(o.source==='shortcut'){layout.items=layout.items.filter(i=>i.id!==o.key);await saveLayout();refreshSpace();return;}
  hideObj(o);
 }
@@ -632,6 +655,7 @@ function objectMenu(o){
   '-',
   ...(o.source==='desktop'?[{label:'Naam wijzigen',run:()=>rename(o),keys:'F2'},{label:'Naar de prullenbak',run:()=>removeObj(o),keys:'Delete'}]:[]),
   ...(o.source==='shortcut'?[{label:'Van het bureaublad verwijderen',run:()=>removeObj(o),keys:'Delete'}]:[]),
+  ...(o.key==='sys:trash'?[{label:'Prullenbak leegmaken',run:()=>{const r=o.el?.getBoundingClientRect();return call('desktop.empty-trash',r&&r.width?{x:r.left+r.width/2,y:r.top+r.height/2}:{});}}]:[]),
   ...(o.kind==='app'||o.key==='sys:trash'||o.key==='sys:home'?[{label:'Verbergen',run:()=>hideObj(o),keys:'Delete'}]:[]),
  ];
 }
@@ -691,7 +715,11 @@ function openRoom(p){
  (main.querySelector('input,button')||back).focus({preventScroll:true});
 }
 
-const launch=id=>call('apps.launch',{id}).catch(e=>toast('Kan het programma niet openen: '+e.message));
+// 0.2.38: the window comes out of what was clicked (planet or tile): the shell gets that point (CSS px of this page).
+let lastPointer=null;
+addEventListener('pointerdown',e=>{lastPointer={x:e.clientX,y:e.clientY,at:performance.now()};},true);
+const clickPoint=()=>lastPointer&&performance.now()-lastPointer.at<4000?{x:lastPointer.x,y:lastPointer.y}:{};
+const launch=(id,from)=>call('apps.launch',{id,bron:'world',...(from||clickPoint())}).catch(e=>toast('Kan het programma niet openen: '+e.message));
 const run=(tool,args={})=>call('run',{tool,...args}).catch(e=>toast(e.message));
 function tile({name,sub,iconName,img,onClick,wide}){
  const pic=img?h('img',{class:'app-icon',src:img,alt:''}):icon(iconName||'planet');
@@ -830,5 +858,5 @@ on('config',c=>{if(current)leave();config=c;settings=c.settings;user=c.user||use
 let framed=false,reported=false;
 const failed=reason=>{if(reported)return;reported=true;call('world.failed',{reason:String(reason)}).catch(()=>{});};
 requestAnimationFrame(()=>{framed=true;});
-setTimeout(()=>{if(!framed)failed('geen beeld getekend binnen 12 s');},12000);
+setTimeout(()=>{if(!framed)failed('geen beeld getekend binnen '+((SOFT_GFX||LIGHT_GFX)?25:12)+' s');},(SOFT_GFX||LIGHT_GFX)?25000:12000);
 start().catch(e=>failed('start mislukt: '+(e?.message||e)));

@@ -1,0 +1,72 @@
+<!doctype html><meta charset="utf-8"><title>update-inslag</title><pre id="out">bezig</pre>
+<script>
+// Renders the UOS-ANIM-001 effects (meteor flight, impact, cracks, planet suction, burst, inward rush) to one
+// 18 s track with the approved preview's synthesis, on one timeline (0 = departure of the update planet; countdown
+// starts at 6, zero at 16). The project sounds aftellen/lancering/afsluiten are NOT in it: the shell plays them.
+//   google-chrome --headless --allow-file-access-from-files --virtual-time-budget=60000 --dump-dom file://.../maak-update-inslag.html
+(async()=>{try{
+const SR=48000,LEN=18.6,ac=new OfflineAudioContext(2,Math.ceil(SR*LEN),SR),epoch=0;
+const clamp=x=>Math.max(0,Math.min(1,x)),smooth=x=>{x=clamp(x);return x*x*(3-2*x);};
+const buf=await (await fetch('../../pakket/universe-os/usr/share/sounds/universe/meteoor.wav')).arrayBuffer();
+const meteoor=await ac.decodeAudioData(buf);
+const compressor=ac.createDynamicsCompressor();compressor.threshold.value=-16;compressor.knee.value=18;compressor.ratio.value=5;compressor.attack.value=.004;compressor.release.value=.2;
+const master=ac.createGain();master.gain.value=.72;compressor.connect(master).connect(ac.destination);
+let seedR=4242;const random=()=>{seedR=(Math.imul(seedR,1664525)+1013904223)|0;return (seedR>>>0)/4294967296;};
+const play=(b,at,level=1,rate=1,pan=0)=>{const source=ac.createBufferSource(),gain=ac.createGain(),panner=ac.createStereoPanner();source.buffer=b;source.playbackRate.value=rate;gain.gain.value=level;panner.pan.setValueAtTime(pan,epoch+at);panner.pan.linearRampToValueAtTime(0,epoch+at+b.duration/rate);source.connect(gain).connect(panner).connect(compressor);source.start(epoch+at);};
+function noise(at,duration,level,from,to,attack=.03,pan=0){
+ const buffer=ac.createBuffer(1,Math.ceil(ac.sampleRate*duration),ac.sampleRate),data=buffer.getChannelData(0);for(let i=0;i<data.length;i++)data[i]=random()*2-1;
+ const source=ac.createBufferSource(),filter=ac.createBiquadFilter(),gain=ac.createGain(),panner=ac.createStereoPanner();source.buffer=buffer;filter.type='lowpass';filter.Q.value=.6;filter.frequency.setValueAtTime(from,epoch+at);filter.frequency.exponentialRampToValueAtTime(to,epoch+at+duration);
+ gain.gain.setValueAtTime(.001,epoch+at);gain.gain.exponentialRampToValueAtTime(level,epoch+at+Math.min(attack,duration*.85));gain.gain.exponentialRampToValueAtTime(.001,epoch+at+duration);panner.pan.setValueAtTime(pan,epoch+at);panner.pan.linearRampToValueAtTime(0,epoch+at+duration);source.connect(filter).connect(gain).connect(panner).connect(compressor);source.start(epoch+at);
+}
+function natural(at,duration,level,kind,pan=0){
+ const b=ac.createBuffer(1,Math.ceil(ac.sampleRate*duration),ac.sampleRate),data=b.getChannelData(0);let brown=0,slow=0,seed=1931+Math.round(at*173),grit=0;
+ const rnd=()=>{seed=(Math.imul(seed,1664525)+1013904223)|0;return (seed>>>0)/4294967296;};
+ for(let i=0;i<data.length;i++){const u=i/data.length,white=rnd()*2-1;brown=(brown+white*.025)/1.025;slow+=(rnd()-.5)*.00035;slow=Math.max(-.18,Math.min(.18,slow));
+  if(rnd()<.00009)grit=.3+rnd()*.7;grit*=.9991;
+  const envelope=kind==='pull'?Math.pow(Math.sin(u*Math.PI/2),1.8)*Math.pow(1-u,.18):Math.min(1,u*35)*Math.exp(-u*2.5);
+  const turbulence=.65+.2*Math.sin(u*29+Math.sin(u*11)*2)+slow;
+  data[i]=(brown*5.5+white*(kind==='pull'?.13:.05)+white*grit*.27)*envelope*turbulence;}
+ const source=ac.createBufferSource(),filter=ac.createBiquadFilter(),gain=ac.createGain(),panner=ac.createStereoPanner();source.buffer=b;filter.type='lowpass';filter.Q.value=.4;
+ filter.frequency.setValueAtTime(kind==='pull'?200:650,epoch+at);filter.frequency.exponentialRampToValueAtTime(kind==='pull'?1650:95,epoch+at+duration);
+ gain.gain.setValueAtTime(level,epoch+at);gain.gain.setTargetAtTime(.001,epoch+at+duration-.08,.015);
+ const curve=new Float32Array(32);for(let i=0;i<32;i++)curve[i]=pan*(1-i/31)*Math.cos(i/31*2.1);panner.pan.setValueCurveAtTime(curve,epoch+at,duration);
+ source.connect(filter).connect(gain).connect(panner).connect(compressor);
+ const echo=ac.createDelay(.3),echoGain=ac.createGain();echo.delayTime.value=.13;echoGain.gain.value=.12;gain.connect(echo).connect(echoGain).connect(compressor);source.start(epoch+at);
+}
+function bass(at,duration,level){const osc=ac.createOscillator(),gain=ac.createGain();osc.type='sine';osc.frequency.setValueAtTime(125,epoch+at);osc.frequency.exponentialRampToValueAtTime(32,epoch+at+duration);gain.gain.setValueAtTime(.001,epoch+at);gain.gain.exponentialRampToValueAtTime(level,epoch+at+.025);gain.gain.exponentialRampToValueAtTime(.001,epoch+at+duration);osc.connect(gain).connect(compressor);osc.start(epoch+at);osc.stop(epoch+at+duration);}
+function strain(at,duration,freq,level){const osc=ac.createOscillator(),gain=ac.createGain(),filter=ac.createBiquadFilter();osc.type='triangle';osc.frequency.setValueAtTime(freq,epoch+at);osc.frequency.exponentialRampToValueAtTime(freq*.65,epoch+at+duration);filter.type='lowpass';filter.frequency.value=260;gain.gain.setValueAtTime(.001,epoch+at);gain.gain.exponentialRampToValueAtTime(level,epoch+at+duration*.28);gain.gain.exponentialRampToValueAtTime(.001,epoch+at+duration);osc.connect(filter).connect(gain).connect(compressor);osc.start(epoch+at);osc.stop(epoch+at+duration);}
+function planetSuction(at,duration,dx,dy,index){
+ const length=duration+.4,b=ac.createBuffer(1,Math.ceil(ac.sampleRate*length),ac.sampleRate),data=b.getChannelData(0);let b0=0,b1=0;
+ for(let j=0;j<data.length;j++){const sec=j/ac.sampleRate,u=Math.min(1,sec/duration),n=random()*2-1;b0=.985*b0+.015*n;b1=.83*b1+.17*n;
+  const rise=Math.pow(Math.sin(u*Math.PI/2),2.5),tail=sec<=duration?1:Math.exp(-(sec-duration)*17),flutter=.8+.12*Math.sin(sec*(19+index*1.7)+Math.sin(sec*7));
+  data[j]=(b0*4.8+b1*.7+n*.055)*(.05+.95*rise)*tail*flutter;}
+ const source=ac.createBufferSource(),filter=ac.createBiquadFilter(),gain=ac.createGain(),panNode=ac.createStereoPanner();source.buffer=b;filter.type='bandpass';filter.Q.value=.55;filter.frequency.setValueAtTime(170+index*24,epoch+at);filter.frequency.exponentialRampToValueAtTime(1300+index*110,epoch+at+duration*.86);filter.frequency.exponentialRampToValueAtTime(90,epoch+at+length);
+ gain.gain.value=.18;source.connect(filter).connect(gain).connect(panNode).connect(compressor);
+ const pans=new Float32Array(48);for(let j=0;j<48;j++){const sec=at-13+duration*j/47,pull=smooth(sec/2),angle=pull*2.4;pans[j]=Math.max(-.9,Math.min(.9,(dx*Math.cos(angle)-dy*Math.sin(angle))*(1-pull)*3));}
+ panNode.pan.setValueCurveAtTime(pans,epoch+at,duration);panNode.pan.setTargetAtTime(0,epoch+at+duration,.04);source.start(epoch+at);
+ const osc=ac.createOscillator(),low=ac.createGain();osc.type='sine';osc.frequency.setValueAtTime(76-index*3,epoch+at+duration);osc.frequency.exponentialRampToValueAtTime(34,epoch+at+duration+.33);low.gain.setValueAtTime(.001,epoch+at+duration);low.gain.exponentialRampToValueAtTime(.07,epoch+at+duration+.035);low.gain.exponentialRampToValueAtTime(.001,epoch+at+duration+.4);osc.connect(low).connect(compressor);osc.start(epoch+at+duration);osc.stop(epoch+at+duration+.42);
+}
+play(meteoor,0,.3,meteoor.duration/4.7,.7);noise(0,4.7,.18,160,2200,4.35,.7);
+bass(4.7,2.2,.34);natural(4.7,4.1,.48,'thunder',.2);noise(4.7,.45,.14,4200,350);noise(4.83,2.6,.2,1000,90,.08,.15);noise(5.2,9.8,.07,130,230,1.8);
+for(let i=0;i<15;i++)noise(4.95+i*.6,.12+(i%3)*.07,.035+(i%4)*.009,1900,180,.012,Math.sin(i*2.4)*.45);
+const planets=[[21,30],[79,27],[80,76],[21,77],[50,14],[35,52]];
+planets.forEach(([x,y],i)=>{const dx=(x-50)/100*.94,dy=(y-52)/100*(9/16)*.82,distance=Math.hypot(dx,dy),threshold=clamp(1-.145/distance);
+ let lo=0,hi=1;for(let j=0;j<20;j++){const mid=(lo+hi)/2;if(smooth(mid)<threshold)lo=mid;else hi=mid;}
+ planetSuction(13,Math.max(.2,(lo+hi)),dx,dy,i);});
+natural(5.1,4.8,.1,'rock',-.25);natural(8.9,4.8,.1,'rock',.25);natural(12.5,2.7,.15,'thunder');
+for(let i=0;i<11;i++){const at=5.25+i*.84+(i%3)*.09;noise(at,.28+(i%4)*.12,.045+(i%3)*.012,850,100,.018,Math.sin(i*1.7)*.65);}
+noise(14.7,.65,.1,550,130,.35,-.2);noise(15,.35,.2,2100,450,.015,.2);strain(15,1.5,47,.14);
+for(let i=0;i<9;i++)noise(15.08+i*.085,.25+i*.025,.075-i*.004,1400-i*90,180,.012,Math.sin(i*2)*.75);
+bass(15,1.3,.3);natural(15,2.2,.4,'thunder');natural(15.75,2.05,.17,'pull');noise(15,.35,.13,3200,260);bass(17.65,.45,.18);
+const out=await ac.startRendering(),L=out.getChannelData(0),R=out.getChannelData(1);
+// Level: the preview played these at master .72 next to aftellen at .65; universe-geluid plays files at .8.
+let gain=1/(.65*.72),peak=0;for(let i=0;i<L.length;i++)peak=Math.max(peak,Math.abs(L[i]),Math.abs(R[i]));
+const limit=Math.pow(10,-3/20);if(peak*gain>limit)gain=limit/peak;
+const fade=Math.round(SR*.05),n=L.length,bytes=new DataView(new ArrayBuffer(44+n*4));
+const w=(o,s)=>{for(let i=0;i<s.length;i++)bytes.setUint8(o+i,s.charCodeAt(i));};
+w(0,'RIFF');bytes.setUint32(4,36+n*4,true);w(8,'WAVEfmt ');bytes.setUint32(16,16,true);bytes.setUint16(20,1,true);bytes.setUint16(22,2,true);bytes.setUint32(24,SR,true);bytes.setUint32(28,SR*4,true);bytes.setUint16(32,4,true);bytes.setUint16(34,16,true);w(36,'data');bytes.setUint32(40,n*4,true);
+for(let i=0;i<n;i++){const f=i>n-fade?(n-i)/fade:1;bytes.setInt16(44+i*4,Math.round(Math.max(-1,Math.min(1,L[i]*gain*f))*32767),true);bytes.setInt16(46+i*4,Math.round(Math.max(-1,Math.min(1,R[i]*gain*f))*32767),true);}
+let s='';const u8=new Uint8Array(bytes.buffer);for(let i=0;i<u8.length;i+=32768)s+=String.fromCharCode.apply(null,u8.subarray(i,i+32768));
+document.getElementById('out').textContent='WAV:'+btoa(s)+':PEAK:'+(peak*gain).toFixed(3)+':GAIN:'+gain.toFixed(3);
+}catch(e){document.getElementById('out').textContent='FOUT '+e;}})();
+</script>

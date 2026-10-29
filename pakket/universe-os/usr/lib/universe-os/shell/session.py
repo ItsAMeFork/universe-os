@@ -17,8 +17,11 @@ swaybg -m fill -c '#050815' -i /usr/share/universe-os/backgrounds/kern.png >/dev
 dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE XKB_DEFAULT_LAYOUT XKB_DEFAULT_VARIANT LANG LANGUAGE >/dev/null 2>&1 &
 xdg-user-dirs-update >/dev/null 2>&1 &
 /usr/libexec/polkit-mate-authentication-agent-1 >/dev/null 2>&1 &
+/usr/lib/universe-os/universe-ontgrendel-wacht >/dev/null 2>&1 &
 mako --config /usr/share/universe-os/mako.conf >/dev/null 2>&1 &
 /usr/lib/universe-os/universe-idle &
+# Windows+V: tekst die je kopieert komt in de klembordgeschiedenis (alleen tekst, max. 25).
+universe-klembord bewaak >/dev/null 2>&1 &
 /usr/lib/universe-os/universe-displays apply >/dev/null 2>&1
 '''
 
@@ -106,10 +109,27 @@ def _keybind(item):
         action = '<action name="%s"%s/>' % (item['labwc'], direction)
     else:
         action = '<action name="Execute" command=%s/>' % quoteattr(item['command'])
+        if item['command'].split()[:1] == ['universe-lock']:
+            # 0.2.38 (security): keys typed right after Super+L reached the app in front until the lock screen was up.
+            # labwc takes the focus away at once, before universe-lock even starts; the shell gives it back later.
+            action = '<action name="Unfocus"/>' + action
     return '    <keybind key=%s%s>%s</keybind>' % (key, extra, action)
 
 
-def rc_xml(recovery=False):
+# 0.2.39 (Jesse t146u: 'eerst animatie dan de venster tonen', for every window): labwc 0.8.3 has no per-window
+# opacity or hide IPC, but a window rule runs its actions when a window maps, before its first frame is shown.
+# Iconify hides every new window at once; the shell plays the portal to where it will be and then restores it
+# (universe_shell.onthul_*). Placement 'center' makes that place predictable (same size -> same rectangle).
+# Not in recovery mode: there is no shell there to restore windows.
+VERBORGEN_OPENEN = '''  <windowRules>
+    <windowRule identifier="*"><action name="Iconify"/></windowRule>
+  </windowRules>
+'''
+
+
+def rc_xml(recovery=False, verbergen=None):
+    if verbergen is None:
+        verbergen = not recovery
     s = config.settings()
     binds = [_keybind(item) for item in config.shortcuts()]
     if recovery:
@@ -118,7 +138,7 @@ def rc_xml(recovery=False):
 <!-- Gegenereerd door Universe OS uit ~/.config/universe-os (sneltoetsen en instellingen). Wijzigingen hier worden overschreven. -->
 <labwc_config>
   <core><decoration>server</decoration><gap>0</gap><adaptiveSync>no</adaptiveSync><reuseOutputMode>yes</reuseOutputMode></core>
-  <placement><policy>cascade</policy></placement>
+  <placement><policy>center</policy></placement>
   <theme>
     <name>Universe</name><cornerRadius>10</cornerRadius><keepBorder>yes</keepBorder><dropShadows>yes</dropShadows>
     <titlebar><layout>icon:iconify,max,close</layout><showTitle>yes</showTitle></titlebar>
@@ -150,8 +170,8 @@ def rc_xml(recovery=False):
       <pointerSpeed>%.1f</pointerSpeed>
     </device>
   </libinput>
-</labwc_config>
-''' % (REGIONS, '\n'.join(binds), 'yes' if s['naturalScroll'] else 'no', 'yes' if s['tapToClick'] else 'no', s['pointerSpeed'])
+%s</labwc_config>
+''' % (REGIONS, '\n'.join(binds), 'yes' if s['naturalScroll'] else 'no', 'yes' if s['tapToClick'] else 'no', s['pointerSpeed'], VERBORGEN_OPENEN if verbergen else '')
 
 
 def environment():
@@ -199,11 +219,13 @@ def chrome_system_title_bar():
         pass  # never block the login for this
 
 
-def write(recovery=False):
+def write(recovery=False, verbergen=None):
+    if verbergen is None and not recovery:
+        verbergen = shell_leeft()  # 0.2.39: new windows only start hidden while the shell is alive to show them
     target = os.path.join(config.user_dir(), 'labwc-recovery' if recovery else 'labwc')
     os.makedirs(target, exist_ok=True)
     files = {
-        'rc.xml': rc_xml(recovery),
+        'rc.xml': rc_xml(recovery, verbergen),
         'environment': environment(),
         'autostart': RECOVERY_AUTOSTART if recovery else AUTOSTART,
         # No root menu: right-click on the space world belongs to the world.
@@ -218,7 +240,43 @@ def write(recovery=False):
     if not recovery:
         chrome_system_title_bar()
         window_buttons()
+        terminal_paste()
     return target
+
+
+HARTSLAG_MAX = 4.0  # seconds without a shell heartbeat before windows are no longer hidden
+
+
+def hartslag_pad():
+    return os.path.join(os.environ.get('XDG_RUNTIME_DIR') or '/tmp', 'universe-shell-hartslag')
+
+
+def shell_leeft():
+    """True when the shell wrote its heartbeat recently (it can show hidden windows after their portal)."""
+    import time
+    try:
+        return time.time() - os.path.getmtime(hartslag_pad()) < HARTSLAG_MAX
+    except OSError:
+        return False
+
+
+TERMINAL_ACCELS = '/etc/xdg/xfce4/terminal/accels.scm'
+
+
+def terminal_paste(home=None):
+    """0.2.30: Ctrl+V pastes in the terminal like in Windows. xfce4-terminal only reads its own accels.scm (the copy in
+    /etc/xdg was ignored in the VM), so it is put there once; a file the user already has stays."""
+    base = os.environ.get('XDG_CONFIG_HOME') or os.path.join(home or os.path.expanduser('~'), '.config')
+    path = os.path.join(base, 'xfce4', 'terminal', 'accels.scm')
+    try:
+        if os.path.exists(path) or not os.path.exists(TERMINAL_ACCELS):
+            return False
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(TERMINAL_ACCELS, encoding='utf-8') as src, open(path, 'w', encoding='utf-8') as dst:
+            dst.write(src.read())
+        return True
+    except OSError:
+        return False
 
 
 def window_buttons():

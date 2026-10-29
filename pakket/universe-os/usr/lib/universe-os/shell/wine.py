@@ -471,5 +471,10 @@ def remove(slug, wipe_data=False):
     shutil.rmtree(folder, ignore_errors=True)
     if wipe_data:
         shutil.rmtree(log_dir(slug), ignore_errors=True)
+    # 0.2.36: the removed program flashes and disappears into a small hole (in the middle of the window in front)
+    try:
+        subprocess.run(['universe-ctl', 'flits', 'verwijder', str(app.get('name') or slug)], capture_output=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        pass
     _apps_changed()
     return {'kept': kept}

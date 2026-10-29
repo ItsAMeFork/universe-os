@@ -187,6 +187,13 @@ html.background-busy .bg-planet .float{animation-play-state:paused}
 .sp-planet{position:absolute;inset:0;display:block;border-radius:50%}
 .sp-planet canvas{width:100%;height:100%;display:block}
 .sp-app .sp-planet::after{content:'';position:absolute;inset:-14%;border-radius:50%;background:radial-gradient(circle,transparent 52%,#85ffe314 60%,transparent 72%);pointer-events:none}
+/* 0.2.38 planets with light and atmosphere: a thin scattering rim on the sunlit side (upper left, like globe.js) and a
+   soft night side; plain gradients, no blur, so the light version has exactly the same look. */
+.sp-app .sp-planet::before{content:'';position:absolute;inset:-4%;border-radius:50%;pointer-events:none;z-index:1;
+ background:radial-gradient(circle at 32% 28%,#ffffff1c 0%,transparent 34%),
+            radial-gradient(circle closest-side,transparent 83%,#bfe6ff40 87%,#8fd0ff18 91%,transparent 96%)}
+.sp-earth .sp-planet::before{content:'';position:absolute;inset:-3%;border-radius:50%;pointer-events:none;z-index:1;
+ background:radial-gradient(circle at 34% 30%,transparent 60%,#9fd4ff40 67%,#6fb4ff1a 71%,transparent 75%)}
 .sp-earth .sp-planet::after{content:'';position:absolute;inset:-10%;border-radius:50%;background:radial-gradient(circle,transparent 55%,#6fb4ff33 64%,transparent 74%);pointer-events:none}
 .sp-icon{position:absolute;left:50%;top:50%;width:46%;height:46%;translate:-50% -50%;object-fit:contain;filter:none}
 .sp-app .sp-icon{background:#0b1021a6;border-radius:24%;padding:7%;box-sizing:border-box}
@@ -203,6 +210,7 @@ svg.sp-icon{color:var(--accent)}
 .sp-obj:focus-visible .sp-planet,.sp-small:focus-visible::before{box-shadow:0 0 0 4px var(--accent)}
 .sp-rename{position:absolute;left:50%;top:100%;transform-origin:50% 0;transform:translateX(-50%) scale(calc(1 / var(--k,1)));width:220px;font-size:13px;padding:3px 6px;text-align:center}
 .logout-note{position:absolute;left:50%;bottom:12%;translate:-50% 0;z-index:20;margin:0;color:var(--accent);font-size:1.1em;text-shadow:0 1px 6px #000}
+.world-userdot{position:absolute;left:50%;top:84vh;width:18px;height:18px;border-radius:50%;z-index:29;pointer-events:none;background:radial-gradient(circle at 35% 30%,#eaf4ff,#85ffe3 55%,#2a6f8f);box-shadow:0 0 14px #85ffe3aa;opacity:0}
 .world-flash{position:absolute;inset:0;z-index:30;pointer-events:none;background:radial-gradient(circle at 50% 50%,#eaf4ff 0%,#9fd0ff 35%,#050815 85%);opacity:0}
 /* Opening a program from space: the planet takes a breath and sends out a ring of light. */
 .sp-obj.launching .sp-planet{animation:launch-pulse .7s cubic-bezier(.2,.9,.3,1.2)}
@@ -215,23 +223,7 @@ html.reduce-motion .sp-obj.launching::after,html.no-motion .sp-obj.launching::af
 /* The glowing core between login screen and desktop: the same picture as kern.png (scripts/assets/maak-kern.mjs). */
 .world-core{position:absolute;inset:0;z-index:31;pointer-events:none;transform-origin:50% 50%;
  background:radial-gradient(circle 55vmin at 50% 50%,rgba(255,247,236,1) 0%,rgba(255,214,160,.95) 10%,rgba(255,138,72,.5) 30%,rgba(120,84,255,.16) 62%,rgba(60,40,160,0) 100%),#050815}
-/* Launch countdown after an update (world.js launch-countdown): above everything, the last 10 seconds. */
-.launch-panel{position:absolute;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
- background:radial-gradient(circle at 50% 50%,#0b1021d9 0%,#050815f2 70%);color:#e2e6fa;text-align:center;animation:launch-in .6s ease-out both;transition:opacity .8s}
-.launch-panel.launched{opacity:0}
-.launch-panel h1{margin:0;font-size:clamp(22px,3.2vw,40px);font-weight:600;letter-spacing:.02em}
-.launch-kicker{margin:0;text-transform:uppercase;letter-spacing:.35em;font-size:13px;color:#85ffe3}
-.launch-sub{margin:6px 0 0;max-width:34em;padding:0 16px;color:#b9c0dd}
-.launch-dial{position:relative;width:min(42vmin,260px);aspect-ratio:1;margin:18px 0}
-.launch-ring{--p:0;position:absolute;inset:0;border-radius:50%;
- background:conic-gradient(#85ffe3 calc(var(--p)*360deg),#ffffff14 0);box-shadow:0 0 60px #85ffe344;
- -webkit-mask:radial-gradient(circle closest-side,transparent calc(100% - 14px),#000 calc(100% - 13px))}
-.launch-number{position:absolute;inset:0;display:grid;place-items:center;font-size:clamp(64px,13vmin,120px);font-weight:700;
- color:#fff;text-shadow:0 0 28px #85ffe3aa;font-variant-numeric:tabular-nums}
-.launch-number.beat{animation:launch-beat .9s cubic-bezier(.2,.9,.3,1.2)}
-@keyframes launch-in{from{opacity:0}to{opacity:1}}
-@keyframes launch-beat{0%{transform:scale(1.35);opacity:.4}40%{transform:scale(.96);opacity:1}100%{transform:scale(1)}}
-html.reduce-motion .launch-number.beat,html.no-motion .launch-number.beat{animation:none}
+/* Update scene (UOS-ANIM-001): its layout lives only in meteoriet.js, so world-lite.html shows the same picture. */
 
 /* Brein-nevel: the planet room becomes the canvas. Clouds and stars are painted, not animated in CSS. */
 .room.room-nebula{inset:0;border-radius:0;display:block;background:#050815;overflow:hidden;border-color:transparent;box-shadow:none}
@@ -306,3 +298,6 @@ html.reduce-motion .launch-number.beat,html.no-motion .launch-number.beat{animat
 .claude-route .primary:hover{background:#baf7e8;color:#06221c}
 html.reduce-motion .room.room-nebula,html.no-motion .room.room-nebula{animation:none}
 @media(prefers-reduced-motion:reduce){.room.room-nebula{animation:none}}
+
+/* 0.2.31 lichte hardware-modus (oude/zwakke videokaart): geen vervaging en schaduwen, die kosten de kaart het meest. */
+html.licht *,html.licht *::before,html.licht *::after{filter:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;box-shadow:none!important;text-shadow:none!important}

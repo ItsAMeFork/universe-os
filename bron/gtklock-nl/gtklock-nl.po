@@ -1,0 +1,17 @@
+# Universe OS: Nederlandse teksten voor gtklock 4 (domein gtklock); gtklock heeft zelf geen nl-vertaling.
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: nl\n"
+
+msgid "Login failed"
+msgstr "Onjuist wachtwoord. Probeer het opnieuw."
+
+msgid "Caps Lock is on"
+msgstr "Caps Lock staat aan"
+
+msgid "Password:"
+msgstr "Wachtwoord:"
+
+msgid "Unlock"
+msgstr "Ontgrendelen"

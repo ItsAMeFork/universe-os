@@ -3,7 +3,8 @@ import ast
 from pathlib import Path
 from types import SimpleNamespace
 
-source = Path('pakket/universe-os/usr/lib/universe-os/shell/backend.py').read_text(encoding='utf-8')
+ROOT = Path(__file__).resolve().parents[2]
+source = (ROOT / 'pakket/universe-os/usr/lib/universe-os/shell/backend.py').read_text(encoding='utf-8')
 tree = ast.parse(source)
 functions = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name in ('desktop_app', 'browsers', 'browser_select')]
 

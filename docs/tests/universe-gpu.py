@@ -55,17 +55,15 @@ assert 'options nvidia-current-drm modeset=1' in conf
 live = path.parents[5]
 grub = (live / 'config/bootloaders/grub-pc/grub.cfg').read_text(encoding='utf-8')
 syslinux = (live / 'config/bootloaders/syslinux_common/live.cfg.in').read_text(encoding='utf-8')
-for text in (grub, syslinux):
-    assert 'universe.gpu=nvidia' in text and 'universe.gpu=veilig universe.gfx=safe' in text and 'nomodeset' in text
-# Stock live-build entries are gone; GRUB and syslinux show the same four Universe OS labels.
-assert '@LINUX_LIVE@' not in grub
-assert 'Live system' not in grub and 'Live system' not in syslinux
-for label in (
-    'Universe OS',
-    'Universe OS - NVIDIA-stuurprogramma (nieuwere GeForce/RTX)',
-    'Universe OS - veilige grafische modus',
-    'Universe OS - nomodeset (noodgeval)',
-):
-    assert f'menuentry "{label}" {{' in grub, label
-    assert f'menu label {label}\n' in syslinux, label
+# 0.2.32: maar één opstartoptie ('Universe OS'), geen submenu's, start vanzelf na 3 s.
+assert grub.count('menuentry ') == 1 and 'menuentry "Universe OS" {' in grub and 'submenu' not in grub
+assert 'set timeout=3' in grub and 'set default=0' in grub
+assert sum(l.startswith('label ') for l in syslinux.splitlines()) == 1 and 'menu label Universe OS\n' in syslinux
+code = lambda t: '\n'.join(l for l in t.splitlines() if not l.lstrip().startswith('#'))
+for word in ('universe.gpu=', 'universe.gfx=', 'nomodeset', '@LINUX_LIVE@', 'Live system'):
+    assert word not in code(grub) and word not in code(syslinux), word
+menu = (live / 'config/bootloaders/syslinux_common/menu.cfg').read_text(encoding='utf-8')
+assert 'include live.cfg' in menu and 'utilities' not in menu.lower() and 'INSTALLER' not in menu
+iso = (live / 'config/bootloaders/isolinux/isolinux.cfg').read_text(encoding='utf-8')
+assert 'timeout 30' in iso
 print('PASS: universe-gpu')

@@ -8,18 +8,86 @@ pgrep -u "$(id -u)" -x gtklock >/dev/null && exit 0
 pgrep -u "$(id -u)" -x swaylock >/dev/null && exit 0
 # Animation (Axel, 10 Oct): the desktop is first pulled into the Earth that the lock screen shows, then swaylock
 # starts; the shell brings the desktop back out after unlocking. --direct (before sleep): lock at once.
+# 0.2.38: the lock animation (world.js animateWorld 'out', stars stretching into light streaks) takes 2.3 s.
+# 'universe-ctl lock' comes first: the shell catches the keyboard at once (keys typed during the animation used to
+# reach the app in front, 0.2.38 live test), only then the sound.
+ANIM=
+[ "$1" != "--direct" ] && ANIM=$(universe-ctl lock 2>/dev/null)
 [ "$1" != "--direct" ] && universe-geluid vergrendelen
-if [ "$1" != "--direct" ] && [ "$(universe-ctl lock 2>/dev/null)" = "ok anim" ]; then
-    sleep 1.9
+# 0.3.5 (Axel, 28 Oct: "laat de animatie aflopen"): wait until the world reports that the movement into the core is
+# finished (lock.ready), at most 6 s; the shell keeps the keyboard caught meanwhile. Was a fixed 2.3 s, which cut the
+# animation off on a slower computer.
+if [ "$ANIM" = "ok anim" ]; then
+    i=0
+    while [ "$i" -lt 60 ] && [ "$(universe-ctl lock-klaar 2>/dev/null)" != "ok ja" ]; do
+        sleep 0.1
+        i=$((i + 1))
+    done
+fi
+# 0.3.3 (Axel, 28 Oct: "dan moet de gebruiker ook op dezelfde inlogvenster"): every lock (Windows+L, menu, idle,
+# sleep, assistant) shows the login screen with the planets, the same as at start-up. The lock below stays the real
+# protection of this session: once it holds, universe-wissel switches to the greeter, where the user's password
+# brings him back (LightDM -> logind Unlock -> universe-ontgrendel-wacht ends the lock). Should the switch fail, the
+# lock screen itself is still there. universe-wissel sets UNIVERSE_LOCK_ZONDER_INLOGSCHERM: it switches itself.
+if [ -z "${UNIVERSE_LOCK_ZONDER_INLOGSCHERM:-}" ] && command -v universe-wissel >/dev/null 2>&1; then
+    (
+        i=0  # only once the lock really runs, at most 3 s; otherwise stay on the lock screen
+        while [ "$i" -lt 30 ] && ! pgrep -u "$(id -u)" -x 'gtklock|swaylock' >/dev/null; do
+            sleep 0.1
+            i=$((i + 1))
+        done
+        pgrep -u "$(id -u)" -x 'gtklock|swaylock' >/dev/null && exec universe-wissel
+    ) >/dev/null 2>&1 &
 fi
 # gtklock (12 Oct, Axel: "like the login screen, with the user name, and the user types his password"): the Earth in
 # space, a glass card with the picture and name of the user, a real password field and the time (style.css). It is a
 # secure lock as well (ext-session-lock: if it crashed, the screen stays locked). swaylock below is the fallback.
 if command -v gtklock >/dev/null 2>&1; then
     MOD=$(ls /usr/lib/*/gtklock/userinfo-module.so 2>/dev/null | head -1)
+    # 0.3.0: the buttons "Andere gebruiker" and "Afmelden" (package universe-os-vergrendelknoppen), when installed.
+    KNOP=$(ls /usr/lib/*/gtklock/universe-knoppen-module.so 2>/dev/null | head -1)
     # Not exec: after unlocking the unlock sound plays (gtklock stays in the foreground until then).
-    gtklock -s /usr/share/universe-os/gtklock/style.css -x /usr/share/universe-os/gtklock/layout.ui ${MOD:+-m "$MOD"} \
-        -t "%H:%M" -D "%A %e %B" -H -T 30 && universe-geluid ontgrendelen
+    # 0.3.0: labwc 0.8.3 unlocks the session when the lock client dies, so a gtklock that crashed or was killed is
+    # started again at once. Only a real unlock (exit 0 after PAM) or the logind Unlock after the greeter
+    # (universe-ontgrendel-wacht, marker below) ends the loop.
+    MARK="${XDG_RUNTIME_DIR:-/tmp}/universe-ontgrendeld"
+    rm -f "$MARK"
+    # 0.3.5 (Axel, 28 Oct: "heel kort de oude inlog interface"): when the login screen takes over (universe-wissel,
+    # always since 0.3.3), gtklock shows only the glowing core (stil.css) and its card only after 8 s as an emergency
+    # way back; no idle hiding (-H), which would restart that delay. Without universe-wissel: the full lock screen.
+    STIJL=/usr/share/universe-os/gtklock/style.css
+    VERBERG="-H -T 30"
+    if command -v universe-wissel >/dev/null 2>&1 && [ -f /usr/share/universe-os/gtklock/stil.css ]; then
+        STIJL=/usr/share/universe-os/gtklock/stil.css
+        VERBERG=
+    fi
+    SNEL=0
+    while :; do
+        T0=$(date +%s)
+        # $VERBERG unquoted on purpose: zero or two words.
+        gtklock -s "$STIJL" -x /usr/share/universe-os/gtklock/layout.ui ${MOD:+-m "$MOD"} \
+            ${KNOP:+-m "$KNOP"} -t "%H:%M" -D "%A %e %B" $VERBERG && break
+        [ -e "$MARK" ] && break
+        # A module that crashes gtklock at once must never leave the user locked out: after two quick failures
+        # the lock runs without the button module (the lock itself stays).
+        if [ $(( $(date +%s) - T0 )) -lt 3 ]; then SNEL=$((SNEL + 1)); else SNEL=0; fi
+        [ "$SNEL" -ge 2 ] && KNOP=
+        sleep 0.1
+    done
+    rm -f "$MARK"
+    # 0.3.6 (Axel, 29 Oct: "er moet ook een geluidje afspelen"): unlocked from the login screen, LightDM ends this
+    # lock before it switches back to this session, and the sound got lost while the session was not active (the
+    # audio device belongs to the active session). Wait until it is active again, at most 5 s, as the shell does
+    # for the unlock animation; then the sound and the animation start together.
+    if [ -n "${XDG_SESSION_ID:-}" ] && command -v loginctl >/dev/null 2>&1; then
+        i=0
+        while [ "$i" -lt 50 ] && [ "$(loginctl show-session "$XDG_SESSION_ID" -p Active --value 2>/dev/null)" = no ]; do
+            sleep 0.1
+            i=$((i + 1))
+        done
+        [ "$i" -gt 0 ] && sleep 0.3  # the audio device comes back a moment after the switch
+    fi
+    universe-geluid ontgrendelen
     exit 0
 fi
 IMAGE=/usr/share/universe-os/backgrounds/vergrendeld.png

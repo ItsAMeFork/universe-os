@@ -2,7 +2,8 @@
 import ast
 import json
 from pathlib import Path
-tree = ast.parse(Path('pakket/universe-os/usr/lib/universe-os/shell/webview.py').read_text())
+ROOT = Path(__file__).resolve().parents[2]
+tree = ast.parse((ROOT / 'pakket/universe-os/usr/lib/universe-os/shell/webview.py').read_text())
 reply = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'reply')
 encode = next(n for n in tree.body if isinstance(n, ast.Assign) and any(getattr(t, 'id', None) == '_encode' for t in n.targets))
 calls = []

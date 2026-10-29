@@ -99,7 +99,7 @@ function renderPanel(){
   h('h2',{class:'panel-heading'},'Navigatie'),
   h('div',{class:'quick'},act('Ruimtewereld','planet',()=>{call('desktop.show').catch(e=>toast(e.message));toggle(false);}),act('Overzicht','windows',()=>{call('surface.show',{name:'overview'}).catch(e=>toast(e.message));toggle(false);}),tool('Instellingen','gear','control'),tool('Bestanden','folder','files')),
   h('h2',{class:'panel-heading'},'Sessie en energie'),
-  h('div',{class:'power'},act('Vergrendelen','lock',()=>{toggle(false);call('power',{action:'lock'});}),act('Afmelden','logout',()=>ask('Afmelden','logout')),act('Opnieuw opstarten','restart',()=>ask('Opnieuw opstarten','reboot')),act('Afsluiten','power',()=>ask('Afsluiten','poweroff')),
+  h('div',{class:'power'},act('Vergrendelen','lock',()=>{toggle(false);call('power',{action:'lock'});}),act('Andere gebruiker','user',()=>{toggle(false);call('power',{action:'switch'});}),act('Afmelden','logout',()=>ask('Afmelden','logout')),act('Opnieuw opstarten','restart',()=>ask('Opnieuw opstarten','reboot')),act('Afsluiten','power',()=>ask('Afsluiten','poweroff')),
    status.canSuspend?act('Slaapstand','sleep',()=>{toggle(false);call('power',{action:'suspend'});}):null),
   confirmBox].filter(child=>child!=null));
  for(const details of panel.querySelectorAll('details'))if(expanded.includes(details.querySelector('summary').textContent))details.open=true;
@@ -116,6 +116,7 @@ async function toggle(value){
 async function refresh(){if(refreshPromise)return refreshPromise;refreshPromise=(async()=>{try{status=await call('status');}catch(e){toast('Status ophalen mislukt: '+e.message);}renderPill();if(open)renderPanel();})();try{await refreshPromise;}finally{refreshPromise=null;}}
 addEventListener('keydown',e=>{if(open)keepTab(e,panel);if(e.key==='Escape'&&open){e.preventDefault();toggle(false);}});
 on('status',s=>{status=s;renderPill();});
+on('bar-covered',c=>document.body.classList.toggle('bedekt',!!c));
 on('panel-toggle',()=>toggle(!open));
 on('panel-close',()=>{if(open)toggle(false);});
 on('config',c=>{config=c;modes={zen:!!c.settings?.zen,god:!!c.settings?.god};applySettings({...c.settings,colors:c.world.colors});paintBanner();renderPill();if(open)renderPanel();});

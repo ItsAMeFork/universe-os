@@ -26,9 +26,13 @@ BROWSER = next((shutil.which(name) for name in (
     'chromium', 'chromium-browser', 'google-chrome', 'google-chrome-stable')
     if shutil.which(name)), None)
 ARTIFACTS = Path('/opt/cursor/artifacts/screenshots')
+# Een koude start van Chromium met een nieuw profiel kan ruim boven 25 s uitkomen.
+SHOT_TIMEOUT = 60
+PROBE_TIMEOUT = 30
+PROBE_URL = 'data:text/html,<body style="background:%23246;color:%23fff">probe</body>'
 
 
-def _shot(browser, url, dest, profile):
+def _shot(browser, url, dest, profile, timeout=SHOT_TIMEOUT, min_bytes=8000):
     dest.unlink(missing_ok=True)
     proc = subprocess.Popen(
         [browser, '--headless=new', '--disable-gpu', '--hide-scrollbars',
@@ -38,14 +42,14 @@ def _shot(browser, url, dest, profile):
          '--user-data-dir=' + str(profile), '--screenshot=' + str(dest), url],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         start_new_session=True)
-    deadline = time.time() + 25
+    deadline = time.time() + timeout
     stable = 0
     last = -1
     try:
         while time.time() < deadline:
             if dest.is_file():
                 size = dest.stat().st_size
-                if size > 8000 and size == last:
+                if size > min_bytes and size == last:
                     stable += 1
                     if stable >= 2:
                         return
@@ -53,7 +57,7 @@ def _shot(browser, url, dest, profile):
                     stable = 0
                 last = size
             if proc.poll() is not None:
-                if dest.is_file() and dest.stat().st_size > 8000:
+                if dest.is_file() and dest.stat().st_size > min_bytes:
                     return
                 raise RuntimeError('browser stopte zonder schermafbeelding: %s' % dest.name)
             time.sleep(0.4)
@@ -64,9 +68,29 @@ def _shot(browser, url, dest, profile):
             proc.wait(5)
 
 
+def _browser_maakt_pixels(browser):
+    """Kan deze browser in de omgeving überhaupt een PNG schrijven?
+
+    Een browser die hier niet start (bv. vastgelopen headless Chromium) geeft
+    anders bij elke pagina dezelfde timeout; dan is het een omgevingsprobleem,
+    geen regressie in de preview-pagina's.
+    """
+    with tempfile.TemporaryDirectory(prefix='universe-probe-') as profile:
+        try:
+            _shot(browser, PROBE_URL, Path(profile) / 'probe.png',
+                  Path(profile) / 'profiel', timeout=PROBE_TIMEOUT, min_bytes=0)
+        except RuntimeError:
+            return False
+        return True
+
+
 def main():
     if not BROWSER:
         print('SKIP: geen headless browser, schermafbeeldingen niet gemaakt')
+        return 0
+    if not _browser_maakt_pixels(BROWSER):
+        print('SKIP: %s maakt geen schermafbeeldingen in deze omgeving (probe-pagina timeout)'
+              % Path(BROWSER).name)
         return 0
     shots = OUT / 'screenshots'
     shots.mkdir(exist_ok=True)
@@ -91,7 +115,11 @@ def main():
             for name, page in PREVIEWS.items():
                 dest = shots / ('%s.png' % name)
                 url = 'http://127.0.0.1:8765/%s' % page.relative_to(ROOT).as_posix()
-                _shot(BROWSER, url, dest, Path(profile) / name)
+                # Eerst naar een tijdelijk bestand: een mislukte run laat zo de
+                # bestaande, in git vastgelegde schermafbeelding intact.
+                tmp = Path(profile) / dest.name
+                _shot(BROWSER, url, tmp, Path(profile) / name)
+                shutil.copy2(tmp, dest)
                 if mirror:
                     shutil.copy2(dest, ARTIFACTS / dest.name)
                 print(dest)

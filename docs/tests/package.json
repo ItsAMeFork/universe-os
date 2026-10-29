@@ -1,0 +1,11 @@
+{
+  "name": "universe-os-tests",
+  "private": true,
+  "description": "Browsertests voor Universe OS (docs/tests). Alleen voor ontwikkeling, niet in het pakket.",
+  "scripts": {
+    "install-tests": "npm install"
+  },
+  "devDependencies": {
+    "playwright": "^1.64.1"
+  }
+}

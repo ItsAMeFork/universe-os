@@ -11,7 +11,7 @@ export const SETTINGS=[
  {id:'power',name:'Energie',icon:'battery',words:'batterij energie slaapstand vergrendelen scherm uit'},
  {id:'users',name:'Gebruikers',icon:'user',words:'gebruikers beheerder wachtwoord toevoegen verwijderen sudo gebruikersaccount'},
  {id:'accounts',name:'Accounts',icon:'mail',words:'accounts google microsoft mail e-mail agenda imap smtp caldav oauth koppelen scherm bedienen ai assistent chrome gmail outlook browser'},
- {id:'shortcuts',name:'Sneltoetsen',icon:'keyboard',words:'sneltoetsen toetsencombinaties windows super alt tab'},
+ {id:'shortcuts',name:'Sneltoetsen',icon:'keyboard',words:'sneltoetsen sneltoets overzicht help f1 toetsencombinaties windows super alt tab'},
  {id:'updates',name:'Software en updates',icon:'update',words:'updates bijwerken beveiliging herstarten pakketten apt'},
  {id:'security',name:'Beveiliging',icon:'shield',words:'firewall privacy beveiliging ufw brein herinneringen vergeten exporteren tweede brein nevel ghost modus logboek wolk'},
  {id:'ai',name:'AI',icon:'chat',words:'ai claude code chatgpt openai codex gemini google ollama opencode goose lokaal model assistent installeren inloggen personage bureaublad sleutel plugins lessen gebruik headroom omniroute litellm tokens besparen automatisch toestaan frontend zen god rustig autonomie'},

@@ -37,14 +37,28 @@ if [ "$KANAAL" = test ]; then
         exit 1
     fi
     cp "$DEB" "$REPO/$POOL/$NAAM"
+    # 0.3.0: companion packages of the same version (other architectures, e.g. universe-os-vergrendelknoppen_*_amd64)
+    VER=${NAAM#universe-os_}; VER=${VER%_all.deb}
+    EXTRA=
+    for d in "$ROOT"/uitvoer/universe-os-*_"$VER"_*.deb; do
+        [ -e "$d" ] || continue
+        n=$(basename "$d")
+        if [ -e "$REPO/$POOL/$n" ] && ! cmp -s "$d" "$REPO/$POOL/$n"; then
+            echo "$n staat al in de bron met een andere inhoud." >&2; exit 1
+        fi
+        cp "$d" "$REPO/$POOL/$n"; EXTRA="$EXTRA $n"
+    done
 else
     if [ -z "$VERSIE" ]; then
         VERSIE=$(sed -n 's/^universe-os_\(.*\)_all\.deb$/\1/p' "$REPO/kanalen/test.lijst" | sort -V | tail -1)
     fi
     NAAM="universe-os_${VERSIE}_all.deb"
     grep -qx "$NAAM" "$REPO/kanalen/test.lijst" || { echo "Versie '$VERSIE' staat (nog) niet in test." >&2; exit 1; }
+    EXTRA=$(grep -x "universe-os-.*_${VERSIE}_.*\.deb" "$REPO/kanalen/test.lijst" | tr '\n' ' ' || true)
 fi
-grep -qx "$NAAM" "$REPO/kanalen/$KANAAL.lijst" || echo "$NAAM" >>"$REPO/kanalen/$KANAAL.lijst"
+for n in $NAAM $EXTRA; do
+    grep -qx "$n" "$REPO/kanalen/$KANAAL.lijst" || echo "$n" >>"$REPO/kanalen/$KANAAL.lijst"
+done
 
 # Indexen en ondertekende Release per kanaal opnieuw maken.
 for k in test stable; do

@@ -1,5 +1,6 @@
-const vm=require('node:vm'),fs=require('node:fs'),assert=require('node:assert/strict');
-const source=fs.readFileSync('pakket/universe-os/usr/share/universe-os/ui/load-guard.js','utf8');
+const vm=require('node:vm'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+const root=path.join(__dirname,'..','..');
+const source=fs.readFileSync(path.join(root,'pakket/universe-os/usr/share/universe-os/ui/load-guard.js'),'utf8');
 function page(name){
  const events={},messages=[],children=[];let timer;
  const element=()=>({style:{},children:[],setAttribute(){},append(...kids){this.children.push(...kids);},focus(){},remove(){this.removed=true;}});

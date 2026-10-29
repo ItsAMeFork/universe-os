@@ -18,6 +18,8 @@ from gi.repository import Gio, GLib, Gtk  # noqa: E402
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import backend  # noqa: E402
 import config  # noqa: E402
+import inlogscherm  # noqa: E402
+import profielfoto  # noqa: E402
 import session  # noqa: E402
 from webview import Bridge, emit, make_view  # noqa: E402
 
@@ -176,14 +178,109 @@ def change_own_password(current, new):
     return True
 
 
+PLANETS = ('aarde', 'mars', 'jupiter', 'saturnus', 'neptunus', 'venus', 'maan', 'zon')
+
+
+def profile_path():
+    return os.path.join(config.user_dir(), 'profile.json')
+
+
+def is_admin(name):
+    """Administrator = lid van de groep sudo (ook als sudo de hoofdgroep is)."""
+    try:
+        pw = pwd.getpwnam(name)
+        group = grp.getgrnam('sudo')
+    except KeyError:
+        return False
+    return name in group.gr_mem or pw.pw_gid == group.gr_gid
+
+
+def default_planet(name):
+    """Vaste persoonlijke planeet per gebruiker, afgeleid van de naam (geen gegevens nodig)."""
+    return PLANETS[sum(ord(c) * (i + 1) for i, c in enumerate(name)) % len(PLANETS)]
+
+
+def own_profile():
+    data = config.read_json(profile_path(), {})
+    planet = data.get('planet') if data.get('planet') in PLANETS else None
+    display = data.get('displayName') if isinstance(data.get('displayName'), str) else ''
+    return {'planet': planet, 'displayName': display.strip()[:100]}
+
+
 def users():
-    sudo = set(grp.getgrnam('sudo').gr_mem)
+    """Overzicht: alleen naam, weergavenaam en planeet. Geen groepen, uid's of paden."""
     me = pwd.getpwuid(os.getuid()).pw_name
+    admin = is_admin(me)
+    own = own_profile()
     result = []
     for pw in pwd.getpwall():
         if 1000 <= pw.pw_uid < 60000 and not pw.pw_shell.endswith(('nologin', 'false')):
-            result.append({'name': pw.pw_name, 'fullName': pw.pw_gecos.split(',')[0], 'admin': pw.pw_name in sudo, 'me': pw.pw_name == me})
+            mine = pw.pw_name == me
+            full = (own['displayName'] if mine else '') or pw.pw_gecos.split(',')[0]
+            result.append({'name': pw.pw_name, 'fullName': full, 'planet': (own['planet'] if mine else None) or default_planet(pw.pw_name),
+                           'me': mine, 'canManage': admin or mine})
     return sorted(result, key=lambda u: u['name'])
+
+
+def user_detail(name):
+    """Instellingen van een account; alleen voor een beheerder of voor jezelf."""
+    me = pwd.getpwuid(os.getuid()).pw_name
+    if name != me and not is_admin(me):
+        raise PermissionError('Geen toestemming: je kunt alleen je eigen account beheren.')
+    match = next((u for u in users() if u['name'] == name), None)
+    if match is None:
+        raise ValueError('Gebruiker bestaat niet.')
+    # 0.3.4: your own profile photo (AccountsService), for the photo card; nobody else's.
+    return dict(match, admin=is_admin(name), planets=list(PLANETS), photo=profielfoto.huidige(me) if name == me else None)
+
+
+# 0.3.4 (Axel, 28 Oct): any kind of photo file. The pattern list only narrows the chooser; GdkPixbuf decides.
+FOTO_SOORTEN = ' '.join('*.%s *.%s' % (e, e.upper()) for e in
+                        ('jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tif', 'tiff', 'heic', 'heif', 'avif', 'ico'))
+
+
+def choose_photo():
+    r = subprocess.run(['zenity', '--file-selection', '--title=Kies een profielfoto',
+                        "--file-filter=Foto's | " + FOTO_SOORTEN, '--file-filter=Alle bestanden | *'],
+                       capture_output=True, text=True)
+    return r.stdout.strip() or None
+
+
+def require_admin():
+    if not is_admin(pwd.getpwuid(os.getuid()).pw_name):
+        raise PermissionError('Geen toestemming: alleen een beheerder mag dit.')
+
+
+def set_user_password(name, password):
+    me = pwd.getpwuid(os.getuid()).pw_name
+    if name != me:
+        require_admin()
+    return pkexec_helper(['set-password', name], password + '\n')
+
+
+def set_user_fullname(name, full):
+    me = pwd.getpwuid(os.getuid()).pw_name
+    if name == me:  # eigen weergavenaam: alleen in de eigen home, geen systeemrechten nodig
+        data = config.read_json(profile_path(), {})
+        data['displayName'] = str(full).strip()[:100]
+        config.write_json(profile_path(), data)
+        return True
+    require_admin()
+    return pkexec_helper(['set-fullname', name, str(full).strip()])
+
+
+def set_own_planet(planet):
+    if planet not in PLANETS:
+        raise ValueError('Onbekende planeet.')
+    data = config.read_json(profile_path(), {})
+    data['planet'] = planet
+    config.write_json(profile_path(), data)
+    return True
+
+
+def admin_call(args, stdin=None):
+    require_admin()
+    return pkexec_helper(args, stdin)
 
 
 def wifi_list():
@@ -397,11 +494,20 @@ def handlers(app):
         'keyboard.set': set_keyboard,
         'timezone.get': timezone, 'timezone.set': set_timezone,
         'users.list': lambda a: users(),
-        'users.add': lambda a: pkexec_helper(['add-user', a['name'], a.get('fullName', ''), 'admin' if a.get('admin') else 'standard'], a['password'] + '\n'),
-        'users.remove': lambda a: pkexec_helper(['remove-user', a['name'], 'delete-home' if a.get('deleteHome') else 'keep-home']),
-        'users.admin': lambda a: pkexec_helper(['set-admin', a['name'], 'yes' if a.get('admin') else 'no']),
-        'users.password': lambda a: pkexec_helper(['set-password', a['name']], a['password'] + '\n'),
+        'users.detail': lambda a: user_detail(a['name']),
+        'users.fullname': lambda a: set_user_fullname(a['name'], a.get('fullName', '')),
+        'users.planet': lambda a: set_own_planet(a.get('planet')),
+        'users.add': lambda a: admin_call(['add-user', a['name'], a.get('fullName', ''), 'admin' if a.get('admin') else 'standard'], a['password'] + '\n'),
+        'users.remove': lambda a: admin_call(['remove-user', a['name'], 'delete-home' if a.get('deleteHome') else 'keep-home']),
+        'users.admin': lambda a: admin_call(['set-admin', a['name'], 'yes' if a.get('admin') else 'no']),
+        'users.password': lambda a: set_user_password(a['name'], a['password']),
         'account.password': lambda a: change_own_password(a['current'], a['new']),
+        'greeter.screenoff.get': lambda a: inlogscherm.scherm_uit_minuten(),
+        'greeter.screenoff.set': lambda a: admin_call(['set-greeter-screen-off', str(int(a['minutes']))]),
+        'account.photo.choose': lambda a: choose_photo(),
+        'account.photo.preview': lambda a: profielfoto.voorbeeld(str(a['path'])),
+        'account.photo.save': lambda a: profielfoto.opslaan(str(a['path']), float(a['x']), float(a['y']), float(a['size'])),
+        'account.photo.remove': lambda a: profielfoto.verwijderen(),
         'shortcuts.get': lambda a: config.shortcuts(),
         'shortcuts.set': set_shortcuts,
         'displays.list': displays, 'displays.scale': display_scale,
@@ -484,7 +590,8 @@ class ControlCenter(Gtk.Application):
             self.window.present()
             return
         bridge = Bridge(handlers(self), threaded={'updates.channel.set', 'network.status', 'status', 'audio.outputs', 'audio.select', 'wifi.list', 'wifi.connect', 'users.add', 'users.remove', 'users.admin',
-                                                   'users.password', 'account.password', 'timezone.set', 'updates.status', 'keyboard.set',
+                                                   'users.password', 'users.fullname', 'account.password', 'account.photo.choose', 'account.photo.preview',
+                                                   'account.photo.save', 'account.photo.remove', 'greeter.screenoff.set', 'timezone.set', 'updates.status', 'keyboard.set',
                                                    'locale.set', 'bluetooth.get', 'updates.refresh', 'updates.install', 'claude.status',
                                                    'ai.status', 'ai.set', 'ai.key', 'ai.install', 'ai.leren',
                                                    'ai.compressie', 'ai.omniroute.add', 'ai.omniroute.remove', 'ai.omniroute.router',

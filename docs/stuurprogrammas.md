@@ -52,3 +52,19 @@ zou iedereen modules laten ondertekenen); een geïnstalleerd systeem maakt een e
 - Windows-schijven en USB-sticks: `ntfs-3g`, `exfatprogs`.
 - Niet toegevoegd: `broadcom-sta-dkms`. Dat blokkeert b43/bcma/brcmsmac op elke pc, ook waar die wel werken.
   De open Broadcom-firmware (`firmware-brcm80211`, b43) zit er al in.
+
+## Oude en zwakke videokaarten: lichte hardware-modus (0.2.31)
+Op oude kaarten (GeForce GT 610/710/730 op nouveau, Intel HD 2000-4600/GMA, Radeon met de `radeon`-driver) gaat de
+lichte modus vanzelf aan: de processor tekent de pagina-tegels (Skia CPU), de videokaart voegt alleen samen, en de
+3D-wereld draait lichter (720p-canvas, minder sterren, 30 fps, geen vervaging). Zelf kiezen: opstartoptie
+`universe.gfx=licht`, of Controlecentrum > Vormgeving > Lichte grafische modus. Uitzetten: `universe.gfx=normal`.
+
+Waarom geen NVIDIA 470 (laatste driver voor Kepler) in de ISO:
+- Debian 13 (trixie) heeft `nvidia-tesla-470-driver` niet meer; alleen sid (via pinning). Een ISO die sid-pakketten mengt is lastig te onderhouden.
+- De DKMS-module moet bij elke kernelupdate opnieuw bouwen; gebruikers melden dat dit brak bij trixie-kernel 6.12.94 (r/debian).
+- 470 is EOL (geen beveiligingsupdates), en werkt matig met Wayland/wlroots (labwc).
+Bronnen: https://lists.debian.org/debian-user/2025/08/msg00259.html,
+https://www.reddit.com/r/debian/comments/1ndbjdr/a_guide_to_installing_nvidia_470_drivers_on/,
+https://tracker.debian.org/media/packages/n/nvidia-graphics-drivers-tesla-470/changelog-470.256.02-5bpo121
+Nouveau en meerdere GL-threads: https://bugs.launchpad.net/ubuntu/+source/mesa/+bug/2099654, https://gitlab.freedesktop.org/mesa/mesa/-/issues/1110
+WebKit-variabelen: https://github.com/WebKit/WebKit/pull/34502 (WEBKIT_SKIA_*); niet WEBKIT_DISABLE_DMABUF_RENDERER (crasht op WebKitGTK 2.52+: https://github.com/block/buzz/issues/3654).
