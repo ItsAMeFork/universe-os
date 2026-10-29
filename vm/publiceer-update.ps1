@@ -51,10 +51,12 @@ $stappen = switch ($Kanaal) {
 Write-Host '== Ondertekenen en publiceren. Typ de wachtwoordzin van de updatesleutel (je ziet niet wat je typt).' -ForegroundColor Cyan
 # 29 Oct (three "Bad passphrase" after pasting; the third showed one character too many): bracketed paste off, and
 # what a paste can add removed (paste markers ESC[200~/ESC[201~, Enter as CR, a literal Ctrl+V, a zero-width or
-# non-breaking space, spaces/tabs at the start or end); the number of characters received is shown, never the text.
+# non-breaking space, spaces/tabs at the start or end); the number of characters received is shown, never the text:
+# letters and digits as *, only other characters (where an extra one would show up) as themselves.
 $opdracht = 'umask 077; trap "rm -f /tmp/ww" EXIT; printf "\033[?2004l"; read -rs -p "Wachtwoordzin updatesleutel: " P; echo; ' +
             'P=$(printf %s "$P" | tr -d "\r\026" | sed "s/\x1b\[20[01]~//g; s/\xe2\x80\x8b//g; s/\xef\xbb\xbf//g; s/\xc2\xa0/ /g; s/^[[:space:]]*//; s/[[:space:]]*$//"); ' +
-            'echo "($(printf %s "$P" | wc -m) tekens ontvangen)"; printf %s "$P" > /tmp/ww; unset P; ' +
+            'echo "($(printf %s "$P" | wc -m) tekens ontvangen; patroon: $(printf %s "$P" | LC_ALL=C sed "s/[A-Za-z0-9]/*/g" | od -An -c | tr -d " \n"))"; ' +
+            'printf %s "$P" > /tmp/ww; unset P; ' +
             'export UNIVERSE_SLEUTEL_WACHTWOORDBESTAND=/tmp/ww; cd ~/universe-os-claude && { ' + $stappen + '; } || ' +
             # A typo in the passphrase left the new package half-added to the local source; the next attempt then refused
             # it as "already published with different contents" (12 Oct). Undo everything that was not pushed.
