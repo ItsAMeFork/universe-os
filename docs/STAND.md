@@ -2,6 +2,25 @@
 
 Werkbranch: `spoor-a/A23-echte-computer` (main loopt achter; PR #11 was de laatste samenvoeging naar main).
 
+## 29 oktober: versie 0.3.6 (opstartvlucht naar de aarde; planeten komen uit de aarde; ontgrendelgeluid + -animatie; getest, wordt gepubliceerd)
+- Opstartvlucht (goedgekeurd voorbeeld `opstart-gebruikersplaneten.html`, Codex): eerste inlogscherm per boot (zelfde
+  merkteken als opstarten.wav, `greeter.py` ready -> `opstart`) vliegt vanaf de kern door het universum (sterrenstrepen,
+  nevels, lichtstromen), remt af bij de bestaande aarde (zelfde plek/schaal), daarna vliegen de echte
+  gebruikersplaneten (met profielfoto) met een lichtspoor uit de aarde naar hun plek in de rij. `ui/opstartvlucht.js`.
+  Eigen klok: speelt altijd tot het einde (max 0,25 s per beeld, Axel: "zorg ervoor dat de animatie altijd afspeelt tot
+  het einde"), halve resolutie. Toets/klik beeindigt hem meteen (aanmelden wacht nooit); minder beweging: geen vlucht.
+  Geen plymouth: tot het inlogscherm is het beeld zwart; de vlucht begint op het eerste beeld daarvan (kern).
+- Na afmelden/vergrendelen: aarde vormt zich uit de kern (formPlanet), daarna komen de planeten ook uit de aarde (Axel).
+- Ontgrendelen via het inlogscherm: LightDM beeindigt het slot voor hij terugschakelt; geluid en animatie liepen in een
+  niet-actieve sessie. `universe-lock` en de shell wachten nu op Active=yes (max 5 s). Gemeten: geluid 0,5 s na actief.
+- `world-lite.js` (eenvoudige wereld) had geen lock-begin/unlock (universe-lock wachtte 6 s, wereld bleef 4 s boven de
+  vensters): nu dezelfde kernbeweging (Axel: "zowel de lichte modus als de normale").
+- Getest 28/29 okt in de test-VM (1920x1080, 0.3.5 + bestanden): koude start 12 accounts (3 met foto); 1 account met
+  en zonder foto; geluid uit/aan; minder beweging; fout + goed wachtwoord; vergrendelen/ontgrendelen en afmelden met
+  lichte grafische modus aan en uit. VM haalt ~6 beelden/s (geen GPU): schokkerig maar volledig. Chrome:
+  docs/tests/opstartvlucht.mjs (23 OK), lite-vergrendelen.mjs (6 OK), inlog-planeten.mjs OK. Niet getest: slaapstand,
+  eenvoudige wereld in de VM (alleen via opstartoptie universe.world=lite), echte pc met GPU.
+
 ## 28 oktober: versie 0.3.5 (geen flits van het oude slotscherm; animatie loopt af; GEPUBLICEERD 28 okt ~22:00, apt test + stable, apt-commits 81c5362 + edd390c, broncommit 962a637, deb sha256 a28646b6…; geen ISO)
 - Getest 28 okt ~21:50 in de test-VM (0.3.4 via de echte updater + 0.3.5-bestanden): grim-film binnen de sessie na
   Windows+L: bureaublad -> lichtstrepen -> aarde gaat op in de kern -> slot; geen oude kaart. universe-lock wacht nu op
